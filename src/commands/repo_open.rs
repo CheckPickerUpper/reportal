@@ -59,13 +59,22 @@ pub fn run_open(tag_filter: TagFilter, direct_alias: &str, editor_override: &str
         false => editor_override,
     };
 
-    Command::new(editor_command)
+    // On Windows, .cmd scripts (like cursor.cmd) need cmd /c to launch
+    #[cfg(target_os = "windows")]
+    let spawn_result = Command::new("cmd")
+        .args(["/c", editor_command, "."])
+        .current_dir(&resolved_repo_path)
+        .spawn();
+
+    #[cfg(not(target_os = "windows"))]
+    let spawn_result = Command::new(editor_command)
         .arg(".")
         .current_dir(&resolved_repo_path)
-        .spawn()
-        .map_err(|spawn_error| ReportalError::EditorLaunchFailure {
-            reason: spawn_error.to_string(),
-        })?;
+        .spawn();
+
+    spawn_result.map_err(|spawn_error| ReportalError::EditorLaunchFailure {
+        reason: spawn_error.to_string(),
+    })?;
 
     println!("Opened {} in {}", resolved_repo_path.display(), editor_command);
     Ok(())
