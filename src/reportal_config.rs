@@ -28,7 +28,58 @@ pub struct ReportalConfig {
     repos: BTreeMap<String, RepoEntry>,
 }
 
-/// Global settings that apply across all repos.
+/// How repo paths are displayed in output after selecting a repo.
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PathDisplayFormat {
+    /// Full absolute path from root.
+    Absolute,
+    /// Path relative to the current working directory.
+    Relative,
+}
+
+/// Formatting methods for converting absolute paths based on display preference.
+impl PathDisplayFormat {
+    /// Formats a path according to the configured display format.
+    ///
+    /// For absolute: returns the path as-is.
+    /// For relative: computes the path relative to the current working directory.
+    pub fn format_path(&self, absolute_path: &std::path::PathBuf) -> String {
+        match self {
+            PathDisplayFormat::Absolute => {
+                return absolute_path.display().to_string();
+            }
+            PathDisplayFormat::Relative => {
+                let current_directory = std::env::current_dir();
+                match current_directory {
+                    Ok(working_directory) => {
+                        let relative_result = pathdiff::diff_paths(absolute_path, &working_directory);
+                        match relative_result {
+                            Some(relative_path) => return relative_path.display().to_string(),
+                            None => return absolute_path.display().to_string(),
+                        }
+                    }
+                    Err(cwd_read_error) => {
+                        eprintln!("  Could not read working directory: {cwd_read_error}");
+                        return absolute_path.display().to_string();
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Whether to show the selected repo's path after jump/open.
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PathVisibility {
+    /// Print the path after selection.
+    Show,
+    /// Do not print the path after selection.
+    Hide,
+}
+
+/// Global settings that apply across all repos, stored in config.toml.
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ReportalSettings {
     /// Which editor command to use when opening repos.
@@ -37,6 +88,12 @@ pub struct ReportalSettings {
     /// Root directory for cloning new repos into.
     #[serde(default)]
     default_clone_root: String,
+    /// Whether to print the path after selecting a repo in jump/open.
+    #[serde(default = "default_path_visibility")]
+    path_on_select: PathVisibility,
+    /// How to format paths when displayed: absolute or relative.
+    #[serde(default = "default_path_display_format")]
+    path_display_format: PathDisplayFormat,
 }
 
 /// Step-by-step builder for registering a new repo.
@@ -77,6 +134,16 @@ fn default_editor_command() -> String {
     "cursor".to_string()
 }
 
+/// Returns the default path visibility (show).
+fn default_path_visibility() -> PathVisibility {
+    PathVisibility::Show
+}
+
+/// Returns the default path display format (absolute).
+fn default_path_display_format() -> PathDisplayFormat {
+    PathDisplayFormat::Absolute
+}
+
 /// Resolves the user home directory or returns an error if unavailable.
 fn resolve_home_directory() -> Result<PathBuf, ReportalError> {
     dirs::home_dir().ok_or(ReportalError::ConfigIoFailure {
@@ -89,6 +156,8 @@ impl Default for ReportalSettings {
         Self {
             default_editor: default_editor_command(),
             default_clone_root: String::new(),
+            path_on_select: default_path_visibility(),
+            path_display_format: default_path_display_format(),
         }
     }
 }
@@ -264,6 +333,16 @@ impl ReportalConfig {
         &self.settings.default_editor
     }
 
+    /// Whether to show the path after selecting a repo.
+    pub fn path_on_select(&self) -> &PathVisibility {
+        &self.settings.path_on_select
+    }
+
+    /// How to format displayed paths (absolute or relative).
+    pub fn path_display_format(&self) -> &PathDisplayFormat {
+        &self.settings.path_display_format
+    }
+
     /// Looks up a repo by its alias. Returns `RepoNotFound` if not registered.
     pub fn get_repo(&self, alias: &str) -> Result<&RepoEntry, ReportalError> {
         self.repos.get(alias).ok_or_else(|| ReportalError::RepoNotFound {
@@ -298,6 +377,8 @@ impl ReportalConfig {
             settings: ReportalSettings {
                 default_editor: "cursor".to_string(),
                 default_clone_root: "~/dev".to_string(),
+                path_on_select: PathVisibility::Show,
+                path_display_format: PathDisplayFormat::Absolute,
             },
             repos: BTreeMap::new(),
         }

@@ -22,6 +22,7 @@ dirs = "5"
 thiserror = "2"
 anyhow = "1"
 shellexpand = "3"
+pathdiff = "0.2"
 
 [lints.clippy]
 allow_attributes_without_reason = "warn"

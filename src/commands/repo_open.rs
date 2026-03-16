@@ -1,7 +1,7 @@
 /// Fuzzy-selects a repo and opens it in the configured editor.
 
 use crate::error::ReportalError;
-use crate::reportal_config::{ReportalConfig, TagFilter};
+use crate::reportal_config::{PathVisibility, ReportalConfig, TagFilter};
 use crate::terminal_style;
 use dialoguer::{theme::ColorfulTheme, FuzzySelect};
 use owo_colors::OwoColorize;
@@ -87,8 +87,15 @@ pub fn run_open(open_params: OpenCommandParams<'_>) -> Result<(), ReportalError>
         reason: spawn_error.to_string(),
     })?;
 
-    terminal_style::print_success(
-        &format!("Opened {} in {}", resolved_repo_path.display(), editor_command.style(terminal_style::ALIAS_STYLE)),
-    );
-    Ok(())
+    match loaded_config.path_on_select() {
+        PathVisibility::Show => {
+            let formatted_path = loaded_config.path_display_format().format_path(&resolved_repo_path);
+            terminal_style::print_success(
+                &format!("Opened {} in {}", formatted_path.style(terminal_style::PATH_STYLE), editor_command.style(terminal_style::ALIAS_STYLE)),
+            );
+        }
+        PathVisibility::Hide => {}
+    }
+
+    return Ok(());
 }
