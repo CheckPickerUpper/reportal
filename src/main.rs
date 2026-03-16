@@ -6,8 +6,10 @@
 mod commands;
 mod error;
 mod reportal_config;
+mod terminal_style;
 
 use clap::{Parser, Subcommand};
+use commands::OpenCommandParams;
 use reportal_config::TagFilter;
 
 /// A fast CLI tool for jumping between and managing your dev repos.
@@ -91,7 +93,11 @@ fn main() {
                 Some(ref provided_editor) => provided_editor.as_str(),
                 None => "",
             };
-            commands::run_open(tag_filter, direct_alias, editor_override)
+            commands::run_open(OpenCommandParams {
+                tag_filter,
+                direct_alias,
+                editor_override,
+            })
         }
         ReportalSubcommand::Add { repo_path } => {
             commands::run_add(&repo_path)
@@ -104,7 +110,7 @@ fn main() {
     match command_result {
         Ok(()) => {}
         Err(command_error) => {
-            eprintln!("Error: {command_error}");
+            terminal_style::print_error(&command_error.to_string());
             std::process::exit(1);
         }
     }
