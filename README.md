@@ -105,6 +105,8 @@ Lives at `~/.reportal/config.toml`:
 [settings]
 default_editor = "cursor"
 default_clone_root = "~/dev"
+path_on_select = "show"           # "show" or "hide" — print path after jump/open
+path_display_format = "absolute"  # "absolute" or "relative"
 
 [repos.my-api]
 path = "~/dev/my-project/api"
@@ -118,6 +120,13 @@ description = "Personal website"
 tags = ["personal", "frontend"]
 ```
 
+| Setting | Values | Default | What it controls |
+|---------|--------|---------|-----------------|
+| `default_editor` | Any command | `cursor` | Editor for `rep open` |
+| `default_clone_root` | Any path | `~/dev` | Where `rep add <url>` clones to |
+| `path_on_select` | `show`, `hide` | `show` | Print path after picking a repo in jump/open |
+| `path_display_format` | `absolute`, `relative` | `absolute` | Full path or relative to current directory |
+
 ## Roadmap
 
 - [x] Config parsing
@@ -127,6 +136,7 @@ tags = ["personal", "frontend"]
 - [x] Auto-detect git remote on `add`
 - [x] Colored output with themed fuzzy finder
 - [x] `rep` short alias
+- [x] Configurable path display (absolute/relative, show/hide)
 - [ ] `status` — git status across all repos
 - [ ] `sync` — pull latest across repos
 - [ ] `dashboard` — rich overview with branches, dirty state, last commit

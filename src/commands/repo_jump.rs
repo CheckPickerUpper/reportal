@@ -1,14 +1,17 @@
 /// Fuzzy-selects a repo and prints its path for shell `cd` integration.
 
 use crate::error::ReportalError;
-use crate::reportal_config::{ReportalConfig, TagFilter};
+use crate::reportal_config::{PathVisibility, ReportalConfig, TagFilter};
+use crate::terminal_style;
 use dialoguer::{theme::ColorfulTheme, FuzzySelect};
+use owo_colors::OwoColorize;
 
 /// Presents an interactive fuzzy finder of all repos, then prints
 /// the selected repo's resolved path to stdout.
 ///
 /// The shell wrapper function (`rj`) reads this output and runs `cd`.
-/// Only the path is printed so the wrapper can consume it cleanly.
+/// The raw path always goes to stdout for the shell function.
+/// An optional styled confirmation goes to stderr based on config.
 pub fn run_jump(tag_filter: TagFilter) -> Result<(), ReportalError> {
     let loaded_config = ReportalConfig::load_from_disk()?;
     let matching_repos = loaded_config.repos_matching_tag_filter(&tag_filter);
@@ -24,7 +27,7 @@ pub fn run_jump(tag_filter: TagFilter) -> Result<(), ReportalError> {
                 true => String::new(),
                 false => format!(" - {}", repo.description()),
             };
-            format!("{}{}", alias, description_suffix)
+            return format!("{}{}", alias, description_suffix);
         })
         .collect();
 
@@ -39,11 +42,26 @@ pub fn run_jump(tag_filter: TagFilter) -> Result<(), ReportalError> {
     match selected_index {
         Some(chosen_index) => match matching_repos.get(chosen_index) {
             Some((_, chosen_repo)) => {
-                print!("{}", chosen_repo.resolved_path().display());
-                Ok(())
+                let resolved = chosen_repo.resolved_path();
+                let formatted_path = loaded_config.path_display_format().format_path(&resolved);
+
+                print!("{formatted_path}");
+
+                match loaded_config.path_on_select() {
+                    PathVisibility::Show => {
+                        eprintln!(
+                            "  {} {}",
+                            ">>".style(terminal_style::SUCCESS_STYLE),
+                            formatted_path.style(terminal_style::PATH_STYLE),
+                        );
+                    }
+                    PathVisibility::Hide => {}
+                }
+
+                return Ok(());
             }
-            None => Err(ReportalError::SelectionCancelled),
+            None => return Err(ReportalError::SelectionCancelled),
         },
-        None => Err(ReportalError::SelectionCancelled),
+        None => return Err(ReportalError::SelectionCancelled),
     }
 }
