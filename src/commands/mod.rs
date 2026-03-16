@@ -10,5 +10,5 @@ pub use initialization::run_init;
 pub use repo_add::run_add;
 pub use repo_jump::run_jump;
 pub use repo_listing::run_list;
-pub use repo_open::run_open;
+pub use repo_open::{run_open, OpenCommandParams};
 pub use repo_remove::run_remove;

@@ -2,7 +2,7 @@
 
 use crate::error::ReportalError;
 use crate::reportal_config::{ReportalConfig, TagFilter};
-use dialoguer::FuzzySelect;
+use dialoguer::{theme::ColorfulTheme, FuzzySelect};
 
 /// Presents an interactive fuzzy finder of all repos, then prints
 /// the selected repo's resolved path to stdout.
@@ -28,7 +28,7 @@ pub fn run_jump(tag_filter: TagFilter) -> Result<(), ReportalError> {
         })
         .collect();
 
-    let selected_index = FuzzySelect::new()
+    let selected_index = FuzzySelect::with_theme(&ColorfulTheme::default())
         .with_prompt("Jump to repo")
         .items(&display_labels)
         .interact_opt()
@@ -37,11 +37,13 @@ pub fn run_jump(tag_filter: TagFilter) -> Result<(), ReportalError> {
         })?;
 
     match selected_index {
-        Some(chosen_index) => {
-            let (_, chosen_repo) = &matching_repos[chosen_index];
-            print!("{}", chosen_repo.resolved_path().display());
-            Ok(())
-        }
+        Some(chosen_index) => match matching_repos.get(chosen_index) {
+            Some((_, chosen_repo)) => {
+                print!("{}", chosen_repo.resolved_path().display());
+                Ok(())
+            }
+            None => Err(ReportalError::SelectionCancelled),
+        },
         None => Err(ReportalError::SelectionCancelled),
     }
 }
