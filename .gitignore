@@ -1,0 +1,17 @@
+/target
+
+# Internal docs
+/_docs/
+
+# Claude Code
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
