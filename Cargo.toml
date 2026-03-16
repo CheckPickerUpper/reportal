@@ -23,6 +23,9 @@ thiserror = "2"
 anyhow = "1"
 shellexpand = "3"
 
+[lints.clippy]
+allow_attributes_without_reason = "warn"
+
 [[bin]]
 name = "reportal"
 path = "src/main.rs"
