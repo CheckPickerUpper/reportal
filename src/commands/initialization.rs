@@ -16,6 +16,7 @@ function ro { rep open }
 "#;
 
 /// The Bash/Zsh code that gets appended to the user's profile.
+#[cfg(not(target_os = "windows"))]
 const BASH_INTEGRATION: &str = r#"
 # RePortal shell integration
 rj() { cd "$(rep jump)"; }
@@ -27,8 +28,10 @@ enum DetectedShell {
     /// PowerShell (Windows or cross-platform).
     PowerShell(PathBuf),
     /// Bash with a known profile path.
+    #[cfg(not(target_os = "windows"))]
     Bash(PathBuf),
     /// Zsh with a known profile path.
+    #[cfg(not(target_os = "windows"))]
     Zsh(PathBuf),
     /// Could not determine the shell or profile path.
     Unknown,
@@ -43,6 +46,7 @@ enum PowerShellDetection {
 }
 
 /// Whether the SHELL env var was readable.
+#[cfg(not(target_os = "windows"))]
 enum ShellEnvDetection {
     /// SHELL env var was read successfully.
     Detected(String),
@@ -75,6 +79,7 @@ fn detect_powershell_profile() -> PowerShellDetection {
 }
 
 /// Reads the SHELL environment variable to determine the Unix shell.
+#[cfg(not(target_os = "windows"))]
 fn detect_unix_shell_env() -> ShellEnvDetection {
     match std::env::var("SHELL") {
         Ok(shell_path) => ShellEnvDetection::Detected(shell_path),
@@ -134,6 +139,7 @@ impl DetectedShell {
     fn integration_code(&self) -> &'static str {
         match self {
             DetectedShell::PowerShell(_) => POWERSHELL_INTEGRATION,
+            #[cfg(not(target_os = "windows"))]
             DetectedShell::Bash(_) | DetectedShell::Zsh(_) => BASH_INTEGRATION,
             DetectedShell::Unknown => "",
         }
@@ -142,8 +148,9 @@ impl DetectedShell {
     /// Returns the profile path if this shell was detected.
     fn profile_path(&self) -> Option<&PathBuf> {
         match self {
-            DetectedShell::PowerShell(ref shell_profile_path)
-            | DetectedShell::Bash(ref shell_profile_path)
+            DetectedShell::PowerShell(ref shell_profile_path) => Some(shell_profile_path),
+            #[cfg(not(target_os = "windows"))]
+            DetectedShell::Bash(ref shell_profile_path)
             | DetectedShell::Zsh(ref shell_profile_path) => Some(shell_profile_path),
             DetectedShell::Unknown => None,
         }
