@@ -7,6 +7,7 @@
 
 **Jump between repos. Open in your editor. Stay in sync across machines.**
 
+[![Crates.io](https://img.shields.io/crates/v/reportal.svg)](https://crates.io/crates/reportal)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.78%2B-orange.svg)](https://www.rust-lang.org/)
 [![Windows](https://img.shields.io/badge/platform-windows%20%7C%20macos%20%7C%20linux-lightgrey.svg)]()
@@ -21,67 +22,80 @@ RePortal is a single-binary CLI that keeps a registry of your dev repos and lets
 ## Install
 
 ```bash
-cargo install --path .
+cargo install reportal
 ```
 
-Or build from source:
+This gives you both `reportal` and `rep` (short alias) commands.
+
+From source:
 
 ```bash
 git clone https://github.com/CheckPickerUpper/reportal.git
 cd reportal
-cargo build --release
+cargo install --path .
 ```
-
-The binary lands at `target/release/reportal`.
 
 ## Quick start
 
 ```bash
-# Create the config file at ~/.reportal/config.toml
-reportal init
+# Set up config + shell shortcuts (rj, ro)
+rep init
 
-# Register a repo
-reportal add ~/dev/my-project
+# Register a local repo
+rep add ~/dev/my-project
+
+# Clone and register from a URL
+rep add https://github.com/org/repo.git
 
 # List all registered repos
-reportal list
+rep list
 
-# Fuzzy-select a repo and open it in Cursor
-reportal open
+# Jump to a repo (cd)
+rj
 
-# Fuzzy-select a repo and print the path (for cd)
-reportal jump
+# Open a repo in your editor
+ro
 ```
 
 ## Commands
 
 | Command | What it does |
 |---------|-------------|
-| `reportal init` | Creates `~/.reportal/config.toml` with defaults |
-| `reportal list` | Shows all repos with path, description, tags, and whether the directory exists |
-| `reportal list --tag work` | Filters repos by tag |
-| `reportal jump` | Fuzzy-select a repo, prints the path to stdout |
-| `reportal open` | Fuzzy-select a repo, opens it in your editor |
-| `reportal open my-api` | Opens a repo directly by alias |
-| `reportal open --editor code` | Override the default editor |
-| `reportal add ~/dev/foo` | Registers a repo interactively (prompts for alias, description, tags) |
-| `reportal remove my-api` | Unregisters a repo (does not delete files) |
+| `rep init` | Creates config and installs `rj`/`ro` shell shortcuts |
+| `rep list` | Shows all repos with path, description, tags, and whether it exists on disk |
+| `rep list --tag work` | Filters repos by tag |
+| `rep jump` | Fuzzy-select a repo, prints the path (used by `rj` shell function) |
+| `rep open` | Fuzzy-select a repo, opens it in your editor |
+| `rep open my-api` | Opens a repo directly by alias |
+| `rep open --editor code` | Override the default editor |
+| `rep add ~/dev/foo` | Register a local repo (auto-detects git remote, suggests alias) |
+| `rep add https://github.com/org/repo.git` | Clone a repo and register it (asks where to place it) |
+| `rep remove my-api` | Unregister a repo (does not delete files) |
 
 ## Shell integration
 
-`reportal jump` prints a path to stdout. Wrap it in a shell function so `cd` happens in your current session:
+`rep init` automatically installs these shortcuts into your shell profile:
+
+| Shortcut | What it does |
+|----------|-------------|
+| `rj` | Fuzzy-select a repo and `cd` into it |
+| `ro` | Fuzzy-select a repo and open it in your editor |
+
+Supports PowerShell, Bash, Zsh. Detected and installed during `rep init`.
+
+You can also set them up manually:
 
 **PowerShell:**
 ```powershell
-function rj { Set-Location (reportal jump) }
+function rj { Set-Location (rep jump) }
+function ro { rep open }
 ```
 
 **Bash / Zsh:**
 ```bash
-rj() { cd "$(reportal jump)"; }
+rj() { cd "$(rep jump)"; }
+ro() { rep open; }
 ```
-
-Add this to your shell profile and use `rj` to jump between repos.
 
 ## Config
 
@@ -108,11 +122,17 @@ tags = ["personal", "frontend"]
 
 - [x] Config parsing
 - [x] `init`, `list`, `jump`, `open`, `add`, `remove`
+- [x] Shell integration auto-install (`rj`, `ro`)
+- [x] Clone from URL with sibling/child placement
+- [x] Auto-detect git remote on `add`
+- [x] Colored output with themed fuzzy finder
+- [x] `rep` short alias
 - [ ] `status` — git status across all repos
 - [ ] `sync` — pull latest across repos
 - [ ] `dashboard` — rich overview with branches, dirty state, last commit
 - [ ] `clone --all` — clone missing repos from config (machine sync)
-- [ ] Shell completions (PowerShell, Bash, Zsh, Fish)
+- [ ] Shell completions
+- [ ] Publish to crates.io
 
 ## Contributing
 
