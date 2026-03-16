@@ -2,7 +2,8 @@
 
 use crate::error::ReportalError;
 use crate::reportal_config::{ReportalConfig, TagFilter};
-use colored::Colorize;
+use crate::terminal_style;
+use owo_colors::OwoColorize;
 
 /// Prints a formatted list of all repos matching the given tag filter.
 ///
@@ -20,25 +21,35 @@ pub fn run_list(tag_filter: TagFilter) -> Result<(), ReportalError> {
         return Ok(());
     }
 
+    println!();
     for (alias, repo) in &matching_repos {
         let directory_exists = repo.resolved_path().exists();
 
         let existence_label = match directory_exists {
-            true => "ok".green().to_string(),
-            false => "missing".red().to_string(),
+            true => "ok".style(terminal_style::SUCCESS_STYLE).to_string(),
+            false => "missing".style(terminal_style::FAILURE_STYLE).to_string(),
         };
 
-        println!("  {} [{}]", alias.bold(), existence_label);
-        println!("    {}", repo.raw_path().dimmed());
+        println!(
+            "  {} {}",
+            alias.style(terminal_style::ALIAS_STYLE),
+            format!("[{}]", existence_label).dimmed(),
+        );
+        println!("    {}", repo.raw_path().style(terminal_style::PATH_STYLE));
         if !repo.description().is_empty() {
             println!("    {}", repo.description());
         }
         if !repo.tags().is_empty() {
-            println!("    tags: {}", repo.tags().join(", ").dimmed());
+            let formatted_tags = repo.tags().join(", ");
+            println!("    {}", formatted_tags.style(terminal_style::TAG_STYLE));
         }
         println!();
     }
 
-    println!("{} repos total", matching_repos.len());
+    println!(
+        "  {} repos total",
+        matching_repos.len().style(terminal_style::EMPHASIS_STYLE)
+    );
+    println!();
     Ok(())
 }
