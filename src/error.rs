@@ -22,13 +22,6 @@ pub enum ReportalError {
         reason: String,
     },
 
-    /// Config already exists when trying to initialize a new one.
-    #[error("Config already exists at {config_path}")]
-    ConfigAlreadyExists {
-        /// Path to the existing config file.
-        config_path: String,
-    },
-
     /// No repos matched the given filter criteria.
     #[error("No repos found matching filter")]
     NoReposMatchFilter,

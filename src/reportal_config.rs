@@ -188,10 +188,6 @@ impl RepoEntry {
         &self.tags
     }
 
-    /// Git remote URL for cloning this repo on another machine.
-    pub fn remote(&self) -> &str {
-        &self.remote
-    }
 }
 
 /// Loading, saving, querying, and mutating the RePortal config file.
