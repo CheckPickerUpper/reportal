@@ -3,13 +3,13 @@
 /// Parses command-line arguments via clap and dispatches
 /// to the appropriate subcommand handler.
 
-mod commands;
 mod error;
+mod reportal_commands;
 mod reportal_config;
 mod terminal_style;
 
 use clap::{Parser, Subcommand};
-use commands::OpenCommandParams;
+use reportal_commands::{JumpCommandParams, OpenCommandParams};
 use reportal_config::TagFilter;
 
 /// A fast CLI tool for jumping between and managing your dev repos.
@@ -34,6 +34,8 @@ enum ReportalSubcommand {
     },
     /// Fuzzy-select a repo and print its path (for shell cd integration)
     Jump {
+        /// Jump directly to this alias (skip fuzzy finder)
+        alias: Option<String>,
         /// Filter repos by this tag
         #[arg(long)]
         tag: Option<String>,
@@ -65,20 +67,27 @@ fn main() {
     let parsed_cli = ReportalCli::parse();
 
     let command_result = match parsed_cli.subcommand {
-        ReportalSubcommand::Init => commands::run_init(),
+        ReportalSubcommand::Init => reportal_commands::run_init(),
         ReportalSubcommand::List { tag } => {
             let tag_filter = match tag {
                 Some(tag_value) => TagFilter::ByTag(tag_value),
                 None => TagFilter::All,
             };
-            commands::run_list(tag_filter)
+            reportal_commands::run_list(tag_filter)
         }
-        ReportalSubcommand::Jump { tag } => {
+        ReportalSubcommand::Jump { alias, tag } => {
             let tag_filter = match tag {
                 Some(tag_value) => TagFilter::ByTag(tag_value),
                 None => TagFilter::All,
             };
-            commands::run_jump(tag_filter)
+            let direct_alias = match alias {
+                Some(ref provided_alias) => provided_alias.as_str(),
+                None => "",
+            };
+            reportal_commands::run_jump(JumpCommandParams {
+                tag_filter,
+                direct_alias,
+            })
         }
         ReportalSubcommand::Open { alias, tag, editor } => {
             let tag_filter = match tag {
@@ -93,17 +102,17 @@ fn main() {
                 Some(ref provided_editor) => provided_editor.as_str(),
                 None => "",
             };
-            commands::run_open(OpenCommandParams {
+            reportal_commands::run_open(OpenCommandParams {
                 tag_filter,
                 direct_alias,
                 editor_override,
             })
         }
         ReportalSubcommand::Add { repo_path } => {
-            commands::run_add(&repo_path)
+            reportal_commands::run_add(&repo_path)
         }
         ReportalSubcommand::Remove { alias } => {
-            commands::run_remove(&alias)
+            reportal_commands::run_remove(&alias)
         }
     };
 
