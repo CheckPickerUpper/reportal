@@ -2,7 +2,7 @@
 /// Supports both local paths and git URLs (clones first, then registers).
 
 use crate::error::ReportalError;
-use crate::reportal_config::{RepoRegistrationBuilder, ReportalConfig};
+use crate::reportal_config::{HexColor, RepoRegistrationBuilder, ReportalConfig};
 use crate::terminal_style;
 use dialoguer::{theme::ColorfulTheme, FuzzySelect, Input};
 use owo_colors::OwoColorize;
@@ -64,6 +64,38 @@ struct RegistrationContext<'a> {
     suggested_alias: String,
     /// A detected or known remote URL to pre-fill the prompt.
     detected_remote: String,
+}
+
+/// Whether the user provided a color or left it empty.
+enum ColorPromptResult {
+    /// The user entered a valid hex color.
+    Provided(HexColor),
+    /// The user left the prompt empty (no color).
+    Skipped,
+}
+
+/// Prompts for a hex color, re-asking on invalid input until the user
+/// either enters a valid `#RRGGBB` or leaves it empty to skip.
+fn prompt_for_color(prompt_theme: &ColorfulTheme) -> Result<ColorPromptResult, ReportalError> {
+    loop {
+        let color_input: String = Input::with_theme(prompt_theme)
+            .with_prompt("Background color (#RRGGBB, empty = none)")
+            .default(String::new())
+            .interact_text()
+            .map_err(|prompt_error| ReportalError::ConfigIoFailure {
+                reason: prompt_error.to_string(),
+            })?;
+
+        match color_input.is_empty() {
+            true => return Ok(ColorPromptResult::Skipped),
+            false => match HexColor::parse(&color_input) {
+                Ok(valid_color) => return Ok(ColorPromptResult::Provided(valid_color)),
+                Err(color_error) => {
+                    terminal_style::print_error(&color_error.to_string());
+                }
+            },
+        }
+    }
 }
 
 /// Detects the git remote URL by running `git remote get-url origin` in the directory.
@@ -325,6 +357,16 @@ fn collect_metadata_and_register(registration_context: RegistrationContext<'_>) 
             reason: prompt_error.to_string(),
         })?;
 
+    let tab_title: String = Input::with_theme(&prompt_theme)
+        .with_prompt("Tab title (empty = use alias)")
+        .default(String::new())
+        .interact_text()
+        .map_err(|prompt_error| ReportalError::ConfigIoFailure {
+            reason: prompt_error.to_string(),
+        })?;
+
+    let repo_color = prompt_for_color(&prompt_theme)?;
+
     println!();
     println!("  {} {}", "Alias:".style(terminal_style::LABEL_STYLE), repo_alias.style(terminal_style::ALIAS_STYLE));
     println!("  {} {}", "Path:".style(terminal_style::LABEL_STYLE), registration_context.filesystem_path.style(terminal_style::PATH_STYLE));
@@ -337,16 +379,36 @@ fn collect_metadata_and_register(registration_context: RegistrationContext<'_>) 
     if !repo_remote.is_empty() {
         println!("  {} {}", "Remote:".style(terminal_style::LABEL_STYLE), repo_remote.style(terminal_style::PATH_STYLE));
     }
+    if !tab_title.is_empty() {
+        println!("  {} {}", "Title:".style(terminal_style::LABEL_STYLE), tab_title.style(terminal_style::ALIAS_STYLE));
+    }
+    match &repo_color {
+        ColorPromptResult::Provided(hex_color) => {
+            println!("  {} {}", "Color:".style(terminal_style::LABEL_STYLE), hex_color.raw_value());
+        }
+        ColorPromptResult::Skipped => {}
+    }
     println!();
 
     let display_alias = repo_alias.as_str().to_string();
 
-    let validated_registration = RepoRegistrationBuilder::start(repo_alias)
+    let mut builder = RepoRegistrationBuilder::start(repo_alias)
         .repo_path(registration_context.filesystem_path.to_string())
         .repo_description(repo_description)
         .repo_tags(parsed_tags)
-        .repo_remote(repo_remote)
-        .build()?;
+        .repo_remote(repo_remote);
+
+    if !tab_title.is_empty() {
+        builder = builder.repo_title(tab_title);
+    }
+    match repo_color {
+        ColorPromptResult::Provided(hex_color) => {
+            builder = builder.repo_color(hex_color);
+        }
+        ColorPromptResult::Skipped => {}
+    }
+
+    let validated_registration = builder.build()?;
 
     registration_context.loaded_config.add_repo(validated_registration)?;
     registration_context.loaded_config.save_to_disk()?;

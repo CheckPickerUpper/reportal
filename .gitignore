@@ -16,3 +16,6 @@ Desktop.ini
 .vscode/
 *.swp
 *.swo
+
+# MCP / Puppeteer logs
+logs/

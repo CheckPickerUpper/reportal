@@ -59,4 +59,11 @@ pub enum ReportalError {
         /// Why the value was rejected.
         reason: String,
     },
+
+    /// A color value in config is not valid `#RRGGBB` hex.
+    #[error("Invalid color '{value}': expected #RRGGBB hex format")]
+    InvalidColor {
+        /// The malformed color string.
+        value: String,
+    },
 }
