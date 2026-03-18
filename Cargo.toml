@@ -1,6 +1,6 @@
 [package]
 name = "reportal"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 description = "A fast, cross-platform CLI for jumping between, opening, and managing your dev repos"
 license = "MIT"
@@ -34,3 +34,8 @@ path = "src/main.rs"
 [[bin]]
 name = "rep"
 path = "src/main.rs"
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"

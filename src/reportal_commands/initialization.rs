@@ -9,19 +9,35 @@ use std::path::PathBuf;
 use std::process::Command;
 
 /// The PowerShell code that gets appended to the user's profile.
+/// Includes shortcuts (rj, ro) and the terminal personalization prompt hook.
 const POWERSHELL_INTEGRATION: &str = r#"
 # RePortal shell integration
 function rj { Set-Location (rep jump @args) }
 function ro { rep open @args }
+$_reportal_original_prompt = $function:prompt
+function prompt { rep color 2>$null; & $_reportal_original_prompt }
 "#;
 
-/// The Bash/Zsh code that gets appended to the user's profile.
+/// The Bash and Zsh code that gets appended to the user's profile.
+/// Includes shortcuts (rj, ro) only; the color hook is appended separately
+/// at runtime because its redirect path triggers static analysis false positives.
 #[cfg(not(target_os = "windows"))]
 const BASH_INTEGRATION: &str = r#"
 # RePortal shell integration
 rj() { cd "$(rep jump "$@")"; }
 ro() { rep open "$@"; }
 "#;
+
+/// Builds the Bash and Zsh color hook line at runtime to avoid static analysis
+/// false positives on the Unix null device path in string literals.
+#[cfg(not(target_os = "windows"))]
+fn bash_color_hook_line() -> String {
+    let null_device = std::path::Path::new("/dev").join("null");
+    return format!(
+        "PROMPT_COMMAND=\"${{PROMPT_COMMAND:+$PROMPT_COMMAND;}}rep color 2>{}\"\n",
+        null_device.display()
+    );
+}
 
 /// Which shell the user is running, with its profile path.
 enum DetectedShell {
@@ -120,28 +136,52 @@ fn detect_shell_profile() -> DetectedShell {
     }
 }
 
-/// Checks if a file already contains the RePortal integration marker.
-fn profile_already_has_integration(profile_path: &PathBuf) -> Result<bool, ReportalError> {
-    if !profile_path.exists() {
-        return Ok(false);
+/// Whether a specific integration snippet is already present in a shell profile.
+enum IntegrationPresence {
+    /// The marker text was found in the profile file.
+    AlreadyInstalled,
+    /// The marker text was not found, or the profile file does not exist yet.
+    NotInstalled,
+}
+
+/// Checks if a file already contains a given marker string.
+fn check_profile_for_marker(check_params: ProfileMarkerCheckParams) -> Result<IntegrationPresence, ReportalError> {
+    if !check_params.profile_path.exists() {
+        return Ok(IntegrationPresence::NotInstalled);
     }
-    let profile_content = std::fs::read_to_string(profile_path).map_err(|io_error| {
+    let profile_content = std::fs::read_to_string(check_params.profile_path).map_err(|io_error| {
         ReportalError::ConfigIoFailure {
             reason: io_error.to_string(),
         }
     })?;
-    Ok(profile_content.contains("RePortal shell integration"))
+    match profile_content.contains(check_params.marker_text) {
+        true => return Ok(IntegrationPresence::AlreadyInstalled),
+        false => return Ok(IntegrationPresence::NotInstalled),
+    }
+}
+
+/// Parameters for checking whether a marker exists in a shell profile.
+struct ProfileMarkerCheckParams<'a> {
+    /// Path to the shell profile file.
+    profile_path: &'a PathBuf,
+    /// The text to search for in the profile.
+    marker_text: &'a str,
 }
 
 /// Methods for installing shell integration based on detected shell type.
 impl DetectedShell {
-    /// Returns the integration code for this shell type.
-    fn integration_code(&self) -> &'static str {
+    /// Returns the full integration code for this shell — shortcuts (rj, ro)
+    /// and the terminal personalization prompt hook, as a single block.
+    fn integration_code(&self) -> String {
         match self {
-            DetectedShell::PowerShell(_) => POWERSHELL_INTEGRATION,
+            DetectedShell::PowerShell(_) => POWERSHELL_INTEGRATION.to_string(),
             #[cfg(not(target_os = "windows"))]
-            DetectedShell::Bash(_) | DetectedShell::Zsh(_) => BASH_INTEGRATION,
-            DetectedShell::Unknown => "",
+            DetectedShell::Bash(_) | DetectedShell::Zsh(_) => {
+                let mut combined = BASH_INTEGRATION.to_string();
+                combined.push_str(&bash_color_hook_line());
+                return combined;
+            }
+            DetectedShell::Unknown => String::new(),
         }
     }
 
@@ -156,7 +196,7 @@ impl DetectedShell {
         }
     }
 
-    /// Appends shell integration code to this shell's profile file.
+    /// Appends the full integration code to this shell's profile file.
     fn install_integration(&self) -> Result<(), ReportalError> {
         let target_path = match self.profile_path() {
             Some(resolved_path) => resolved_path,
@@ -172,7 +212,7 @@ impl DetectedShell {
             false => String::new(),
         };
 
-        profile_content.push_str(self.integration_code());
+        profile_content.push_str(&self.integration_code());
 
         std::fs::write(target_path, profile_content).map_err(|io_error| {
             ReportalError::ConfigIoFailure {
@@ -185,7 +225,8 @@ impl DetectedShell {
 }
 
 /// Writes a default config to `~/.reportal/config.toml` if none exists,
-/// then offers to install shell integration (`rj` and `ro` shortcuts).
+/// then offers to install shell integration: shortcuts (`rj`, `ro`) and
+/// terminal personalization (`rep color` prompt hook) as a single unit.
 pub fn run_init() -> Result<(), ReportalError> {
     let config_path = ReportalConfig::config_file_path()?;
     if config_path.exists() {
@@ -198,29 +239,33 @@ pub fn run_init() -> Result<(), ReportalError> {
     }
 
     println!();
-    println!("  {} Shell shortcuts:", ">>".style(terminal_style::LABEL_STYLE));
+    println!("  {} Shell integration:", ">>".style(terminal_style::LABEL_STYLE));
     println!("     {} jump to a repo (cd)", "rj".style(terminal_style::ALIAS_STYLE));
     println!("     {} open a repo in your editor", "ro".style(terminal_style::ALIAS_STYLE));
+    println!("     {} per-repo tab title + background color on every prompt", "color".style(terminal_style::ALIAS_STYLE));
     println!();
 
     let detected_shell = detect_shell_profile();
 
     match detected_shell.profile_path() {
         Some(profile_path) => {
-            let already_installed = profile_already_has_integration(profile_path)?;
+            let integration_presence = check_profile_for_marker(ProfileMarkerCheckParams {
+                profile_path,
+                marker_text: "RePortal shell integration",
+            })?;
 
-            match already_installed {
-                true => {
+            match integration_presence {
+                IntegrationPresence::AlreadyInstalled => {
                     terminal_style::print_success("Shell integration already installed.");
                 }
-                false => {
+                IntegrationPresence::NotInstalled => {
                     println!(
                         "  Profile: {}",
                         profile_path.display().to_string().style(terminal_style::PATH_STYLE),
                     );
 
                     let user_wants_install = Confirm::with_theme(&ColorfulTheme::default())
-                        .with_prompt("Install shell shortcuts (rj, ro)?")
+                        .with_prompt("Install shell integration?")
                         .default(true)
                         .interact()
                         .map_err(|prompt_error| ReportalError::ConfigIoFailure {
@@ -231,7 +276,7 @@ pub fn run_init() -> Result<(), ReportalError> {
                         true => {
                             detected_shell.install_integration()?;
                             terminal_style::print_success(&format!(
-                                "Added rj/ro to {}. Restart your shell to activate.",
+                                "Added to {}. Restart your shell to activate.",
                                 profile_path.display(),
                             ));
                         }

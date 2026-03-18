@@ -8,6 +8,65 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
+/// A validated `#RRGGBB` hex color for terminal background theming.
+///
+/// Validated at parse time so downstream code can emit OSC sequences
+/// without rechecking format. Serializes/deserializes as a plain string.
+#[derive(Debug, Clone)]
+pub struct HexColor {
+    value: String,
+}
+
+/// Parsing, validation, and OSC escape sequence generation for hex colors.
+impl HexColor {
+    /// Parses a hex color string, rejecting anything that isn't exactly `#RRGGBB`.
+    ///
+    /// Returns `InvalidColor` if the string is the wrong length, missing the
+    /// leading `#`, or contains non-hex characters.
+    pub fn parse(raw: &str) -> Result<Self, ReportalError> {
+        let trimmed = raw.trim();
+        if trimmed.len() != 7 || !trimmed.starts_with('#') {
+            return Err(ReportalError::InvalidColor {
+                value: raw.to_string(),
+            });
+        }
+        let hex_digits = &trimmed[1..];
+        let all_hex = hex_digits.chars().all(|character| character.is_ascii_hexdigit());
+        if !all_hex {
+            return Err(ReportalError::InvalidColor {
+                value: raw.to_string(),
+            });
+        }
+        return Ok(Self {
+            value: trimmed.to_string(),
+        });
+    }
+
+    /// The raw hex string as stored (e.g. `#1a1a2e`).
+    pub fn raw_value(&self) -> &str {
+        &self.value
+    }
+
+    /// Returns the OSC 11 escape sequence that sets the terminal background
+    /// to this color (e.g. `\x1b]11;#1a1a2e\x07`).
+    pub fn as_osc_background_sequence(&self) -> String {
+        return format!("\x1b]11;{}\x07", self.value);
+    }
+}
+
+impl serde::Serialize for HexColor {
+    fn serialize<S: serde::Serializer>(&self, toml_serializer: S) -> Result<S::Ok, S::Error> {
+        toml_serializer.serialize_str(&self.value)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for HexColor {
+    fn deserialize<D: serde::Deserializer<'de>>(toml_deserializer: D) -> Result<Self, D::Error> {
+        let raw = String::deserialize(toml_deserializer)?;
+        HexColor::parse(&raw).map_err(serde::de::Error::custom)
+    }
+}
+
 /// Whether to filter repos by a specific tag or show all repos.
 #[derive(Debug)]
 pub enum TagFilter {
@@ -111,6 +170,65 @@ pub struct RepoRegistrationBuilder {
     repo_tags: Vec<String>,
     /// Git remote URL collected from the user.
     repo_remote: String,
+    /// Custom tab title collected from the user.
+    repo_title: TabTitle,
+    /// Background color collected from the user.
+    repo_color: RepoColor,
+}
+
+/// Whether a repo has a custom tab title or falls back to its alias.
+#[derive(Debug, Serialize, Clone)]
+#[serde(untagged)]
+pub enum TabTitle {
+    /// No custom title configured; the repo alias is used instead.
+    UseAlias,
+    /// A custom title the user chose for this repo's terminal tab.
+    Custom(String),
+}
+
+impl Default for TabTitle {
+    fn default() -> Self {
+        TabTitle::UseAlias
+    }
+}
+
+impl<'de> Deserialize<'de> for TabTitle {
+    fn deserialize<D: serde::Deserializer<'de>>(tab_title_deserializer: D) -> Result<Self, D::Error> {
+        let raw: String = String::deserialize(tab_title_deserializer)?;
+        match raw.is_empty() {
+            true => return Ok(TabTitle::UseAlias),
+            false => return Ok(TabTitle::Custom(raw)),
+        }
+    }
+}
+
+/// Whether a repo has a terminal background color configured.
+#[derive(Debug, Serialize, Clone)]
+#[serde(untagged)]
+pub enum RepoColor {
+    /// No color set; the terminal resets to its default background on jump.
+    ResetToDefault,
+    /// A specific background color applied via OSC 11 on jump.
+    Themed(HexColor),
+}
+
+impl Default for RepoColor {
+    fn default() -> Self {
+        RepoColor::ResetToDefault
+    }
+}
+
+impl<'de> Deserialize<'de> for RepoColor {
+    fn deserialize<D: serde::Deserializer<'de>>(repo_color_deserializer: D) -> Result<Self, D::Error> {
+        let raw: String = String::deserialize(repo_color_deserializer)?;
+        match raw.is_empty() {
+            true => return Ok(RepoColor::ResetToDefault),
+            false => {
+                let parsed = HexColor::parse(&raw).map_err(serde::de::Error::custom)?;
+                return Ok(RepoColor::Themed(parsed));
+            }
+        }
+    }
 }
 
 /// A single registered repository with its metadata.
@@ -127,6 +245,12 @@ pub struct RepoEntry {
     /// Git remote URL for cloning on other machines.
     #[serde(default)]
     remote: String,
+    /// Custom tab title shown in the terminal when jumping to this repo.
+    #[serde(default)]
+    title: TabTitle,
+    /// Terminal background color applied via OSC 11 when jumping to this repo.
+    #[serde(default)]
+    color: RepoColor,
 }
 
 /// Returns the default editor command when none is configured.
@@ -172,6 +296,8 @@ impl RepoRegistrationBuilder {
             repo_description: String::new(),
             repo_tags: Vec::new(),
             repo_remote: String::new(),
+            repo_title: TabTitle::UseAlias,
+            repo_color: RepoColor::ResetToDefault,
         }
     }
 
@@ -196,6 +322,18 @@ impl RepoRegistrationBuilder {
     /// Sets the git remote URL for cloning on other machines.
     pub fn repo_remote(mut self, remote_url: String) -> Self {
         self.repo_remote = remote_url;
+        self
+    }
+
+    /// Sets a custom terminal tab title for this repo.
+    pub fn repo_title(mut self, title_text: String) -> Self {
+        self.repo_title = TabTitle::Custom(title_text);
+        self
+    }
+
+    /// Sets the terminal background color for this repo.
+    pub fn repo_color(mut self, hex_color: HexColor) -> Self {
+        self.repo_color = RepoColor::Themed(hex_color);
         self
     }
 
@@ -229,6 +367,8 @@ impl RepoRegistrationBuilder {
             description: self.repo_description,
             tags: self.repo_tags,
             remote: self.repo_remote,
+            title: self.repo_title,
+            color: self.repo_color,
         };
         Ok((self.alias, validated_entry))
     }
@@ -257,6 +397,15 @@ impl RepoEntry {
         &self.tags
     }
 
+    /// The configured tab title preference for this repo.
+    pub fn tab_title(&self) -> &TabTitle {
+        &self.title
+    }
+
+    /// The configured terminal background color preference for this repo.
+    pub fn repo_color(&self) -> &RepoColor {
+        &self.color
+    }
 }
 
 /// Loading, saving, querying, and mutating the RePortal config file.
@@ -341,6 +490,11 @@ impl ReportalConfig {
     /// How to format displayed paths (absolute or relative).
     pub fn path_display_format(&self) -> &PathDisplayFormat {
         &self.settings.path_display_format
+    }
+
+    /// Returns all registered repos with their aliases, for iteration.
+    pub fn repos_with_aliases(&self) -> Vec<(&String, &RepoEntry)> {
+        self.repos.iter().collect()
     }
 
     /// Looks up a repo by its alias. Returns `RepoNotFound` if not registered.
