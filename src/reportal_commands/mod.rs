@@ -1,6 +1,7 @@
 /// Subcommand implementations for the RePortal CLI.
 mod initialization;
 mod repo_add;
+mod repo_color;
 mod repo_jump;
 mod repo_listing;
 mod repo_open;
@@ -8,6 +9,7 @@ mod repo_remove;
 
 pub use initialization::run_init;
 pub use repo_add::run_add;
+pub use repo_color::{run_color, ColorCommandParams};
 pub use repo_jump::{run_jump, JumpCommandParams};
 pub use repo_listing::run_list;
 pub use repo_open::{run_open, OpenCommandParams};
