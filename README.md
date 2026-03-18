@@ -8,6 +8,9 @@
 **Jump between repos. Open in your editor. Stay in sync across machines.**
 
 [![Crates.io](https://img.shields.io/crates/v/reportal.svg)](https://crates.io/crates/reportal)
+[![GitHub Release](https://img.shields.io/github/v/release/CheckPickerUpper/reportal)](https://github.com/CheckPickerUpper/reportal/releases/latest)
+[![Homebrew](https://img.shields.io/badge/homebrew-tap-FBB040.svg)](https://github.com/CheckPickerUpper/homebrew-tap)
+[![Scoop](https://img.shields.io/badge/scoop-bucket-5B5EA6.svg)](https://github.com/CheckPickerUpper/scoop-reportal)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.78%2B-orange.svg)](https://www.rust-lang.org/)
 [![Windows](https://img.shields.io/badge/platform-windows%20%7C%20macos%20%7C%20linux-lightgrey.svg)]()
@@ -21,13 +24,47 @@ RePortal is a single-binary CLI that keeps a registry of your dev repos and lets
 
 ## Install
 
+All methods install both `reportal` and `rep` (short alias) binaries.
+
+### Cargo (all platforms)
+
 ```bash
 cargo install reportal
 ```
 
-This gives you both `reportal` and `rep` (short alias) commands.
+### Homebrew (macOS / Linux)
 
-From source:
+```bash
+brew tap CheckPickerUpper/tap
+brew install reportal
+```
+
+### Scoop (Windows)
+
+```powershell
+scoop bucket add reportal https://github.com/CheckPickerUpper/scoop-reportal
+scoop install reportal
+```
+
+### Winget (Windows)
+
+```powershell
+winget install CheckPickerUpper.RePortal
+```
+
+### Shell installer (macOS / Linux)
+
+```bash
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/CheckPickerUpper/reportal/releases/latest/download/reportal-installer.sh | sh
+```
+
+### PowerShell installer (Windows)
+
+```powershell
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/CheckPickerUpper/reportal/releases/latest/download/reportal-installer.ps1 | iex"
+```
+
+### From source
 
 ```bash
 git clone https://github.com/CheckPickerUpper/reportal.git
@@ -59,18 +96,23 @@ ro
 
 ## Commands
 
-| Command | What it does |
-|---------|-------------|
-| `rep init` | Creates config and installs `rj`/`ro` shell shortcuts |
-| `rep list` | Shows all repos with path, description, tags, and whether it exists on disk |
-| `rep list --tag work` | Filters repos by tag |
-| `rep jump` | Fuzzy-select a repo, prints the path (used by `rj` shell function) |
-| `rep open` | Fuzzy-select a repo, opens it in your editor |
-| `rep open my-api` | Opens a repo directly by alias |
-| `rep open --editor code` | Override the default editor |
-| `rep add ~/dev/foo` | Register a local repo (auto-detects git remote, suggests alias) |
-| `rep add https://github.com/org/repo.git` | Clone a repo and register it (asks where to place it) |
-| `rep remove my-api` | Unregister a repo (does not delete files) |
+| Command | Alias | What it does |
+|---------|-------|-------------|
+| `rep init` | | Creates config and installs `rj`/`ro` shell shortcuts |
+| `rep list` | `rep l` | Shows all repos with path, description, tags, and whether it exists on disk |
+| `rep list --tag work` | | Filters repos by tag |
+| `rep jump` | `rep j` | Fuzzy-select a repo, prints the path (used by `rj` shell function) |
+| `rep jump my-api` | `rep j my-api` | Jump directly to a repo by alias |
+| `rep jump --title "Debug"` | | Override the terminal tab title for this session |
+| `rep open` | `rep o` | Fuzzy-select a repo, opens it in your editor |
+| `rep open my-api` | `rep o my-api` | Opens a repo directly by alias |
+| `rep open --editor code` | | Override the default editor |
+| `rep open --title "Debug"` | | Override the terminal tab title for this session |
+| `rep color` | | Emit tab title + background color for current directory (for shell hooks) |
+| `rep color --repo my-api` | | Emit tab title + background color for a specific repo |
+| `rep add ~/dev/foo` | `rep a ~/dev/foo` | Register a local repo (auto-detects git remote, suggests alias) |
+| `rep add https://github.com/org/repo.git` | | Clone a repo and register it (asks where to place it) |
+| `rep remove my-api` | `rep rm my-api` | Unregister a repo (does not delete files) |
 
 ## Shell integration
 
@@ -79,7 +121,9 @@ ro
 | Shortcut | What it does |
 |----------|-------------|
 | `rj` | Fuzzy-select a repo and `cd` into it |
+| `rj my-api` | Jump directly to a repo by alias |
 | `ro` | Fuzzy-select a repo and open it in your editor |
+| `ro my-api` | Open a repo directly by alias |
 
 Supports PowerShell, Bash, Zsh. Detected and installed during `rep init`.
 
@@ -87,14 +131,14 @@ You can also set them up manually:
 
 **PowerShell:**
 ```powershell
-function rj { Set-Location (rep jump) }
-function ro { rep open }
+function rj { Set-Location (rep jump @args) }
+function ro { rep open @args }
 ```
 
 **Bash / Zsh:**
 ```bash
-rj() { cd "$(rep jump)"; }
-ro() { rep open; }
+rj() { cd "$(rep jump "$@")"; }
+ro() { rep open "$@"; }
 ```
 
 ## Config
@@ -113,6 +157,8 @@ path = "~/dev/my-project/api"
 description = "Backend API"
 tags = ["work", "backend"]
 remote = "git@github.com:org/api.git"
+title = "API"              # custom terminal tab title (defaults to alias)
+color = "#1a1a2e"          # terminal background color on jump (hex)
 
 [repos.website]
 path = "~/dev/personal/site"
@@ -127,6 +173,44 @@ tags = ["personal", "frontend"]
 | `path_on_select` | `show`, `hide` | `show` | Print path after picking a repo in jump/open |
 | `path_display_format` | `absolute`, `relative` | `absolute` | Full path or relative to current directory |
 
+### Per-repo fields
+
+| Field | Required | Default | What it controls |
+|-------|----------|---------|-----------------|
+| `path` | yes | — | Filesystem path to the repo (supports `~`) |
+| `description` | no | `""` | Shown in fuzzy finder and `rep list` |
+| `tags` | no | `[]` | Filter repos with `--tag` |
+| `remote` | no | `""` | Git remote URL for cloning on other machines |
+| `title` | no | repo alias | Terminal tab title set via OSC 2 on jump/open |
+| `color` | no | reset to default | Terminal background color (`#RRGGBB`) set via OSC 11 on jump/open |
+
+## Terminal personalization
+
+When you jump to or open a repo, RePortal automatically sets:
+
+1. **Tab title** (OSC 2) — uses the `title` config field, falling back to the repo alias
+2. **Background color** (OSC 11) — uses the `color` config field; repos without a color reset the terminal to its default
+
+Both sequences go to stderr so they don't interfere with the path output that `rj` captures. Terminals that don't support these sequences silently ignore them.
+
+The `--title` flag on `jump`/`open` lets you override the tab title for a single session without changing config.
+
+### Shell hook for new terminals
+
+Terminals opened directly into a repo (e.g. VS Code integrated terminal) won't go through `rj`, so they won't get the color/title automatically. Add `rep color` to your prompt to fix that:
+
+**PowerShell:**
+```powershell
+function prompt { rep color 2>$null; "PS> " }
+```
+
+**Bash / Zsh:**
+```bash
+PROMPT_COMMAND='rep color 2>/dev/null'
+```
+
+`rep color` matches your current directory against registered repos (longest prefix wins) and emits the right sequences.
+
 ## Roadmap
 
 - [x] Config parsing
@@ -137,6 +221,8 @@ tags = ["personal", "frontend"]
 - [x] Colored output with themed fuzzy finder
 - [x] `rep` short alias
 - [x] Configurable path display (absolute/relative, show/hide)
+- [x] Per-repo terminal tab title and background color (OSC 2 / OSC 11)
+- [x] `color` command for shell prompt hooks
 - [ ] `status` — git status across all repos
 - [ ] `sync` — pull latest across repos
 - [ ] `dashboard` — rich overview with branches, dirty state, last commit
