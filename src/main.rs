@@ -66,6 +66,12 @@ enum ReportalSubcommand {
         /// Filesystem path to the repo directory
         repo_path: String,
     },
+    /// Edit a repo's description, tags, title, and color
+    #[command(alias = "e")]
+    Edit {
+        /// Alias of the repo to edit
+        alias: String,
+    },
     /// Unregister a repo from the config (does not delete files)
     #[command(alias = "rm")]
     Remove {
@@ -77,6 +83,19 @@ enum ReportalSubcommand {
         /// Look up this repo by alias instead of matching the current directory
         #[arg(long)]
         repo: Option<String>,
+    },
+    /// Show git status across all registered repos
+    #[command(alias = "s")]
+    Status {
+        /// Filter repos by this tag
+        #[arg(long)]
+        tag: Option<String>,
+    },
+    /// Pull latest changes across all registered repos
+    Sync {
+        /// Filter repos by this tag
+        #[arg(long)]
+        tag: Option<String>,
     },
 }
 
@@ -138,6 +157,9 @@ fn main() {
         ReportalSubcommand::Add { repo_path } => {
             reportal_commands::run_add(&repo_path)
         }
+        ReportalSubcommand::Edit { alias } => {
+            reportal_commands::run_edit(&alias)
+        }
         ReportalSubcommand::Remove { alias } => {
             reportal_commands::run_remove(&alias)
         }
@@ -149,6 +171,20 @@ fn main() {
             reportal_commands::run_color(ColorCommandParams {
                 repo_alias,
             })
+        }
+        ReportalSubcommand::Status { tag } => {
+            let tag_filter = match tag {
+                Some(tag_value) => TagFilter::ByTag(tag_value),
+                None => TagFilter::All,
+            };
+            reportal_commands::run_status(tag_filter)
+        }
+        ReportalSubcommand::Sync { tag } => {
+            let tag_filter = match tag {
+                Some(tag_value) => TagFilter::ByTag(tag_value),
+                None => TagFilter::All,
+            };
+            reportal_commands::run_sync(tag_filter)
         }
     };
 

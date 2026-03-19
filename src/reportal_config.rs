@@ -518,6 +518,26 @@ impl ReportalConfig {
         Ok(())
     }
 
+    /// Updates the editable metadata fields (description, tags, title, color)
+    /// for an existing repo. Returns `RepoNotFound` if the alias is not registered.
+    pub fn update_repo_metadata(
+        &mut self,
+        alias: &str,
+        new_description: String,
+        new_tags: Vec<String>,
+        new_title: TabTitle,
+        new_color: RepoColor,
+    ) -> Result<(), ReportalError> {
+        let repo_entry = self.repos.get_mut(alias).ok_or_else(|| ReportalError::RepoNotFound {
+            alias: alias.to_string(),
+        })?;
+        repo_entry.description = new_description;
+        repo_entry.tags = new_tags;
+        repo_entry.title = new_title;
+        repo_entry.color = new_color;
+        Ok(())
+    }
+
     /// Removes a repo by alias. Returns `RepoNotFound` if missing.
     pub fn remove_repo(&mut self, alias: &str) -> Result<RepoEntry, ReportalError> {
         self.repos.remove(alias).ok_or_else(|| ReportalError::RepoNotFound {
