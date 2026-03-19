@@ -25,6 +25,9 @@ Produces two binaries: `reportal` and `rep` (short alias).
   - `repo_add.rs` — `rep add` (local paths + git URL cloning)
   - `repo_remove.rs` — `rep remove`
   - `repo_color.rs` — `rep color` (OSC terminal personalization for shell hooks)
+  - `repo_edit.rs` — `rep edit` (interactive metadata editing)
+  - `repo_status.rs` — `rep status` (git status across all repos)
+  - `repo_sync.rs` — `rep sync` (pull latest across repos)
 
 Config lives at `~/.reportal/config.toml`.
 

@@ -10,7 +10,7 @@
 [![Crates.io](https://img.shields.io/crates/v/reportal.svg)](https://crates.io/crates/reportal)
 [![GitHub Release](https://img.shields.io/github/v/release/CheckPickerUpper/reportal)](https://github.com/CheckPickerUpper/reportal/releases/latest)
 [![Homebrew](https://img.shields.io/badge/homebrew-tap-FBB040.svg)](https://github.com/CheckPickerUpper/homebrew-tap)
-[![Scoop](https://img.shields.io/badge/scoop-bucket-5B5EA6.svg)](https://github.com/CheckPickerUpper/scoop-reportal)
+[![Scoop](https://img.shields.io/badge/scoop-main-5B5EA6.svg)](https://scoop.sh/#/apps?q=reportal)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.78%2B-orange.svg)](https://www.rust-lang.org/)
 [![Windows](https://img.shields.io/badge/platform-windows%20%7C%20macos%20%7C%20linux-lightgrey.svg)]()
@@ -42,7 +42,6 @@ brew install reportal
 ### Scoop (Windows)
 
 ```powershell
-scoop bucket add reportal https://github.com/CheckPickerUpper/scoop-reportal
 scoop install reportal
 ```
 
@@ -110,6 +109,11 @@ ro
 | `rep open --title "Debug"` | | Override the terminal tab title for this session |
 | `rep color` | | Emit tab title + background color for current directory (for shell hooks) |
 | `rep color --repo my-api` | | Emit tab title + background color for a specific repo |
+| `rep status` | `rep s` | Show git status (branch, dirty, upstream, last commit) across all repos |
+| `rep status --tag work` | | Filter status by tag |
+| `rep sync` | | Pull latest changes across all repos (skips dirty repos) |
+| `rep sync --tag work` | | Pull only repos with this tag |
+| `rep edit my-api` | `rep e my-api` | Interactively edit a repo's description, tags, title, and color |
 | `rep add ~/dev/foo` | `rep a ~/dev/foo` | Register a local repo (auto-detects git remote, suggests alias) |
 | `rep add https://github.com/org/repo.git` | | Clone a repo and register it (asks where to place it) |
 | `rep remove my-api` | `rep rm my-api` | Unregister a repo (does not delete files) |
@@ -223,8 +227,8 @@ PROMPT_COMMAND='rep color 2>/dev/null'
 - [x] Configurable path display (absolute/relative, show/hide)
 - [x] Per-repo terminal tab title and background color (OSC 2 / OSC 11)
 - [x] `color` command for shell prompt hooks
-- [ ] `status` — git status across all repos
-- [ ] `sync` — pull latest across repos
+- [x] `status` — git status across all repos
+- [x] `sync` — pull latest across repos
 - [ ] `dashboard` — rich overview with branches, dirty state, last commit
 - [ ] `clone --all` — clone missing repos from config (machine sync)
 - [ ] Shell completions

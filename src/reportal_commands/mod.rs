@@ -5,12 +5,18 @@ mod repo_color;
 mod repo_jump;
 mod repo_listing;
 mod repo_open;
+mod repo_edit;
 mod repo_remove;
+mod repo_status;
+mod repo_sync;
 
 pub use initialization::run_init;
 pub use repo_add::run_add;
+pub use repo_edit::run_edit;
 pub use repo_color::{run_color, ColorCommandParams};
 pub use repo_jump::{run_jump, JumpCommandParams};
 pub use repo_listing::run_list;
 pub use repo_open::{run_open, OpenCommandParams};
 pub use repo_remove::run_remove;
+pub use repo_status::run_status;
+pub use repo_sync::run_sync;
