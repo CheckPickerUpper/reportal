@@ -26,6 +26,8 @@ struct ReportalCli {
 enum ReportalSubcommand {
     /// Create a default config file at ~/.reportal/config.toml
     Init,
+    /// Update shell integration to the latest version
+    Upgrade,
     /// List all registered repos with status and metadata
     #[command(alias = "l")]
     List {
@@ -104,6 +106,7 @@ fn main() {
 
     let command_result = match parsed_cli.subcommand {
         ReportalSubcommand::Init => reportal_commands::run_init(),
+        ReportalSubcommand::Upgrade => reportal_commands::run_upgrade(),
         ReportalSubcommand::List { tag } => {
             let tag_filter = match tag {
                 Some(tag_value) => TagFilter::ByTag(tag_value),

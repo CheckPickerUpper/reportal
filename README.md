@@ -97,7 +97,8 @@ ro
 
 | Command | Alias | What it does |
 |---------|-------|-------------|
-| `rep init` | | Creates config and installs `rj`/`ro` shell shortcuts |
+| `rep init` | | Creates config and installs shell integration (first-time setup) |
+| `rep upgrade` | | Updates shell integration to the latest version (run after updating RePortal) |
 | `rep list` | `rep l` | Shows all repos with path, description, tags, and whether it exists on disk |
 | `rep list --tag work` | | Filters repos by tag |
 | `rep jump` | `rep j` | Fuzzy-select a repo, prints the path (used by `rj` shell function) |

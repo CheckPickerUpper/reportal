@@ -18,7 +18,7 @@ Produces two binaries: `reportal` and `rep` (short alias).
 - `src/reportal_config.rs` — TOML config parsing, repo registry, builder, enums
 - `src/terminal_style.rs` — centralized color palette (owo-colors)
 - `src/reportal_commands/` — one file per subcommand:
-  - `initialization.rs` — `rep init` (config + shell integration install)
+  - `initialization.rs` — `rep init` (config + shell integration), `rep upgrade` (update shell integration)
   - `repo_listing.rs` — `rep list`
   - `repo_jump.rs` — `rep jump`
   - `repo_open.rs` — `rep open`
@@ -62,6 +62,18 @@ When implementing a feature, ALWAYS:
 4. Run `cargo install --path .` so the user can use the updated CLI immediately
 
 Do NOT wait to be asked — this is part of shipping the feature.
+
+## Shell Integration Design
+
+The prompt hook runs `rep color` AFTER the user's existing prompt (e.g. oh-my-posh)
+so RePortal's tab title always wins over whatever the prompt tool sets. The PowerShell
+hook captures the original prompt output, then emits OSC sequences, then returns the
+prompt string. This ordering is critical — reversing it lets oh-my-posh overwrite
+the tab title.
+
+`rep upgrade` strips the old RePortal block from the shell profile and replaces it
+with the latest version. Users run this after updating RePortal. The update flow is:
+`cargo install reportal && rep upgrade`
 
 ## Internal Docs
 
