@@ -95,9 +95,9 @@ pub struct TerminalIdentityParams {
 }
 
 /// Emits the appropriate OSC sequences to stderr for a repo's terminal
-/// personalization (tab title + background color). Skips emission if
-/// stderr is not a TTY (e.g. when piped or redirected).
-pub fn emit_terminal_identity(identity: &TerminalIdentity) {
+/// personalization (tab title + background color). Used by jump/open
+/// where stdout carries the path. Skips emission if stderr is not a TTY.
+pub fn emit_terminal_identity_to_stderr(identity: &TerminalIdentity) {
     if !std::io::IsTerminal::is_terminal(&std::io::stderr()) {
         return;
     }
@@ -105,5 +105,20 @@ pub fn emit_terminal_identity(identity: &TerminalIdentity) {
     match identity.background_action() {
         BackgroundAction::SetColor(osc_sequence) => eprint!("{osc_sequence}"),
         BackgroundAction::Reset => eprint!("{}", osc_reset_background_sequence()),
+    }
+}
+
+/// Emits the appropriate OSC sequences to stdout for a repo's terminal
+/// personalization (tab title + background color). Used by the `color`
+/// subcommand where nothing captures stdout. Skips emission if stdout
+/// is not a TTY.
+pub fn emit_terminal_identity_to_stdout(identity: &TerminalIdentity) {
+    if !std::io::IsTerminal::is_terminal(&std::io::stdout()) {
+        return;
+    }
+    print!("{}", osc_tab_title_sequence(identity.resolved_title()));
+    match identity.background_action() {
+        BackgroundAction::SetColor(osc_sequence) => print!("{osc_sequence}"),
+        BackgroundAction::Reset => print!("{}", osc_reset_background_sequence()),
     }
 }
