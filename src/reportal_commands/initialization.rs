@@ -12,10 +12,10 @@ use std::process::Command;
 /// Includes shortcuts (rj, ro) and the terminal personalization prompt hook.
 const POWERSHELL_INTEGRATION: &str = r#"
 # RePortal shell integration
-function rj { Set-Location (rep jump @args) }
-function ro { rep open @args }
+function rj { Set-Location (rep jump @args); rep color }
+function ro { rep open @args; rep color }
 $_reportal_original_prompt = $function:prompt
-function prompt { rep color 2>$null; & $_reportal_original_prompt }
+function prompt { $p = & $_reportal_original_prompt; rep color 2>$null; $p }
 "#;
 
 /// The Bash and Zsh code that gets appended to the user's profile.
@@ -24,8 +24,8 @@ function prompt { rep color 2>$null; & $_reportal_original_prompt }
 #[cfg(not(target_os = "windows"))]
 const BASH_INTEGRATION: &str = r#"
 # RePortal shell integration
-rj() { cd "$(rep jump "$@")"; }
-ro() { rep open "$@"; }
+rj() { cd "$(rep jump "$@")"; rep color; }
+ro() { rep open "$@"; rep color; }
 "#;
 
 /// Builds the Bash and Zsh color hook line at runtime to avoid static analysis
@@ -136,36 +136,51 @@ fn detect_shell_profile() -> DetectedShell {
     }
 }
 
-/// Whether a specific integration snippet is already present in a shell profile.
-enum IntegrationPresence {
-    /// The marker text was found in the profile file.
-    AlreadyInstalled,
-    /// The marker text was not found, or the profile file does not exist yet.
-    NotInstalled,
-}
+/// Strips any existing RePortal integration block from a profile string.
+/// Looks for the "# RePortal shell integration" marker and removes
+/// everything from that line through the end of the block (consecutive
+/// non-empty lines or known RePortal patterns).
+fn strip_existing_integration(profile_content: &str) -> String {
+    let mut result_lines: Vec<&str> = Vec::new();
+    let mut skipping_reportal_block = false;
 
-/// Checks if a file already contains a given marker string.
-fn check_profile_for_marker(check_params: ProfileMarkerCheckParams) -> Result<IntegrationPresence, ReportalError> {
-    if !check_params.profile_path.exists() {
-        return Ok(IntegrationPresence::NotInstalled);
-    }
-    let profile_content = std::fs::read_to_string(check_params.profile_path).map_err(|io_error| {
-        ReportalError::ConfigIoFailure {
-            reason: io_error.to_string(),
+    for line in profile_content.lines() {
+        match skipping_reportal_block {
+            true => {
+                let trimmed = line.trim();
+                let is_reportal_line = trimmed.starts_with("function rj")
+                    || trimmed.starts_with("function ro")
+                    || trimmed.starts_with("function prompt")
+                    || trimmed.starts_with("$_reportal_")
+                    || trimmed.starts_with("rj()")
+                    || trimmed.starts_with("ro()")
+                    || trimmed.starts_with("PROMPT_COMMAND")
+                    || trimmed.contains("rep jump")
+                    || trimmed.contains("rep open")
+                    || trimmed.contains("rep color");
+                match is_reportal_line {
+                    true => {}
+                    false => {
+                        skipping_reportal_block = false;
+                        match trimmed.is_empty() {
+                            true => {}
+                            false => result_lines.push(line),
+                        }
+                    }
+                }
+            }
+            false => match line.contains("RePortal shell integration") {
+                true => {
+                    skipping_reportal_block = true;
+                }
+                false => {
+                    result_lines.push(line);
+                }
+            },
         }
-    })?;
-    match profile_content.contains(check_params.marker_text) {
-        true => return Ok(IntegrationPresence::AlreadyInstalled),
-        false => return Ok(IntegrationPresence::NotInstalled),
     }
-}
 
-/// Parameters for checking whether a marker exists in a shell profile.
-struct ProfileMarkerCheckParams<'a> {
-    /// Path to the shell profile file.
-    profile_path: &'a PathBuf,
-    /// The text to search for in the profile.
-    marker_text: &'a str,
+    return result_lines.join("\n");
 }
 
 /// Methods for installing shell integration based on detected shell type.
@@ -196,14 +211,16 @@ impl DetectedShell {
         }
     }
 
-    /// Appends the full integration code to this shell's profile file.
+    /// Removes any existing RePortal block from the profile, then appends
+    /// the latest integration code. This makes `rep init` safe to re-run
+    /// on updates — it always replaces with the current version.
     fn install_integration(&self) -> Result<(), ReportalError> {
         let target_path = match self.profile_path() {
             Some(resolved_path) => resolved_path,
             None => return Ok(()),
         };
 
-        let mut profile_content = match target_path.exists() {
+        let existing_content = match target_path.exists() {
             true => std::fs::read_to_string(target_path).map_err(|io_error| {
                 ReportalError::ConfigIoFailure {
                     reason: io_error.to_string(),
@@ -212,9 +229,10 @@ impl DetectedShell {
             false => String::new(),
         };
 
-        profile_content.push_str(&self.integration_code());
+        let mut cleaned_content = strip_existing_integration(&existing_content);
+        cleaned_content.push_str(&self.integration_code());
 
-        std::fs::write(target_path, profile_content).map_err(|io_error| {
+        std::fs::write(target_path, cleaned_content).map_err(|io_error| {
             ReportalError::ConfigIoFailure {
                 reason: io_error.to_string(),
             }
@@ -224,20 +242,9 @@ impl DetectedShell {
     }
 }
 
-/// Writes a default config to `~/.reportal/config.toml` if none exists,
-/// then offers to install shell integration: shortcuts (`rj`, `ro`) and
-/// terminal personalization (`rep color` prompt hook) as a single unit.
-pub fn run_init() -> Result<(), ReportalError> {
-    let config_path = ReportalConfig::config_file_path()?;
-    if config_path.exists() {
-        println!("Config already exists at {}", config_path.display());
-        println!("Use 'reportal add' to register repos.");
-    } else {
-        let default_config = ReportalConfig::create_default();
-        default_config.save_to_disk()?;
-        terminal_style::print_success(&format!("Created config at {}", config_path.display()));
-    }
-
+/// Detects the shell, strips any old RePortal block, and appends the
+/// latest integration code. Used by both `init` and `upgrade`.
+fn install_or_update_shell_integration() -> Result<(), ReportalError> {
     println!();
     println!("  {} Shell integration:", ">>".style(terminal_style::LABEL_STYLE));
     println!("     {} jump to a repo (cd)", "rj".style(terminal_style::ALIAS_STYLE));
@@ -249,41 +256,29 @@ pub fn run_init() -> Result<(), ReportalError> {
 
     match detected_shell.profile_path() {
         Some(profile_path) => {
-            let integration_presence = check_profile_for_marker(ProfileMarkerCheckParams {
-                profile_path,
-                marker_text: "RePortal shell integration",
-            })?;
+            println!(
+                "  Profile: {}",
+                profile_path.display().to_string().style(terminal_style::PATH_STYLE),
+            );
 
-            match integration_presence {
-                IntegrationPresence::AlreadyInstalled => {
-                    terminal_style::print_success("Shell integration already installed.");
+            let user_wants_install = Confirm::with_theme(&ColorfulTheme::default())
+                .with_prompt("Install/update shell integration?")
+                .default(true)
+                .interact()
+                .map_err(|prompt_error| ReportalError::ConfigIoFailure {
+                    reason: prompt_error.to_string(),
+                })?;
+
+            match user_wants_install {
+                true => {
+                    detected_shell.install_integration()?;
+                    terminal_style::print_success(&format!(
+                        "Updated {}. Restart your shell to activate.",
+                        profile_path.display(),
+                    ));
                 }
-                IntegrationPresence::NotInstalled => {
-                    println!(
-                        "  Profile: {}",
-                        profile_path.display().to_string().style(terminal_style::PATH_STYLE),
-                    );
-
-                    let user_wants_install = Confirm::with_theme(&ColorfulTheme::default())
-                        .with_prompt("Install shell integration?")
-                        .default(true)
-                        .interact()
-                        .map_err(|prompt_error| ReportalError::ConfigIoFailure {
-                            reason: prompt_error.to_string(),
-                        })?;
-
-                    match user_wants_install {
-                        true => {
-                            detected_shell.install_integration()?;
-                            terminal_style::print_success(&format!(
-                                "Added to {}. Restart your shell to activate.",
-                                profile_path.display(),
-                            ));
-                        }
-                        false => {
-                            println!("  Skipped. You can add them manually later.");
-                        }
-                    }
+                false => {
+                    println!("  Skipped.");
                 }
             }
         }
@@ -302,4 +297,28 @@ pub fn run_init() -> Result<(), ReportalError> {
     }
 
     Ok(())
+}
+
+/// Creates a default config at `~/.reportal/config.toml` if none exists,
+/// then installs shell integration (rj, ro, color prompt hook).
+pub fn run_init() -> Result<(), ReportalError> {
+    let config_path = ReportalConfig::config_file_path()?;
+    if config_path.exists() {
+        println!("Config already exists at {}", config_path.display());
+        println!("Use 'reportal add' to register repos.");
+    } else {
+        let default_config = ReportalConfig::create_default();
+        default_config.save_to_disk()?;
+        terminal_style::print_success(&format!("Created config at {}", config_path.display()));
+    }
+
+    install_or_update_shell_integration()
+}
+
+/// Updates the shell profile to the latest RePortal integration code.
+/// Strips the old block and replaces it, so users can run this after
+/// upgrading RePortal to pick up new shell function definitions.
+pub fn run_upgrade() -> Result<(), ReportalError> {
+    println!("Upgrading RePortal shell integration...");
+    install_or_update_shell_integration()
 }

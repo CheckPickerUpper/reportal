@@ -40,7 +40,7 @@ pub fn run_color(color_params: ColorCommandParams<'_>) -> Result<(), ReportalErr
                 resolved_title,
                 background_action,
             });
-            terminal_style::emit_terminal_identity(&identity);
+            terminal_style::emit_terminal_identity_to_stdout(&identity);
         }
         true => {
             let current_directory = std::env::current_dir().map_err(|io_error| {
@@ -88,11 +88,11 @@ pub fn run_color(color_params: ColorCommandParams<'_>) -> Result<(), ReportalErr
                         resolved_title,
                         background_action,
                     });
-                    terminal_style::emit_terminal_identity(&identity);
+                    terminal_style::emit_terminal_identity_to_stdout(&identity);
                 }
                 None => {
-                    if std::io::IsTerminal::is_terminal(&std::io::stderr()) {
-                        eprint!("{}", terminal_style::osc_reset_background_sequence());
+                    if std::io::IsTerminal::is_terminal(&std::io::stdout()) {
+                        print!("{}", terminal_style::osc_reset_background_sequence());
                     }
                 }
             }

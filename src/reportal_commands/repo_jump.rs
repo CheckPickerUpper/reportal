@@ -88,7 +88,7 @@ pub fn run_jump(jump_params: JumpCommandParams<'_>) -> Result<(), ReportalError>
         resolved_title,
         background_action,
     });
-    terminal_style::emit_terminal_identity(&identity);
+    terminal_style::emit_terminal_identity_to_stderr(&identity);
 
     let resolved_path = selected_repo.resolved_path();
     let formatted_path = loaded_config.path_display_format().format_path(&resolved_path);
