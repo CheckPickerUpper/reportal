@@ -11,6 +11,7 @@ mod repo_status;
 mod repo_sync;
 
 pub use initialization::run_init;
+pub use initialization::run_upgrade;
 pub use repo_add::run_add;
 pub use repo_edit::run_edit;
 pub use repo_color::{run_color, ColorCommandParams};

@@ -90,7 +90,7 @@ pub fn run_open(open_params: OpenCommandParams<'_>) -> Result<(), ReportalError>
         resolved_title,
         background_action,
     });
-    terminal_style::emit_terminal_identity(&identity);
+    terminal_style::emit_terminal_identity_to_stderr(&identity);
 
     let resolved_repo_path = selected_repo.resolved_path();
 
