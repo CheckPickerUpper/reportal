@@ -119,6 +119,7 @@ ro
 | `rep add ~/dev/foo` | `rep a ~/dev/foo` | Register a local repo (auto-detects git remote, suggests alias) |
 | `rep add https://github.com/org/repo.git` | | Clone a repo and register it (asks where to place it) |
 | `rep remove my-api` | `rep rm my-api` | Unregister a repo (does not delete files) |
+| `rep doctor` | | Diagnose config, shell integration, and repo path issues |
 
 ## Shell integration
 
@@ -232,6 +233,7 @@ PROMPT_COMMAND='rep color 2>/dev/null'
 - [x] `color` command for shell prompt hooks
 - [x] `status` — git status across all repos
 - [x] `sync` — pull latest across repos
+- [x] `doctor` — diagnose config, shell integration, and repo path issues
 - [ ] `dashboard` — rich overview with branches, dirty state, last commit
 - [ ] `clone --all` — clone missing repos from config (machine sync)
 - [ ] Shell completions

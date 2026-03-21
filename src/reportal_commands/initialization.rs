@@ -40,7 +40,7 @@ fn bash_color_hook_line() -> String {
 }
 
 /// Which shell the user is running, with its profile path.
-enum DetectedShell {
+pub(crate) enum DetectedShell {
     /// PowerShell (Windows or cross-platform).
     PowerShell(PathBuf),
     /// Bash with a known profile path.
@@ -107,7 +107,7 @@ fn detect_unix_shell_env() -> ShellEnvDetection {
 }
 
 /// Detects the current shell and its profile path.
-fn detect_shell_profile() -> DetectedShell {
+pub(crate) fn detect_shell_profile() -> DetectedShell {
     #[cfg(target_os = "windows")]
     {
         match detect_powershell_profile() {
@@ -201,7 +201,7 @@ impl DetectedShell {
     }
 
     /// Returns the profile path if this shell was detected.
-    fn profile_path(&self) -> Option<&PathBuf> {
+    pub(crate) fn profile_path(&self) -> Option<&PathBuf> {
         match self {
             DetectedShell::PowerShell(ref shell_profile_path) => Some(shell_profile_path),
             #[cfg(not(target_os = "windows"))]
