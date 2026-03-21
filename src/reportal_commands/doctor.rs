@@ -1,19 +1,21 @@
-/// Validates the full RePortal installation: config, shell integration, and repo paths.
+/// Validates the full RePortal installation and prints a diagnostic report.
 ///
-/// Prints a structured diagnostic report with pass/fail indicators for:
+/// Checks four areas:
 /// 1. Config file existence and TOML parse correctness
-/// 2. Shell profile integration (rj/ro functions, prompt hook)
-/// 3. Registered repo paths existing on disk
+/// 2. Integration script file exists and version matches the binary
+/// 3. Shell profile sources the integration file
+/// 4. Current session has loaded the integration (REPORTAL_LOADED env var)
+/// 5. All registered repo paths exist on disk
 ///
-/// Each failed check includes an actionable hint (e.g. "Run 'rep upgrade'").
-/// Exits with a summary count so the user knows if anything needs attention.
+/// Each failed check prints an actionable hint so the user knows
+/// exactly what to run to fix the problem.
 
 use crate::error::ReportalError;
 use crate::reportal_config::ReportalConfig;
 use crate::terminal_style;
 use owo_colors::OwoColorize;
 
-use super::initialization::detect_shell_profile;
+use super::initialization::{detect_shell_profile, integration_file_path};
 
 /// Whether a single diagnostic check passed or failed.
 enum CheckOutcome {
@@ -117,76 +119,54 @@ fn check_config(summary: &mut DiagnosticSummary) -> Option<ReportalConfig> {
     }
 }
 
-/// Parameters for checking whether a shell function is present in the profile.
-struct ShellFunctionCheckParams<'a> {
-    /// The full text of the shell profile file.
-    profile_content: &'a str,
-    /// The function name to look for (e.g. "rj", "ro").
-    function_name: &'a str,
-    /// The command the function should invoke (e.g. "rep jump").
-    expected_command: &'a str,
-    /// Running tally of diagnostic outcomes.
-    summary: &'a mut DiagnosticSummary,
+/// Whether the integration file version matches, is outdated, or is missing.
+enum IntegrationFileStatus {
+    /// File exists and version matches the running binary.
+    Current,
+    /// File exists but was written by a different version.
+    Outdated { file_version: String },
+    /// File does not exist at the expected path.
+    Missing,
 }
 
-/// Checks that a specific shell function (rj or ro) is defined in the profile.
-fn check_shell_function(function_check: ShellFunctionCheckParams<'_>) {
-    let has_function = function_check.profile_content.lines().any(|line| {
-        let trimmed = line.trim();
-        let is_powershell_function = trimmed.starts_with(&format!("function {}", function_check.function_name))
-            && trimmed.contains(function_check.expected_command);
-        let is_bash_function = trimmed.starts_with(&format!("{}()", function_check.function_name))
-            && trimmed.contains(function_check.expected_command);
-        return is_powershell_function || is_bash_function;
-    });
+/// Reads the integration script file and compares its version stamp
+/// against the running binary version.
+fn check_integration_file_version() -> IntegrationFileStatus {
+    let script_path = match integration_file_path() {
+        Ok(path) => path,
+        Err(_path_error) => return IntegrationFileStatus::Missing,
+    };
 
-    match has_function {
-        true => {
-            print_pass(&format!("{} function installed", function_check.function_name));
-            function_check.summary.record_check(CheckOutcome::Passed);
-        }
+    let file_content = match std::fs::read_to_string(&script_path) {
+        Ok(content) => content,
+        Err(_read_error) => return IntegrationFileStatus::Missing,
+    };
+
+    let binary_version = env!("CARGO_PKG_VERSION");
+
+    let first_line = match file_content.lines().next() {
+        Some(line) => line,
+        None => return IntegrationFileStatus::Outdated {
+            file_version: String::from("empty"),
+        },
+    };
+
+    match first_line.contains(binary_version) {
+        true => IntegrationFileStatus::Current,
         false => {
-            print_fail(&format!("{} function missing from shell profile", function_check.function_name));
-            print_hint("Run 'rep upgrade' to reinstall shell integration");
-            function_check.summary.record_check(CheckOutcome::Failed);
+            let extracted_version = first_line
+                .rsplit("— v")
+                .next()
+                .map(String::from)
+                .unwrap_or_else(|| String::from("unknown"));
+            IntegrationFileStatus::Outdated {
+                file_version: extracted_version,
+            }
         }
     }
 }
 
-/// Parameters for checking whether the prompt hook is present in the profile.
-struct PromptHookCheckParams<'a> {
-    /// The full text of the shell profile file.
-    profile_content: &'a str,
-    /// Running tally of diagnostic outcomes.
-    summary: &'a mut DiagnosticSummary,
-}
-
-/// Checks that the prompt hook (for automatic tab color) is in the profile.
-fn check_prompt_hook(hook_check: PromptHookCheckParams<'_>) {
-    let has_prompt_hook = hook_check.profile_content.lines().any(|line| {
-        let trimmed = line.trim();
-        return trimmed.contains("rep color") && (
-            trimmed.starts_with("function prompt")
-            || trimmed.starts_with("$_reportal_")
-            || trimmed.starts_with("PROMPT_COMMAND")
-        );
-    });
-
-    match has_prompt_hook {
-        true => {
-            print_pass("Prompt hook installed (auto tab color)");
-            hook_check.summary.record_check(CheckOutcome::Passed);
-        }
-        false => {
-            print_fail("Prompt hook missing (tab color won't auto-apply)");
-            print_hint("Run 'rep upgrade' to reinstall shell integration");
-            hook_check.summary.record_check(CheckOutcome::Failed);
-        }
-    }
-}
-
-/// Checks that the shell profile exists and contains RePortal integration,
-/// then verifies the current session has actually loaded it.
+/// Checks the integration file, shell profile source line, and session state.
 fn check_shell_integration(summary: &mut DiagnosticSummary) {
     println!();
     println!(
@@ -218,6 +198,26 @@ fn check_shell_integration(summary: &mut DiagnosticSummary) {
         }
     };
 
+    match check_integration_file_version() {
+        IntegrationFileStatus::Current => {
+            print_pass(&format!("Integration file up to date (v{})", env!("CARGO_PKG_VERSION")));
+            summary.record_check(CheckOutcome::Passed);
+        }
+        IntegrationFileStatus::Outdated { ref file_version } => {
+            print_fail(&format!(
+                "Integration file outdated (file: {file_version}, binary: v{})",
+                env!("CARGO_PKG_VERSION"),
+            ));
+            print_hint("Run 'rep init' to update");
+            summary.record_check(CheckOutcome::Failed);
+        }
+        IntegrationFileStatus::Missing => {
+            print_fail("Integration file missing");
+            print_hint("Run 'rep init' to create it");
+            summary.record_check(CheckOutcome::Failed);
+        }
+    }
+
     let profile_content = match std::fs::read_to_string(profile_path) {
         Ok(content) => content,
         Err(_read_error) => {
@@ -227,29 +227,30 @@ fn check_shell_integration(summary: &mut DiagnosticSummary) {
         }
     };
 
-    check_shell_function(ShellFunctionCheckParams {
-        profile_content: &profile_content,
-        function_name: "rj",
-        expected_command: "rep jump",
-        summary,
+    let integration_marker = format!(".reportal{}integration", std::path::MAIN_SEPARATOR);
+    let profile_sources_integration = profile_content.lines().any(|line| {
+        return line.contains(&integration_marker);
     });
-    check_shell_function(ShellFunctionCheckParams {
-        profile_content: &profile_content,
-        function_name: "ro",
-        expected_command: "rep open",
-        summary,
-    });
-    check_prompt_hook(PromptHookCheckParams {
-        profile_content: &profile_content,
-        summary,
-    });
+
+    match profile_sources_integration {
+        true => {
+            print_pass("Profile sources integration file");
+            summary.record_check(CheckOutcome::Passed);
+        }
+        false => {
+            print_fail("Profile does not source integration file");
+            print_hint("Run 'rep init' to set it up");
+            summary.record_check(CheckOutcome::Failed);
+        }
+    }
+
     check_session_loaded(summary);
 }
 
 /// Checks whether the REPORTAL_LOADED env var is set, which proves
-/// the shell profile was sourced in the current session. If the profile
-/// file has the integration but this var is missing, rj/ro won't work
-/// until the user reloads.
+/// the shell profile was sourced in the current session. If the
+/// integration file exists but this var is missing, rj and ro
+/// will not work until the user opens a new terminal.
 fn check_session_loaded(summary: &mut DiagnosticSummary) {
     match std::env::var("REPORTAL_LOADED") {
         Ok(_marker_value) => {
@@ -258,7 +259,7 @@ fn check_session_loaded(summary: &mut DiagnosticSummary) {
         }
         Err(_env_error) => {
             print_fail("Shell integration NOT loaded in current session");
-            print_hint("Run '. $PROFILE' (PowerShell) or 'source ~/.bashrc' to reload");
+            print_hint("Open a new terminal tab to pick up changes");
             summary.record_check(CheckOutcome::Failed);
         }
     }
@@ -316,9 +317,10 @@ fn check_repo_paths(path_check: RepoPathCheckParams<'_>) {
 
 /// Validates the full RePortal installation and prints a diagnostic report.
 ///
-/// Checks config file health, shell integration presence, and whether all
-/// registered repo paths exist on disk. Each failed check prints an actionable
-/// hint. Returns Ok(()) unconditionally — diagnostic failures are reported
+/// Checks config file health, integration file version, shell profile
+/// source line, session load state, and whether all registered repo
+/// paths exist on disk. Each failed check prints an actionable hint.
+/// Returns Ok(()) unconditionally — diagnostic failures are reported
 /// to the user via stdout, not propagated as errors.
 pub fn run_doctor() -> Result<(), ReportalError> {
     println!(
