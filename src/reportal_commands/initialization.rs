@@ -12,6 +12,7 @@ use std::process::Command;
 /// Includes shortcuts (rj, ro) and the terminal personalization prompt hook.
 const POWERSHELL_INTEGRATION: &str = r#"
 # RePortal shell integration
+$env:REPORTAL_LOADED = "1"
 function rj { Set-Location (rep jump @args); rep color }
 function ro { rep open @args; rep color }
 $_reportal_original_prompt = $function:prompt
@@ -24,6 +25,7 @@ function prompt { $p = & $_reportal_original_prompt; rep color 2>$null; $p }
 #[cfg(not(target_os = "windows"))]
 const BASH_INTEGRATION: &str = r#"
 # RePortal shell integration
+export REPORTAL_LOADED=1
 rj() { cd "$(rep jump "$@")"; rep color; }
 ro() { rep open "$@"; rep color; }
 "#;
@@ -155,6 +157,7 @@ fn strip_existing_integration(profile_content: &str) -> String {
                     || trimmed.starts_with("rj()")
                     || trimmed.starts_with("ro()")
                     || trimmed.starts_with("PROMPT_COMMAND")
+                    || trimmed.contains("REPORTAL_LOADED")
                     || trimmed.contains("rep jump")
                     || trimmed.contains("rep open")
                     || trimmed.contains("rep color");
