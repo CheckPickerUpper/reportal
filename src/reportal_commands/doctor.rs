@@ -185,7 +185,8 @@ fn check_prompt_hook(hook_check: PromptHookCheckParams<'_>) {
     }
 }
 
-/// Checks that the shell profile exists and contains RePortal integration.
+/// Checks that the shell profile exists and contains RePortal integration,
+/// then verifies the current session has actually loaded it.
 fn check_shell_integration(summary: &mut DiagnosticSummary) {
     println!();
     println!(
@@ -242,6 +243,25 @@ fn check_shell_integration(summary: &mut DiagnosticSummary) {
         profile_content: &profile_content,
         summary,
     });
+    check_session_loaded(summary);
+}
+
+/// Checks whether the REPORTAL_LOADED env var is set, which proves
+/// the shell profile was sourced in the current session. If the profile
+/// file has the integration but this var is missing, rj/ro won't work
+/// until the user reloads.
+fn check_session_loaded(summary: &mut DiagnosticSummary) {
+    match std::env::var("REPORTAL_LOADED") {
+        Ok(_marker_value) => {
+            print_pass("Shell integration loaded in current session");
+            summary.record_check(CheckOutcome::Passed);
+        }
+        Err(_env_error) => {
+            print_fail("Shell integration NOT loaded in current session");
+            print_hint("Run '. $PROFILE' (PowerShell) or 'source ~/.bashrc' to reload");
+            summary.record_check(CheckOutcome::Failed);
+        }
+    }
 }
 
 /// Parameters for validating that registered repo paths exist on disk.
