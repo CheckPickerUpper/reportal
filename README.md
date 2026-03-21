@@ -102,7 +102,7 @@ ro
 | `rep list` | `rep l` | Shows all repos with path, description, tags, and whether it exists on disk |
 | `rep list --tag work` | | Filters repos by tag |
 | `rep jump` | `rep j` | Fuzzy-select a repo, prints the path (used by `rj` shell function) |
-| `rep jump my-api` | `rep j my-api` | Jump directly to a repo by alias |
+| `rep jump my-api` | `rep j my-api` | Jump directly to a repo by alias (also matches `aliases` field) |
 | `rep jump --title "Debug"` | | Override the terminal tab title for this session |
 | `rep open` | `rep o` | Fuzzy-select a repo, opens it in your editor |
 | `rep open my-api` | `rep o my-api` | Opens a repo directly by alias |
@@ -186,6 +186,7 @@ tags = ["personal", "frontend"]
 | `description` | no | `""` | Shown in fuzzy finder and `rep list` |
 | `tags` | no | `[]` | Filter repos with `--tag` |
 | `remote` | no | `""` | Git remote URL for cloning on other machines |
+| `aliases` | no | `[]` | Alternative names for direct jump (e.g. `rj ninja` instead of `rj nro`) |
 | `title` | no | repo alias | Terminal tab title set via OSC 2 on jump/open |
 | `color` | no | reset to default | Terminal background color (`#RRGGBB`) set via OSC 11 on jump/open |
 
