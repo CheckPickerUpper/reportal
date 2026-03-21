@@ -41,37 +41,37 @@ pub fn osc_tab_title_sequence(title_text: &str) -> String {
     return format!("\x1b]2;{title_text}\x07");
 }
 
-/// Returns the OSC 111 escape sequence that resets the terminal background
-/// to its configured default.
-pub fn osc_reset_background_sequence() -> &'static str {
-    return "\x1b]111\x07";
+/// Returns the OSC 104;264 escape sequence that resets the Windows Terminal
+/// tab color strip (FRAME_BACKGROUND) back to the profile default.
+pub fn osc_reset_tab_color_sequence() -> &'static str {
+    return "\x1b]104;264\x07";
 }
 
-/// What to do with the terminal background when jumping to a repo.
-pub enum BackgroundAction {
-    /// Emit an OSC 11 sequence to set a specific background color.
+/// What to do with the terminal tab color strip when jumping to a repo.
+pub enum TabColorAction {
+    /// Emit OSC 6 sequences to set the tab color to specific RGB values.
     SetColor(String),
-    /// Emit an OSC 111 sequence to reset to the terminal's default.
+    /// Emit OSC 6 reset to restore the terminal's default tab color.
     Reset,
 }
 
-/// The resolved tab title and background action for a single jump/open.
+/// The resolved tab title and tab color action for a single jump/open.
 /// Constructed from a repo's config + any CLI overrides, then passed
-/// to `emit_terminal_identity` to write the OSC sequences.
+/// to an emit function to write the OSC sequences.
 pub struct TerminalIdentity {
     resolved_title: String,
-    background_action: BackgroundAction,
+    tab_color_action: TabColorAction,
 }
 
 /// Construction and accessors for terminal identity data.
 impl TerminalIdentity {
     /// Builds a terminal identity from the resolved title string and
-    /// background action. Called after the title fallback chain
+    /// tab color action. Called after the title fallback chain
     /// (flag > config > alias) has been resolved.
     pub fn new(identity_params: TerminalIdentityParams) -> Self {
         return Self {
             resolved_title: identity_params.resolved_title,
-            background_action: identity_params.background_action,
+            tab_color_action: identity_params.tab_color_action,
         };
     }
 
@@ -80,9 +80,9 @@ impl TerminalIdentity {
         &self.resolved_title
     }
 
-    /// Whether to set a specific color or reset to the terminal default.
-    pub fn background_action(&self) -> &BackgroundAction {
-        &self.background_action
+    /// Whether to set a specific tab color or reset to the terminal default.
+    pub fn tab_color_action(&self) -> &TabColorAction {
+        &self.tab_color_action
     }
 }
 
@@ -90,35 +90,34 @@ impl TerminalIdentity {
 pub struct TerminalIdentityParams {
     /// The final tab title after resolving flag > config > alias fallback.
     pub resolved_title: String,
-    /// Whether to set a color or reset the background.
-    pub background_action: BackgroundAction,
+    /// Whether to set a tab color or reset to default.
+    pub tab_color_action: TabColorAction,
 }
 
-/// Emits the appropriate OSC sequences to stderr for a repo's terminal
-/// personalization (tab title + background color). Used by jump/open
-/// where stdout carries the path. Skips emission if stderr is not a TTY.
+/// Emits OSC sequences to stderr for tab title + tab color strip.
+/// Used by jump/open where stdout carries the path for the shell function.
+/// Skips emission if stderr is not a TTY.
 pub fn emit_terminal_identity_to_stderr(identity: &TerminalIdentity) {
     if !std::io::IsTerminal::is_terminal(&std::io::stderr()) {
         return;
     }
     eprint!("{}", osc_tab_title_sequence(identity.resolved_title()));
-    match identity.background_action() {
-        BackgroundAction::SetColor(osc_sequence) => eprint!("{osc_sequence}"),
-        BackgroundAction::Reset => eprint!("{}", osc_reset_background_sequence()),
+    match identity.tab_color_action() {
+        TabColorAction::SetColor(osc_sequence) => eprint!("{osc_sequence}"),
+        TabColorAction::Reset => eprint!("{}", osc_reset_tab_color_sequence()),
     }
 }
 
-/// Emits the appropriate OSC sequences to stdout for a repo's terminal
-/// personalization (tab title + background color). Used by the `color`
-/// subcommand where nothing captures stdout. Skips emission if stdout
-/// is not a TTY.
+/// Emits OSC sequences to stdout for tab title + tab color strip.
+/// Used by the `color` subcommand where nothing captures stdout.
+/// Skips emission if stdout is not a TTY.
 pub fn emit_terminal_identity_to_stdout(identity: &TerminalIdentity) {
     if !std::io::IsTerminal::is_terminal(&std::io::stdout()) {
         return;
     }
     print!("{}", osc_tab_title_sequence(identity.resolved_title()));
-    match identity.background_action() {
-        BackgroundAction::SetColor(osc_sequence) => print!("{osc_sequence}"),
-        BackgroundAction::Reset => print!("{}", osc_reset_background_sequence()),
+    match identity.tab_color_action() {
+        TabColorAction::SetColor(osc_sequence) => print!("{osc_sequence}"),
+        TabColorAction::Reset => print!("{}", osc_reset_tab_color_sequence()),
     }
 }

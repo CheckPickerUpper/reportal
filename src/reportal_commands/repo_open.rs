@@ -2,7 +2,7 @@
 
 use crate::error::ReportalError;
 use crate::reportal_config::{PathVisibility, RepoColor, ReportalConfig, TabTitle, TagFilter};
-use crate::terminal_style::{self, BackgroundAction, TerminalIdentity, TerminalIdentityParams};
+use crate::terminal_style::{self, TabColorAction, TerminalIdentity, TerminalIdentityParams};
 use dialoguer::{theme::ColorfulTheme, FuzzySelect};
 use owo_colors::OwoColorize;
 use std::process::Command;
@@ -79,16 +79,16 @@ pub fn run_open(open_params: OpenCommandParams<'_>) -> Result<(), ReportalError>
         },
     };
 
-    let background_action = match selected_repo.repo_color() {
+    let tab_color_action = match selected_repo.repo_color() {
         RepoColor::Themed(hex_color) => {
-            BackgroundAction::SetColor(hex_color.as_osc_background_sequence())
+            TabColorAction::SetColor(hex_color.as_osc_tab_color_sequence())
         }
-        RepoColor::ResetToDefault => BackgroundAction::Reset,
+        RepoColor::ResetToDefault => TabColorAction::Reset,
     };
 
     let identity = TerminalIdentity::new(TerminalIdentityParams {
         resolved_title,
-        background_action,
+        tab_color_action,
     });
     terminal_style::emit_terminal_identity_to_stderr(&identity);
 

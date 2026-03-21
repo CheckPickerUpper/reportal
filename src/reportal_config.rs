@@ -47,10 +47,18 @@ impl HexColor {
         &self.value
     }
 
-    /// Returns the OSC 11 escape sequence that sets the terminal background
-    /// to this color (e.g. `\x1b]11;#1a1a2e\x07`).
-    pub fn as_osc_background_sequence(&self) -> String {
-        return format!("\x1b]11;{}\x07", self.value);
+    /// Returns the OSC 4;264 escape sequence that sets the Windows Terminal
+    /// tab color strip to this color. Index 264 is FRAME_BACKGROUND in WT's
+    /// color table. Silently ignored by terminals that don't support it.
+    /// Format: `\x1b]4;264;rgb:RR/GG/BB\x07`
+    pub fn as_osc_tab_color_sequence(&self) -> String {
+        let hex_digits = &self.value[1..];
+        let red_hex = &hex_digits[0..2];
+        let green_hex = &hex_digits[2..4];
+        let blue_hex = &hex_digits[4..6];
+        return format!(
+            "\x1b]4;264;rgb:{red_hex}/{green_hex}/{blue_hex}\x07"
+        );
     }
 }
 
