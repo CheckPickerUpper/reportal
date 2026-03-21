@@ -12,6 +12,7 @@ mod repo_status;
 mod repo_sync;
 
 pub use doctor::run_doctor;
+pub use initialization::ensure_integration_file_current;
 pub use initialization::run_init;
 pub use repo_add::run_add;
 pub use repo_edit::run_edit;
