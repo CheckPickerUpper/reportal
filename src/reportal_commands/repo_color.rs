@@ -6,7 +6,7 @@
 
 use crate::error::ReportalError;
 use crate::reportal_config::{RepoColor, ReportalConfig, TabTitle};
-use crate::terminal_style::{self, BackgroundAction, TerminalIdentity, TerminalIdentityParams};
+use crate::terminal_style::{self, TabColorAction, TerminalIdentity, TerminalIdentityParams};
 
 /// Parameters for the color subcommand.
 pub struct ColorCommandParams<'a> {
@@ -30,15 +30,15 @@ pub fn run_color(color_params: ColorCommandParams<'_>) -> Result<(), ReportalErr
                 TabTitle::Custom(custom_title) => custom_title.to_string(),
                 TabTitle::UseAlias => color_params.repo_alias.to_string(),
             };
-            let background_action = match found_repo.repo_color() {
+            let tab_color_action = match found_repo.repo_color() {
                 RepoColor::Themed(hex_color) => {
-                    BackgroundAction::SetColor(hex_color.as_osc_background_sequence())
+                    TabColorAction::SetColor(hex_color.as_osc_tab_color_sequence())
                 }
-                RepoColor::ResetToDefault => BackgroundAction::Reset,
+                RepoColor::ResetToDefault => TabColorAction::Reset,
             };
             let identity = TerminalIdentity::new(TerminalIdentityParams {
                 resolved_title,
-                background_action,
+                tab_color_action,
             });
             terminal_style::emit_terminal_identity_to_stdout(&identity);
         }
@@ -78,21 +78,21 @@ pub fn run_color(color_params: ColorCommandParams<'_>) -> Result<(), ReportalErr
                         TabTitle::Custom(custom_title) => custom_title.to_string(),
                         TabTitle::UseAlias => best_alias.to_string(),
                     };
-                    let background_action = match matched_repo.repo_color() {
+                    let tab_color_action = match matched_repo.repo_color() {
                         RepoColor::Themed(hex_color) => {
-                            BackgroundAction::SetColor(hex_color.as_osc_background_sequence())
+                            TabColorAction::SetColor(hex_color.as_osc_tab_color_sequence())
                         }
-                        RepoColor::ResetToDefault => BackgroundAction::Reset,
+                        RepoColor::ResetToDefault => TabColorAction::Reset,
                     };
                     let identity = TerminalIdentity::new(TerminalIdentityParams {
                         resolved_title,
-                        background_action,
+                        tab_color_action,
                     });
                     terminal_style::emit_terminal_identity_to_stdout(&identity);
                 }
                 None => {
                     if std::io::IsTerminal::is_terminal(&std::io::stdout()) {
-                        print!("{}", terminal_style::osc_reset_background_sequence());
+                        print!("{}", terminal_style::osc_reset_tab_color_sequence());
                     }
                 }
             }
