@@ -1,4 +1,5 @@
 /// Subcommand implementations for the RePortal CLI.
+mod doctor;
 mod initialization;
 mod repo_add;
 mod repo_color;
@@ -10,6 +11,7 @@ mod repo_remove;
 mod repo_status;
 mod repo_sync;
 
+pub use doctor::run_doctor;
 pub use initialization::run_init;
 pub use initialization::run_upgrade;
 pub use repo_add::run_add;
