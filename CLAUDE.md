@@ -4,6 +4,14 @@ A cross-platform CLI for jumping between, opening, and managing dev repos; writt
 
 ## Build & Install
 
+Published on **crates.io**. To install or update to the latest published version:
+
+```
+cargo install reportal --force
+```
+
+For local development builds:
+
 ```
 cargo build
 cargo install --path .
