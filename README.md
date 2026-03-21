@@ -98,8 +98,7 @@ ro
 
 | Command | Alias | What it does |
 |---------|-------|-------------|
-| `rep init` | | Creates config and installs shell integration (first-time setup) |
-| `rep upgrade` | | Updates shell integration to the latest version (run after updating RePortal) |
+| `rep init` | | Creates config and installs shell integration (safe to re-run on updates) |
 | `rep list` | `rep l` | Shows all repos with path, description, tags, and whether it exists on disk |
 | `rep list --tag work` | | Filters repos by tag |
 | `rep jump` | `rep j` | Fuzzy-select a repo, prints the path (used by `rj` shell function) |
@@ -123,7 +122,7 @@ ro
 
 ## Shell integration
 
-`rep init` automatically installs these shortcuts into your shell profile:
+`rep init` writes a standalone integration script to `~/.reportal/integration.ps1` (or `.sh`) and adds a single source line to your shell profile. The profile line never changes between versions; updating the binary is all you need.
 
 | Shortcut | What it does |
 |----------|-------------|
@@ -132,21 +131,7 @@ ro
 | `ro` | Fuzzy-select a repo and open it in your editor |
 | `ro my-api` | Open a repo directly by alias |
 
-Supports PowerShell, Bash, Zsh. Detected and installed during `rep init`.
-
-You can also set them up manually:
-
-**PowerShell:**
-```powershell
-function rj { Set-Location (rep jump @args) }
-function ro { rep open @args }
-```
-
-**Bash / Zsh:**
-```bash
-rj() { cd "$(rep jump "$@")"; }
-ro() { rep open "$@"; }
-```
+Supports PowerShell, Bash, Zsh. Detected and installed during `rep init`. Re-run `rep init` after major version updates to regenerate the integration file.
 
 ## Config
 
