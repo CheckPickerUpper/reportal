@@ -94,30 +94,60 @@ pub struct TerminalIdentityParams {
     pub tab_color_action: TabColorAction,
 }
 
-/// Emits OSC sequences to stderr for tab title + tab color strip.
-/// Used by jump/open where stdout carries the path for the shell function.
-/// Skips emission if stderr is not a TTY.
-pub fn emit_terminal_identity_to_stderr(identity: &TerminalIdentity) {
-    if !std::io::IsTerminal::is_terminal(&std::io::stderr()) {
-        return;
-    }
-    eprint!("{}", osc_tab_title_sequence(identity.resolved_title()));
-    match identity.tab_color_action() {
-        TabColorAction::SetColor(osc_sequence) => eprint!("{osc_sequence}"),
-        TabColorAction::Reset => eprint!("{}", osc_reset_tab_color_sequence()),
+/// Writes a raw string directly to the console handle (CONOUT$ on Windows,
+/// /dev/tty on Unix). Silently skipped if the console can't be opened.
+pub fn write_to_console(text: &str) {
+    use std::io::Write;
+
+    #[cfg(target_os = "windows")]
+    let console_handle = std::fs::OpenOptions::new()
+        .write(true)
+        .open("CONOUT$");
+
+    #[cfg(not(target_os = "windows"))]
+    let console_handle = std::fs::OpenOptions::new()
+        .write(true)
+        .open("/dev/tty");
+
+    match console_handle {
+        Ok(mut console) => {
+            let _write_result = console.write_all(text.as_bytes());
+            let _flush_result = console.flush();
+        }
+        Err(_console_open_error) => {}
     }
 }
 
-/// Emits OSC sequences to stdout for tab title + tab color strip.
-/// Used by the `color` subcommand where nothing captures stdout.
-/// Skips emission if stdout is not a TTY.
-pub fn emit_terminal_identity_to_stdout(identity: &TerminalIdentity) {
-    if !std::io::IsTerminal::is_terminal(&std::io::stdout()) {
-        return;
-    }
-    print!("{}", osc_tab_title_sequence(identity.resolved_title()));
-    match identity.tab_color_action() {
-        TabColorAction::SetColor(osc_sequence) => print!("{osc_sequence}"),
-        TabColorAction::Reset => print!("{}", osc_reset_tab_color_sequence()),
+/// Writes OSC sequences directly to the console, bypassing both stdout
+/// and stderr. This is necessary because PowerShell captures stdout in
+/// subshells and prompt functions, so escape sequences written to stdout
+/// or stderr never reach the terminal. On Windows this opens CONOUT$;
+/// on Unix it opens /dev/tty. If the console can't be opened (e.g. in
+/// a headless context), the sequences are silently skipped.
+pub fn emit_terminal_identity_to_console(identity: &TerminalIdentity) {
+    use std::io::Write;
+
+    #[cfg(target_os = "windows")]
+    let console_handle = std::fs::OpenOptions::new()
+        .write(true)
+        .open("CONOUT$");
+
+    #[cfg(not(target_os = "windows"))]
+    let console_handle = std::fs::OpenOptions::new()
+        .write(true)
+        .open("/dev/tty");
+
+    match console_handle {
+        Ok(mut console) => {
+            let title_sequence = osc_tab_title_sequence(identity.resolved_title());
+            let color_sequence = match identity.tab_color_action() {
+                TabColorAction::SetColor(osc_sequence) => osc_sequence.to_string(),
+                TabColorAction::Reset => osc_reset_tab_color_sequence().to_string(),
+            };
+            let combined = format!("{title_sequence}{color_sequence}");
+            let _write_result = console.write_all(combined.as_bytes());
+            let _flush_result = console.flush();
+        }
+        Err(_console_open_error) => {}
     }
 }
