@@ -253,6 +253,9 @@ pub struct RepoEntry {
     /// Git remote URL for cloning on other machines.
     #[serde(default)]
     remote: String,
+    /// Alternative names that can be used to jump to this repo directly.
+    #[serde(default)]
+    aliases: Vec<String>,
     /// Custom tab title shown in the terminal when jumping to this repo.
     #[serde(default)]
     title: TabTitle,
@@ -375,6 +378,7 @@ impl RepoRegistrationBuilder {
             description: self.repo_description,
             tags: self.repo_tags,
             remote: self.repo_remote,
+            aliases: Vec::new(),
             title: self.repo_title,
             color: self.repo_color,
         };
@@ -403,6 +407,11 @@ impl RepoEntry {
     /// Tags assigned to this repo for filtering and grouping.
     pub fn tags(&self) -> &[String] {
         &self.tags
+    }
+
+    /// Alternative names that can be used to jump to this repo directly.
+    pub fn aliases(&self) -> &[String] {
+        &self.aliases
     }
 
     /// The configured tab title preference for this repo.
@@ -505,11 +514,45 @@ impl ReportalConfig {
         self.repos.iter().collect()
     }
 
-    /// Looks up a repo by its alias. Returns `RepoNotFound` if not registered.
+    /// Looks up a repo by its primary key or any of its alternative aliases.
+    /// Checks the primary key first, then walks all repos checking their
+    /// `aliases` field. Returns `RepoNotFound` if no match is found.
     pub fn get_repo(&self, alias: &str) -> Result<&RepoEntry, ReportalError> {
-        self.repos.get(alias).ok_or_else(|| ReportalError::RepoNotFound {
-            alias: alias.to_string(),
-        })
+        match self.repos.get(alias) {
+            Some(found_repo) => return Ok(found_repo),
+            None => {
+                for (_primary_key, repo_entry) in &self.repos {
+                    let has_matching_alias = repo_entry.aliases.iter().any(|alt| alt == alias);
+                    match has_matching_alias {
+                        true => return Ok(repo_entry),
+                        false => {}
+                    }
+                }
+                return Err(ReportalError::RepoNotFound {
+                    alias: alias.to_string(),
+                });
+            }
+        }
+    }
+
+    /// Looks up a repo's primary key by searching both primary keys and
+    /// alternative aliases. Returns the primary key that owns the match.
+    pub fn resolve_primary_key<'a>(&'a self, alias: &'a str) -> Result<&'a str, ReportalError> {
+        match self.repos.contains_key(alias) {
+            true => return Ok(alias),
+            false => {
+                for (primary_key, repo_entry) in &self.repos {
+                    let has_matching_alias = repo_entry.aliases.iter().any(|alt| alt == alias);
+                    match has_matching_alias {
+                        true => return Ok(primary_key.as_str()),
+                        false => {}
+                    }
+                }
+                return Err(ReportalError::RepoNotFound {
+                    alias: alias.to_string(),
+                });
+            }
+        }
     }
 
     /// Registers a new repo from a validated builder result.
