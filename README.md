@@ -10,7 +10,7 @@
 [![Crates.io](https://img.shields.io/crates/v/reportal.svg)](https://crates.io/crates/reportal)
 [![GitHub Release](https://img.shields.io/github/v/release/CheckPickerUpper/reportal)](https://github.com/CheckPickerUpper/reportal/releases/latest)
 [![Homebrew](https://img.shields.io/badge/homebrew-tap-FBB040.svg)](https://github.com/CheckPickerUpper/homebrew-tap)
-[![Scoop](https://img.shields.io/badge/scoop-main-5B5EA6.svg)](https://scoop.sh/#/apps?q=reportal)
+[![Scoop](https://img.shields.io/badge/scoop-bucket-5B5EA6.svg)](https://github.com/CheckPickerUpper/scoop-reportal)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.78%2B-orange.svg)](https://www.rust-lang.org/)
 [![Windows](https://img.shields.io/badge/platform-windows%20%7C%20macos%20%7C%20linux-lightgrey.svg)]()
@@ -42,6 +42,7 @@ brew install reportal
 ### Scoop (Windows)
 
 ```powershell
+scoop bucket add reportal https://github.com/CheckPickerUpper/scoop-reportal
 scoop install reportal
 ```
 
