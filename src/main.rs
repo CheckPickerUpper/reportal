@@ -99,6 +99,8 @@ enum ReportalSubcommand {
         #[arg(long)]
         tag: Option<String>,
     },
+    /// Diagnose config, shell integration, and repo path issues
+    Doctor,
 }
 
 fn main() {
@@ -189,6 +191,7 @@ fn main() {
             };
             reportal_commands::run_sync(tag_filter)
         }
+        ReportalSubcommand::Doctor => reportal_commands::run_doctor(),
     };
 
     match command_result {
