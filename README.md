@@ -289,7 +289,7 @@ PROMPT_COMMAND='rep color 2>/dev/null'
 - [ ] `dashboard` — rich overview with branches, dirty state, last commit
 - [ ] `clone --all` — clone missing repos from config (machine sync)
 - [ ] Shell completions
-- [ ] Publish to crates.io
+- [x] Publish to crates.io
 
 ## Contributing
 
