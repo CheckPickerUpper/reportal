@@ -102,6 +102,8 @@ enum ReportalSubcommand {
 }
 
 fn main() {
+    reportal_commands::ensure_integration_file_current();
+
     let parsed_cli = ReportalCli::parse();
 
     let command_result = match parsed_cli.subcommand {
