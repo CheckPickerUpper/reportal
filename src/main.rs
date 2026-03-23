@@ -9,7 +9,7 @@ mod reportal_config;
 mod terminal_style;
 
 use clap::{Parser, Subcommand};
-use reportal_commands::{ColorCommandParams, JumpCommandParams, OpenCommandParams};
+use reportal_commands::{ColorCommandParams, JumpCommandParams, OpenCommandParams, TitleOutput};
 use reportal_config::TagFilter;
 
 /// A fast CLI tool for jumping between and managing your dev repos.
@@ -83,6 +83,9 @@ enum ReportalSubcommand {
         /// Look up this repo by alias instead of matching the current directory
         #[arg(long)]
         repo: Option<String>,
+        /// Print the resolved tab title to stdout (for shell integration)
+        #[arg(long)]
+        print_title: bool,
     },
     /// Show git status across all registered repos
     #[command(alias = "s")]
@@ -167,13 +170,18 @@ fn main() {
         ReportalSubcommand::Remove { alias } => {
             reportal_commands::run_remove(&alias)
         }
-        ReportalSubcommand::Color { repo } => {
+        ReportalSubcommand::Color { repo, print_title } => {
             let repo_alias = match repo {
                 Some(ref provided_repo) => provided_repo.as_str(),
                 None => "",
             };
+            let title_output = match print_title {
+                true => TitleOutput::PrintToStdout,
+                false => TitleOutput::Silent,
+            };
             reportal_commands::run_color(ColorCommandParams {
                 repo_alias,
+                title_output,
             })
         }
         ReportalSubcommand::Status { tag } => {
