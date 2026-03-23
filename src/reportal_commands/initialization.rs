@@ -32,7 +32,7 @@ $env:REPORTAL_LOADED = "1"
 function rj {{ Set-Location (rep jump @args); rep color }}
 function ro {{ rep open @args; rep color }}
 $_reportal_original_prompt = $function:prompt
-function prompt {{ $p = & $_reportal_original_prompt; rep color 2>$null; $p -replace "`e\]0;[^`a]*`a","" -replace "`e\]2;[^`a]*`a","" }}
+function prompt {{ $p = & $_reportal_original_prompt; $t = rep color --print-title 2>$null; if ($t) {{ $Host.UI.RawUI.WindowTitle = $t }}; $p }}
 "#,
         env!("CARGO_PKG_VERSION"),
     );
@@ -49,7 +49,7 @@ fn bash_integration_content() -> String {
 export REPORTAL_LOADED=1
 rj() {{ cd "$(rep jump "$@")"; rep color; }}
 ro() {{ rep open "$@"; rep color; }}
-_reportal_hook() {{ rep color 2>{null_device}; PS1=$(printf '%s' "$PS1" | sed 's/\x1b\][02];[^\x07]*\x07//g'); }}
+_reportal_hook() {{ local _t; _t=$(rep color --print-title 2>{null_device}); [ -n "$_t" ] && printf '\033]2;%s\007' "$_t"; }}
 PROMPT_COMMAND="${{PROMPT_COMMAND:+$PROMPT_COMMAND;}}_reportal_hook"
 "#,
         version = env!("CARGO_PKG_VERSION"),
