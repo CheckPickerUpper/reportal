@@ -174,15 +174,15 @@ tags = ["personal", "frontend"]
 | `tags` | no | `[]` | Filter repos with `--tag` |
 | `remote` | no | `""` | Git remote URL for cloning on other machines |
 | `aliases` | no | `[]` | Alternative names for direct jump (e.g. `rj ninja` instead of `rj nro`) |
-| `title` | no | repo alias | Terminal tab title set via OSC 2 on jump/open |
-| `color` | no | reset to default | Terminal background color (`#RRGGBB`) set via OSC 11 on jump/open |
+| `title` | no | repo alias | Terminal tab title on jump/open |
+| `color` | no | reset to default | Terminal tab color (`#RRGGBB`) on jump/open |
 
 ## Terminal personalization
 
 When you jump to or open a repo, RePortal automatically sets:
 
-1. **Tab title** (OSC 2) — uses the `title` config field, falling back to the repo alias
-2. **Background color** (OSC 11) — uses the `color` config field; repos without a color reset the terminal to its default
+1. **Tab title** — uses the `title` config field, falling back to the repo alias
+2. **Tab color** — uses the `color` config field; repos without a color reset to the terminal default
 
 The `--title` flag on `jump`/`open` lets you override the tab title for a single session without changing config.
 
