@@ -184,8 +184,6 @@ When you jump to or open a repo, RePortal automatically sets:
 1. **Tab title** (OSC 2) — uses the `title` config field, falling back to the repo alias
 2. **Background color** (OSC 11) — uses the `color` config field; repos without a color reset the terminal to its default
 
-Unsupported terminals silently ignore these sequences. RePortal's tab title takes priority over other prompt tools.
-
 The `--title` flag on `jump`/`open` lets you override the tab title for a single session without changing config.
 
 ### Shell hook for new terminals
