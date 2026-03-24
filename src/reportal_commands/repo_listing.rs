@@ -31,10 +31,11 @@ pub fn run_list(tag_filter: TagFilter) -> Result<(), ReportalError> {
     for (alias, repo) in &matching_repos {
         let directory_exists = repo.resolved_path().exists();
 
+        let swatch_style = terminal_style::swatch_style_for_repo_color(repo.repo_color())?;
         let uppercase_alias = alias.to_uppercase();
         println!(
             "  {} {}",
-            "██".style(terminal_style::ALIAS_STYLE),
+            "██".style(swatch_style),
             uppercase_alias.style(terminal_style::ALIAS_STYLE),
         );
 
@@ -49,6 +50,15 @@ pub fn run_list(tag_filter: TagFilter) -> Result<(), ReportalError> {
                 "     {} {}",
                 "Desc:".style(terminal_style::LABEL_STYLE),
                 repo.description(),
+            );
+        }
+
+        if !repo.aliases().is_empty() {
+            let formatted_aliases = repo.aliases().join(", ");
+            println!(
+                "     {} {}",
+                "Aliases:".style(terminal_style::LABEL_STYLE),
+                formatted_aliases.style(terminal_style::PATH_STYLE),
             );
         }
 
