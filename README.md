@@ -118,6 +118,10 @@ ro
 | `rep add ~/dev/foo` | `rep a ~/dev/foo` | Register a local repo (auto-detects git remote, suggests alias) |
 | `rep add https://github.com/org/repo.git` | | Clone a repo and register it (asks where to place it) |
 | `rep remove my-api` | `rep rm my-api` | Unregister a repo (does not delete files) |
+| `rep ai` | | Fuzzy-select a repo and launch the default AI coding CLI in it |
+| `rep ai my-api` | | Launch default AI tool directly in a repo by alias |
+| `rep ai --tool codex` | | Launch a specific AI tool (overrides default) |
+| `rep ai my-api --tool codex` | | Specific repo + specific tool |
 | `rep doctor` | | Diagnose config, shell integration, and repo path issues |
 
 ## Shell integration
@@ -164,6 +168,7 @@ tags = ["personal", "frontend"]
 | `default_clone_root` | Any path | `~/dev` | Where `rep add <url>` clones to |
 | `path_on_select` | `show`, `hide` | `show` | Print path after picking a repo in jump/open |
 | `path_display_format` | `absolute`, `relative` | `absolute` | Full path or relative to current directory |
+| `default_ai_tool` | Any tool name | `claude` | Which AI CLI `rep ai` launches by default |
 
 ### Per-repo fields
 
@@ -176,6 +181,31 @@ tags = ["personal", "frontend"]
 | `aliases` | no | `[]` | Alternative names for direct jump (e.g. `rj ninja` instead of `rj nro`) |
 | `title` | no | repo alias | Terminal tab title on jump/open |
 | `color` | no | reset to default | Terminal tab color (`#RRGGBB`) on jump/open |
+
+### AI tools
+
+Configure which AI coding CLIs are available for `rep ai`:
+
+```toml
+[ai_tools.claude]
+command = "claude"
+args = []
+
+[ai_tools.codex]
+command = "codex"
+args = []
+
+[ai_tools.aider]
+command = "aider"
+args = []
+```
+
+| Field | Required | Default | What it controls |
+|-------|----------|---------|-----------------|
+| `command` | yes | — | The executable to run |
+| `args` | no | `[]` | Extra arguments passed on every launch |
+
+New configs created via `rep init` ship with claude, codex, and aider pre-registered.
 
 ## Terminal personalization
 
@@ -217,8 +247,8 @@ PROMPT_COMMAND='rep color 2>/dev/null'
 - [x] `status` — git status across all repos
 - [x] `sync` — pull latest across repos
 - [x] `doctor` — diagnose config, shell integration, and repo path issues
+- [x] `ai` — launch AI coding CLIs (Claude Code, Codex, aider) in any repo with configurable defaults
 - [ ] `edit` UX overhaul — fuzzy-select what to edit (repos, AI tools, global settings), field menu
-- [ ] `ai` — launch AI coding CLIs (Claude Code, Codex, aider) in any repo with configurable defaults
 - [ ] `dashboard` — rich overview with branches, dirty state, last commit
 - [ ] `clone --all` — clone missing repos from config (machine sync)
 - [ ] Shell completions

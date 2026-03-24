@@ -111,6 +111,9 @@ pub struct ReportalConfig {
     /// Map of alias to repo definition.
     #[serde(default)]
     repos: BTreeMap<String, RepoEntry>,
+    /// Map of tool name to AI CLI tool definition.
+    #[serde(default)]
+    ai_tools: BTreeMap<String, AiToolEntry>,
 }
 
 /// How repo paths are displayed in output after selecting a repo.
@@ -179,6 +182,32 @@ pub struct ReportalSettings {
     /// How to format paths when displayed: absolute or relative.
     #[serde(default = "default_path_display_format")]
     path_display_format: PathDisplayFormat,
+    /// Which AI tool to launch by default when no --tool flag is given.
+    #[serde(default)]
+    default_ai_tool: String,
+}
+
+/// A registered AI coding CLI tool with its launch command and arguments.
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct AiToolEntry {
+    /// The executable command to run (e.g. "claude", "codex").
+    command: String,
+    /// Additional arguments passed to the command on every launch.
+    #[serde(default)]
+    args: Vec<String>,
+}
+
+/// Accessors for AI tool configuration.
+impl AiToolEntry {
+    /// The executable name used to spawn the AI CLI process.
+    pub fn cli_command(&self) -> &str {
+        &self.command
+    }
+
+    /// Extra arguments appended after the executable on every launch.
+    pub fn launch_args(&self) -> &[String] {
+        &self.args
+    }
 }
 
 /// Step-by-step builder for registering a new repo.
@@ -311,6 +340,7 @@ impl Default for ReportalSettings {
             default_clone_root: String::new(),
             path_on_select: default_path_visibility(),
             path_display_format: default_path_display_format(),
+            default_ai_tool: String::new(),
         }
     }
 }
@@ -614,6 +644,23 @@ impl ReportalConfig {
         })
     }
 
+    /// Returns the configured default AI tool name, if set.
+    pub fn default_ai_tool(&self) -> &str {
+        &self.settings.default_ai_tool
+    }
+
+    /// Looks up an AI tool by name. Returns `AiToolNotFound` if missing.
+    pub fn get_ai_tool(&self, tool_name: &str) -> Result<&AiToolEntry, ReportalError> {
+        self.ai_tools.get(tool_name).ok_or_else(|| ReportalError::AiToolNotFound {
+            tool_name: tool_name.to_string(),
+        })
+    }
+
+    /// Returns all registered AI tools with their names.
+    pub fn ai_tools_list(&self) -> Vec<(&String, &AiToolEntry)> {
+        self.ai_tools.iter().collect()
+    }
+
     /// Creates a default empty config with sensible defaults for first-time setup.
     pub fn create_default() -> Self {
         Self {
@@ -622,8 +669,23 @@ impl ReportalConfig {
                 default_clone_root: "~/dev".to_string(),
                 path_on_select: PathVisibility::Show,
                 path_display_format: PathDisplayFormat::Absolute,
+                default_ai_tool: "claude".to_string(),
             },
             repos: BTreeMap::new(),
+            ai_tools: BTreeMap::from([
+                ("claude".to_string(), AiToolEntry {
+                    command: "claude".to_string(),
+                    args: Vec::new(),
+                }),
+                ("codex".to_string(), AiToolEntry {
+                    command: "codex".to_string(),
+                    args: Vec::new(),
+                }),
+                ("aider".to_string(), AiToolEntry {
+                    command: "aider".to_string(),
+                    args: Vec::new(),
+                }),
+            ]),
         }
     }
 }

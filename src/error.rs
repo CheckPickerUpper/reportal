@@ -66,4 +66,26 @@ pub enum ReportalError {
         /// The malformed color string.
         value: String,
     },
+
+    /// An AI tool name was not found in the config.
+    #[error("AI tool '{tool_name}' not found in config. Add it under [ai_tools.{tool_name}]")]
+    AiToolNotFound {
+        /// The tool name that was looked up.
+        tool_name: String,
+    },
+
+    /// The AI tool process failed to launch.
+    #[error("Failed to launch AI tool: {reason}")]
+    AiToolLaunchFailure {
+        /// The underlying OS error message.
+        reason: String,
+    },
+
+    /// No AI tools are configured.
+    #[error("No AI tools configured. Add [ai_tools.<name>] sections to your config")]
+    NoAiToolsConfigured,
+
+    /// No default AI tool is set and none was specified via --tool.
+    #[error("No default AI tool set. Use --tool <name> or set default_ai_tool in config")]
+    NoDefaultAiTool,
 }
