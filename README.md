@@ -209,7 +209,7 @@ PROMPT_COMMAND='rep color 2>/dev/null'
 - [x] Shell integration auto-install (`rj`, `ro`)
 - [x] Clone from URL with sibling/child placement
 - [x] Auto-detect git remote on `add`
-- [x] Colored output with themed fuzzy finder
+- [x] Colored output with themed fuzzy finder (repo color swatches in `rep list`, aliases in fuzzy finder)
 - [x] `rep` short alias
 - [x] Configurable path display (absolute/relative, show/hide)
 - [x] Per-repo terminal tab title and background color (OSC 2 / OSC 11)
@@ -217,6 +217,8 @@ PROMPT_COMMAND='rep color 2>/dev/null'
 - [x] `status` — git status across all repos
 - [x] `sync` — pull latest across repos
 - [x] `doctor` — diagnose config, shell integration, and repo path issues
+- [ ] `edit` UX overhaul — fuzzy-select what to edit (repos, AI tools, global settings), field menu
+- [ ] `ai` — launch AI coding CLIs (Claude Code, Codex, aider) in any repo with configurable defaults
 - [ ] `dashboard` — rich overview with branches, dirty state, last commit
 - [ ] `clone --all` — clone missing repos from config (machine sync)
 - [ ] Shell completions

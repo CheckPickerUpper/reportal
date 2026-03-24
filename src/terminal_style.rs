@@ -5,6 +5,9 @@
 
 use owo_colors::{OwoColorize, Style};
 
+/// Neutral gray for repos with no configured color.
+pub const DEFAULT_SWATCH_STYLE: Style = Style::new().dimmed();
+
 /// Blue used for repo aliases and labels.
 pub const ALIAS_STYLE: Style = Style::new().blue().bold();
 
@@ -25,6 +28,21 @@ pub const LABEL_STYLE: Style = Style::new().cyan();
 
 /// Bold white for emphasis.
 pub const EMPHASIS_STYLE: Style = Style::new().bold();
+
+/// Builds an owo-colors `Style` for the swatch block (`██`) based on
+/// the repo's configured color. Returns a truecolor foreground style
+/// for themed repos, or the default gray for repos with no color.
+pub fn swatch_style_for_repo_color(repo_color: &crate::reportal_config::RepoColor) -> Result<Style, crate::error::ReportalError> {
+    match repo_color {
+        crate::reportal_config::RepoColor::Themed(hex_color) => {
+            let (red, green, blue) = hex_color.as_rgb_bytes()?;
+            return Ok(Style::new().truecolor(red, green, blue));
+        }
+        crate::reportal_config::RepoColor::ResetToDefault => {
+            return Ok(DEFAULT_SWATCH_STYLE);
+        }
+    }
+}
 
 /// Prints an error message with a red "Error:" prefix.
 pub fn print_error(error_message: &str) {

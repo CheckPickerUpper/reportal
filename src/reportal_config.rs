@@ -47,6 +47,24 @@ impl HexColor {
         &self.value
     }
 
+    /// Extracts the red, green, and blue bytes from the validated hex string.
+    ///
+    /// Safe to call on any `HexColor` because `parse()` already validated
+    /// that exactly 6 hex digits follow the `#`.
+    pub fn as_rgb_bytes(&self) -> Result<(u8, u8, u8), ReportalError> {
+        let hex_digits = &self.value[1..];
+        let parse_hex_pair = |slice: &str| -> Result<u8, ReportalError> {
+            u8::from_str_radix(slice, 16)
+                .map_err(|parse_error| ReportalError::InvalidColor {
+                    value: format!("{}: {parse_error}", self.value),
+                })
+        };
+        let red = parse_hex_pair(&hex_digits[0..2])?;
+        let green = parse_hex_pair(&hex_digits[2..4])?;
+        let blue = parse_hex_pair(&hex_digits[4..6])?;
+        return Ok((red, green, blue));
+    }
+
     /// Returns the OSC 4;264 escape sequence that sets the Windows Terminal
     /// tab color strip to this color. Index 264 is FRAME_BACKGROUND in WT's
     /// color table. Silently ignored by terminals that don't support it.
