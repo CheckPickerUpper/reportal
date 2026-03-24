@@ -45,11 +45,24 @@ pub fn run_open(open_params: OpenCommandParams<'_>) -> Result<(), ReportalError>
                 let display_labels: Vec<String> = matching_repos
                     .iter()
                     .map(|(alias, repo)| {
-                        let description_suffix = match repo.description().is_empty() {
-                            true => String::new(),
-                            false => format!(" - {}", repo.description()),
-                        };
-                        format!("{}{}", alias, description_suffix)
+                        let mut label = alias.to_string();
+
+                        match repo.aliases().is_empty() {
+                            true => {}
+                            false => {
+                                let aliases_joined = repo.aliases().join(", ");
+                                label.push_str(&format!(" ({aliases_joined})"));
+                            }
+                        }
+
+                        match repo.description().is_empty() {
+                            true => {}
+                            false => {
+                                label.push_str(&format!(" — {}", repo.description()));
+                            }
+                        }
+
+                        return label;
                     })
                     .collect();
 
