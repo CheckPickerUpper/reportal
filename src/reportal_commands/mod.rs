@@ -2,6 +2,7 @@
 mod doctor;
 mod initialization;
 mod repo_add;
+mod repo_ai;
 mod repo_color;
 mod repo_jump;
 mod repo_listing;
@@ -15,6 +16,7 @@ pub use doctor::run_doctor;
 pub use initialization::ensure_integration_file_current;
 pub use initialization::run_init;
 pub use repo_add::run_add;
+pub use repo_ai::{run_ai, AiCommandParams};
 pub use repo_edit::run_edit;
 pub use repo_color::{run_color, ColorCommandParams, TitleOutput};
 pub use repo_jump::{run_jump, JumpCommandParams};
