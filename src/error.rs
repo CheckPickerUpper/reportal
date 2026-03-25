@@ -88,4 +88,18 @@ pub enum ReportalError {
     /// No default AI tool is set and none was specified via --tool.
     #[error("No default AI tool set. Use --tool <name> or set default_ai_tool in config")]
     NoDefaultAiTool,
+
+    /// A repo has no remote URL configured and none could be detected from git.
+    #[error("No remote URL for repo '{alias}'. Set the 'remote' field in config or add a git remote.")]
+    NoRemoteUrl {
+        /// The alias of the repo missing a remote.
+        alias: String,
+    },
+
+    /// The browser failed to open a URL.
+    #[error("Failed to open browser: {reason}")]
+    BrowserLaunchFailure {
+        /// The underlying OS error message.
+        reason: String,
+    },
 }
