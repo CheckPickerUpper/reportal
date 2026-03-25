@@ -1,8 +1,8 @@
 /// Fuzzy-selects a repo and opens its remote URL in the default browser.
 
 use crate::error::ReportalError;
-use crate::reportal_config::{ReportalConfig, TagFilter};
-use crate::terminal_style;
+use crate::reportal_config::{RepoColor, ReportalConfig, TabTitle, TagFilter};
+use crate::terminal_style::{self, TabColorAction, TerminalIdentity, TerminalIdentityParams};
 use dialoguer::{theme::ColorfulTheme, FuzzySelect};
 use owo_colors::OwoColorize;
 use std::process::Command;
@@ -141,6 +141,24 @@ pub fn run_web(web_params: WebCommandParams<'_>) -> Result<(), ReportalError> {
                 }
             }
         };
+
+    let resolved_title = match selected_repo.tab_title() {
+        TabTitle::Custom(custom_title) => custom_title.to_string(),
+        TabTitle::UseAlias => selected_alias.to_string(),
+    };
+
+    let tab_color_action = match selected_repo.repo_color() {
+        RepoColor::Themed(hex_color) => {
+            TabColorAction::SetColor(hex_color.as_osc_tab_color_sequence())
+        }
+        RepoColor::ResetToDefault => TabColorAction::Reset,
+    };
+
+    let identity = TerminalIdentity::new(TerminalIdentityParams {
+        resolved_title,
+        tab_color_action,
+    });
+    terminal_style::emit_terminal_identity_to_console(&identity);
 
     let raw_remote_url = match selected_repo.remote().is_empty() {
         false => selected_repo.remote().to_string(),
