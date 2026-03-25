@@ -10,6 +10,7 @@ mod repo_open;
 mod repo_edit;
 mod repo_remove;
 mod repo_status;
+mod repo_selection;
 mod repo_sync;
 mod repo_web;
 
