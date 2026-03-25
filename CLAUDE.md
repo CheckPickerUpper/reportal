@@ -15,7 +15,14 @@ Produces two binaries: `reportal` and `rep` (short alias).
 
 - `src/main.rs` — clap CLI entry point; dispatches to subcommands
 - `src/error.rs` — `ReportalError` enum via thiserror
-- `src/reportal_config.rs` — TOML config parsing, repo registry, builder, enums
+- `src/reportal_config/` — config module (split from monolith):
+  - `mod.rs` — re-exports only
+  - `reportal_config_root.rs` — `ReportalConfig` struct, load/save, queries, mutations
+  - `repo_entry.rs` — `RepoEntry`, `RepoRegistrationBuilder`, `TabTitle`, `RepoColor`
+  - `ai_tool_entry.rs` — `AiToolEntry` for AI CLI tool registry
+  - `global_settings.rs` — `ReportalSettings`, `PathVisibility`, `PathDisplayFormat`
+  - `hex_color.rs` — `HexColor` validation, RGB extraction, OSC sequences
+  - `tag_filter.rs` — `TagFilter` enum
 - `src/terminal_style.rs` — centralized color palette (owo-colors)
 - `src/reportal_commands/` — one file per subcommand:
   - `initialization.rs` — `rep init` (config + shell integration; writes sourced script file)
