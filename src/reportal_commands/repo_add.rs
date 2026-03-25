@@ -2,7 +2,10 @@
 /// Supports both local paths and git URLs (clones first, then registers).
 
 use crate::error::ReportalError;
-use crate::reportal_config::{HexColor, RepoRegistrationBuilder, ReportalConfig};
+use crate::reportal_commands::prompts::{
+    self, ColorPromptResult, TextPromptParams,
+};
+use crate::reportal_config::{RepoRegistrationBuilder, ReportalConfig};
 use crate::terminal_style;
 use dialoguer::{theme::ColorfulTheme, FuzzySelect, Input};
 use owo_colors::OwoColorize;
@@ -64,38 +67,6 @@ struct RegistrationContext<'a> {
     suggested_alias: String,
     /// A detected or known remote URL to pre-fill the prompt.
     detected_remote: String,
-}
-
-/// Whether the user provided a color or left it empty.
-enum ColorPromptResult {
-    /// The user entered a valid hex color.
-    Provided(HexColor),
-    /// The user left the prompt empty (no color).
-    Skipped,
-}
-
-/// Prompts for a hex color, re-asking on invalid input until the user
-/// either enters a valid `#RRGGBB` or leaves it empty to skip.
-fn prompt_for_color(prompt_theme: &ColorfulTheme) -> Result<ColorPromptResult, ReportalError> {
-    loop {
-        let color_input: String = Input::with_theme(prompt_theme)
-            .with_prompt("Background color (#RRGGBB, empty = none)")
-            .default(String::new())
-            .interact_text()
-            .map_err(|prompt_error| ReportalError::ConfigIoFailure {
-                reason: prompt_error.to_string(),
-            })?;
-
-        match color_input.is_empty() {
-            true => return Ok(ColorPromptResult::Skipped),
-            false => match HexColor::parse(&color_input) {
-                Ok(valid_color) => return Ok(ColorPromptResult::Provided(valid_color)),
-                Err(color_error) => {
-                    terminal_style::print_error(&color_error.to_string());
-                }
-            },
-        }
-    }
 }
 
 /// Detects the git remote URL by running `git remote get-url origin` in the directory.
@@ -319,53 +290,39 @@ fn clone_repo(clone_operation: GitCloneOperation<'_>) -> Result<(), ReportalErro
 fn collect_metadata_and_register(registration_context: RegistrationContext<'_>) -> Result<(), ReportalError> {
     let prompt_theme = ColorfulTheme::default();
 
-    let repo_alias: String = Input::with_theme(&prompt_theme)
-        .with_prompt("Alias")
-        .default(registration_context.suggested_alias)
-        .interact_text()
-        .map_err(|prompt_error| ReportalError::ConfigIoFailure {
-            reason: prompt_error.to_string(),
-        })?;
+    let repo_alias = prompts::prompt_for_text(TextPromptParams {
+        prompt_theme: &prompt_theme,
+        label: "Alias",
+        default_value: registration_context.suggested_alias,
+    })?;
 
-    let repo_description: String = Input::with_theme(&prompt_theme)
-        .with_prompt("Description")
-        .default(String::new())
-        .interact_text()
-        .map_err(|prompt_error| ReportalError::ConfigIoFailure {
-            reason: prompt_error.to_string(),
-        })?;
+    let repo_description = prompts::prompt_for_text(TextPromptParams {
+        prompt_theme: &prompt_theme,
+        label: "Description",
+        default_value: String::new(),
+    })?;
 
-    let tags_input: String = Input::with_theme(&prompt_theme)
-        .with_prompt("Tags (comma-separated)")
-        .default(String::new())
-        .interact_text()
-        .map_err(|prompt_error| ReportalError::ConfigIoFailure {
-            reason: prompt_error.to_string(),
-        })?;
+    let tags_input = prompts::prompt_for_text(TextPromptParams {
+        prompt_theme: &prompt_theme,
+        label: "Tags (comma-separated)",
+        default_value: String::new(),
+    })?;
 
-    let parsed_tags: Vec<String> = tags_input
-        .split(',')
-        .map(|tag_segment| tag_segment.trim().to_string())
-        .filter(|trimmed_tag| !trimmed_tag.is_empty())
-        .collect();
+    let parsed_tags = prompts::parse_comma_separated_tags(&tags_input);
 
-    let repo_remote: String = Input::with_theme(&prompt_theme)
-        .with_prompt("Remote URL")
-        .default(registration_context.detected_remote)
-        .interact_text()
-        .map_err(|prompt_error| ReportalError::ConfigIoFailure {
-            reason: prompt_error.to_string(),
-        })?;
+    let repo_remote = prompts::prompt_for_text(TextPromptParams {
+        prompt_theme: &prompt_theme,
+        label: "Remote URL",
+        default_value: registration_context.detected_remote,
+    })?;
 
-    let tab_title: String = Input::with_theme(&prompt_theme)
-        .with_prompt("Tab title (empty = use alias)")
-        .default(String::new())
-        .interact_text()
-        .map_err(|prompt_error| ReportalError::ConfigIoFailure {
-            reason: prompt_error.to_string(),
-        })?;
+    let tab_title = prompts::prompt_for_text(TextPromptParams {
+        prompt_theme: &prompt_theme,
+        label: "Tab title (empty = use alias)",
+        default_value: String::new(),
+    })?;
 
-    let repo_color = prompt_for_color(&prompt_theme)?;
+    let repo_color = prompts::prompt_for_color(&prompt_theme)?;
 
     println!();
     println!("  {} {}", "Alias:".style(terminal_style::LABEL_STYLE), repo_alias.style(terminal_style::ALIAS_STYLE));

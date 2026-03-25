@@ -1,12 +1,12 @@
 //! Shows git status across all registered repos in a table.
 
 use crate::error::ReportalError;
+use crate::reportal_commands::git_commands::{self, GitCommandOutcome, GitCommandParams};
 use crate::reportal_config::{ReportalConfig, TagFilter};
 use crate::terminal_style;
 use comfy_table::{Cell, Table};
 use owo_colors::OwoColorize;
 use std::path::PathBuf;
-use std::process::Command;
 
 /// The git state of a single repository.
 struct RepoGitStatus {
@@ -60,16 +60,6 @@ struct AheadBehindCounts {
     behind: usize,
 }
 
-/// Whether a git command produced usable output or failed.
-enum GitCommandOutcome {
-    /// The command ran and produced stdout output.
-    Output(String),
-    /// The command failed to run (git not installed, not a repo, etc).
-    SpawnFailed,
-    /// The command ran but returned a non-zero exit code.
-    NonZeroExit,
-}
-
 /// Whether the rev-list count line could be split into ahead/behind.
 enum RevListParse {
     /// Both counts were successfully parsed.
@@ -84,14 +74,6 @@ enum UsizeParse {
     Valid(usize),
     /// The string could not be parsed.
     Invalid,
-}
-
-/// Parameters for running a git command inside a repo directory.
-struct GitCommandSpec<'a> {
-    /// The resolved filesystem path to run git in.
-    repo_path: &'a PathBuf,
-    /// The git subcommand and its arguments (e.g. ["status", "--porcelain"]).
-    git_subcommand_args: &'a [&'a str],
 }
 
 /// Parameters for collecting git status from a single repo.
@@ -110,27 +92,9 @@ fn parse_usize(raw_text: &str) -> UsizeParse {
     }
 }
 
-/// Runs a git command in a directory and returns the trimmed stdout.
-fn run_git_command(git_command_spec: GitCommandSpec<'_>) -> GitCommandOutcome {
-    let command_result = Command::new("git")
-        .args(git_command_spec.git_subcommand_args)
-        .current_dir(git_command_spec.repo_path)
-        .output();
-
-    match command_result {
-        Ok(output) => match output.status.success() {
-            true => GitCommandOutcome::Output(
-                String::from_utf8_lossy(&output.stdout).trim().to_string(),
-            ),
-            false => GitCommandOutcome::NonZeroExit,
-        },
-        Err(_git_spawn_error) => GitCommandOutcome::SpawnFailed,
-    }
-}
-
 /// Reads the current branch name from a repo directory.
 fn read_branch_name(repo_path: &PathBuf) -> String {
-    match run_git_command(GitCommandSpec {
+    match git_commands::run_git_command(GitCommandParams {
         repo_path,
         git_subcommand_args: &["rev-parse", "--abbrev-ref", "HEAD"],
     }) {
@@ -148,7 +112,7 @@ fn read_branch_name(repo_path: &PathBuf) -> String {
 
 /// Checks whether the working tree has uncommitted changes.
 fn read_working_tree_state(repo_path: &PathBuf) -> WorkingTreeState {
-    match run_git_command(GitCommandSpec {
+    match git_commands::run_git_command(GitCommandParams {
         repo_path,
         git_subcommand_args: &["status", "--porcelain"],
     }) {
@@ -179,7 +143,7 @@ fn parse_rev_list_counts(raw_counts: &str) -> RevListParse {
 
 /// Reads ahead/behind counts relative to the upstream tracking branch.
 fn read_upstream_delta(repo_path: &PathBuf) -> UpstreamDelta {
-    match run_git_command(GitCommandSpec {
+    match git_commands::run_git_command(GitCommandParams {
         repo_path,
         git_subcommand_args: &["rev-list", "--left-right", "--count", "HEAD...@{upstream}"],
     }) {
@@ -194,7 +158,7 @@ fn read_upstream_delta(repo_path: &PathBuf) -> UpstreamDelta {
 
 /// Reads the relative age of the last commit (e.g. "3 days ago").
 fn read_last_commit_age(repo_path: &PathBuf) -> String {
-    match run_git_command(GitCommandSpec {
+    match git_commands::run_git_command(GitCommandParams {
         repo_path,
         git_subcommand_args: &["log", "-1", "--format=%cr"],
     }) {

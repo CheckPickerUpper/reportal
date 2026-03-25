@@ -1,12 +1,11 @@
 /// Fuzzy-selects a repo and prints its path for shell `cd` integration.
 
 use crate::error::ReportalError;
-use crate::reportal_config::{PathVisibility, ReportalConfig, TagFilter};
-use crate::terminal_style;
+use crate::reportal_config::{ReportalConfig, TagFilter};
+use crate::reportal_commands::path_display::{self, SelectedPathDisplayParams};
 use crate::reportal_commands::repo_selection::{
     self, RepoSelectionParams, TerminalIdentityEmitParams,
 };
-use owo_colors::OwoColorize;
 
 /// All parameters needed to run the jump command.
 pub struct JumpCommandParams<'a> {
@@ -46,16 +45,10 @@ pub fn run_jump(jump_params: JumpCommandParams<'_>) -> Result<(), ReportalError>
 
     print!("{formatted_path}");
 
-    match loaded_config.path_on_select() {
-        PathVisibility::Show => {
-            eprintln!(
-                "  {} {}",
-                ">>".style(terminal_style::SUCCESS_STYLE),
-                formatted_path.style(terminal_style::PATH_STYLE),
-            );
-        }
-        PathVisibility::Hide => {}
-    }
+    path_display::print_selected_path_if_visible(SelectedPathDisplayParams {
+        loaded_config: &loaded_config,
+        resolved_path: &resolved_path,
+    });
 
     return Ok(());
 }
