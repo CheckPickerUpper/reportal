@@ -11,6 +11,7 @@ mod repo_edit;
 mod repo_remove;
 mod repo_status;
 mod repo_sync;
+mod repo_web;
 
 pub use doctor::run_doctor;
 pub use initialization::ensure_integration_file_current;
@@ -25,3 +26,4 @@ pub use repo_open::{run_open, OpenCommandParams};
 pub use repo_remove::run_remove;
 pub use repo_status::run_status;
 pub use repo_sync::run_sync;
+pub use repo_web::{run_web, WebCommandParams};

@@ -118,6 +118,11 @@ impl RepoEntry {
         &self.aliases
     }
 
+    /// Git remote URL for cloning on other machines (may be empty).
+    pub fn remote(&self) -> &str {
+        &self.remote
+    }
+
     /// The configured tab title preference for this repo.
     pub fn tab_title(&self) -> &TabTitle {
         &self.title
