@@ -1,9 +1,11 @@
 /// Fuzzy-selects a repo and prints its path for shell `cd` integration.
 
 use crate::error::ReportalError;
-use crate::reportal_config::{PathVisibility, RepoColor, ReportalConfig, TabTitle, TagFilter};
-use crate::terminal_style::{self, TabColorAction, TerminalIdentity, TerminalIdentityParams};
-use dialoguer::{theme::ColorfulTheme, FuzzySelect};
+use crate::reportal_config::{PathVisibility, ReportalConfig, TagFilter};
+use crate::terminal_style;
+use crate::reportal_commands::repo_selection::{
+    self, RepoSelectionParams, TerminalIdentityEmitParams,
+};
 use owo_colors::OwoColorize;
 
 /// All parameters needed to run the jump command.
@@ -26,84 +28,20 @@ pub struct JumpCommandParams<'a> {
 pub fn run_jump(jump_params: JumpCommandParams<'_>) -> Result<(), ReportalError> {
     let loaded_config = ReportalConfig::load_from_disk()?;
 
-    let (selected_alias, selected_repo): (&str, &crate::reportal_config::RepoEntry) =
-        match jump_params.direct_alias.is_empty() {
-            false => {
-                let found_repo = loaded_config.get_repo(jump_params.direct_alias)?;
-                (jump_params.direct_alias, found_repo)
-            }
-            true => {
-                let matching_repos =
-                    loaded_config.repos_matching_tag_filter(&jump_params.tag_filter);
+    let selected = repo_selection::select_repo(RepoSelectionParams {
+        loaded_config: &loaded_config,
+        direct_alias: jump_params.direct_alias,
+        tag_filter: &jump_params.tag_filter,
+        prompt_label: "Jump to repo",
+    })?;
 
-                if matching_repos.is_empty() {
-                    return Err(ReportalError::NoReposMatchFilter);
-                }
-
-                let display_labels: Vec<String> = matching_repos
-                    .iter()
-                    .map(|(alias, repo)| {
-                        let mut label = alias.to_string();
-
-                        match repo.aliases().is_empty() {
-                            true => {}
-                            false => {
-                                let aliases_joined = repo.aliases().join(", ");
-                                label.push_str(&format!(" ({aliases_joined})"));
-                            }
-                        }
-
-                        match repo.description().is_empty() {
-                            true => {}
-                            false => {
-                                label.push_str(&format!(" — {}", repo.description()));
-                            }
-                        }
-
-                        return label;
-                    })
-                    .collect();
-
-                let selected_index = FuzzySelect::with_theme(&ColorfulTheme::default())
-                    .with_prompt("Jump to repo")
-                    .items(&display_labels)
-                    .interact_opt()
-                    .map_err(|select_error| ReportalError::ConfigIoFailure {
-                        reason: select_error.to_string(),
-                    })?;
-
-                match selected_index {
-                    Some(chosen_index) => match matching_repos.get(chosen_index) {
-                        Some((chosen_alias, chosen_repo)) => (chosen_alias.as_str(), *chosen_repo),
-                        None => return Err(ReportalError::SelectionCancelled),
-                    },
-                    None => return Err(ReportalError::SelectionCancelled),
-                }
-            }
-        };
-
-    let resolved_title = match jump_params.title_override.is_empty() {
-        false => jump_params.title_override.to_string(),
-        true => match selected_repo.tab_title() {
-            TabTitle::Custom(custom_title) => custom_title.to_string(),
-            TabTitle::UseAlias => selected_alias.to_string(),
-        },
-    };
-
-    let tab_color_action = match selected_repo.repo_color() {
-        RepoColor::Themed(hex_color) => {
-            TabColorAction::SetColor(hex_color.as_osc_tab_color_sequence())
-        }
-        RepoColor::ResetToDefault => TabColorAction::Reset,
-    };
-
-    let identity = TerminalIdentity::new(TerminalIdentityParams {
-        resolved_title,
-        tab_color_action,
+    repo_selection::emit_repo_terminal_identity(TerminalIdentityEmitParams {
+        selected_alias: selected.repo_alias(),
+        selected_repo: selected.repo_config(),
+        title_override: jump_params.title_override,
     });
-    terminal_style::emit_terminal_identity_to_console(&identity);
 
-    let resolved_path = selected_repo.resolved_path();
+    let resolved_path = selected.repo_config().resolved_path();
     let formatted_path = loaded_config.path_display_format().format_path(&resolved_path);
 
     print!("{formatted_path}");

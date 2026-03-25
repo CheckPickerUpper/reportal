@@ -1,9 +1,11 @@
 /// Fuzzy-selects a repo and opens its remote URL in the default browser.
 
 use crate::error::ReportalError;
-use crate::reportal_config::{RepoColor, ReportalConfig, TabTitle, TagFilter};
-use crate::terminal_style::{self, TabColorAction, TerminalIdentity, TerminalIdentityParams};
-use dialoguer::{theme::ColorfulTheme, FuzzySelect};
+use crate::reportal_config::{ReportalConfig, TagFilter};
+use crate::terminal_style;
+use crate::reportal_commands::repo_selection::{
+    self, RepoSelectionParams, TerminalIdentityEmitParams,
+};
 use owo_colors::OwoColorize;
 use std::process::Command;
 
@@ -26,9 +28,9 @@ enum RemoteResolution {
 /// Converts a git remote URL (SSH or HTTPS) into a browser-friendly HTTPS URL.
 ///
 /// Handles these formats:
-/// - `git@github.com:org/repo.git` → `https://github.com/org/repo.git`
-/// - `ssh://git@github.com/org/repo.git` → `https://github.com/org/repo.git`
-/// - `https://github.com/org/repo.git` → unchanged
+/// - `git@github.com:org/repo.git` → `https://github.com/org/repo`
+/// - `ssh://git@github.com/org/repo.git` → `https://github.com/org/repo`
+/// - `https://github.com/org/repo.git` → `https://github.com/org/repo`
 ///
 /// Strips the trailing `.git` suffix for a cleaner browser URL.
 fn remote_url_to_browser_url(remote_url: &str) -> String {
@@ -84,89 +86,30 @@ fn detect_git_remote(repo_path: &std::path::Path) -> RemoteResolution {
 /// Resolves the remote URL from the config's `remote` field first,
 /// falling back to `git remote get-url origin` in the repo directory.
 /// Converts SSH remotes to HTTPS URLs for browser compatibility.
+/// Emits tab title and color before opening the browser.
 pub fn run_web(web_params: WebCommandParams<'_>) -> Result<(), ReportalError> {
     let loaded_config = ReportalConfig::load_from_disk()?;
 
-    let (selected_alias, selected_repo): (&str, &crate::reportal_config::RepoEntry) =
-        match web_params.direct_alias.is_empty() {
-            false => {
-                let found_repo = loaded_config.get_repo(web_params.direct_alias)?;
-                (web_params.direct_alias, found_repo)
-            }
-            true => {
-                let matching_repos =
-                    loaded_config.repos_matching_tag_filter(&web_params.tag_filter);
-                if matching_repos.is_empty() {
-                    return Err(ReportalError::NoReposMatchFilter);
-                }
+    let selected = repo_selection::select_repo(RepoSelectionParams {
+        loaded_config: &loaded_config,
+        direct_alias: web_params.direct_alias,
+        tag_filter: &web_params.tag_filter,
+        prompt_label: "Open in browser",
+    })?;
 
-                let display_labels: Vec<String> = matching_repos
-                    .iter()
-                    .map(|(alias, repo)| {
-                        let mut label = alias.to_string();
-
-                        match repo.aliases().is_empty() {
-                            true => {}
-                            false => {
-                                let aliases_joined = repo.aliases().join(", ");
-                                label.push_str(&format!(" ({aliases_joined})"));
-                            }
-                        }
-
-                        match repo.description().is_empty() {
-                            true => {}
-                            false => {
-                                label.push_str(&format!(" — {}", repo.description()));
-                            }
-                        }
-
-                        return label;
-                    })
-                    .collect();
-
-                let selected_index = FuzzySelect::with_theme(&ColorfulTheme::default())
-                    .with_prompt("Open in browser")
-                    .items(&display_labels)
-                    .interact_opt()
-                    .map_err(|select_error| ReportalError::ConfigIoFailure {
-                        reason: select_error.to_string(),
-                    })?;
-
-                match selected_index {
-                    Some(chosen_index) => match matching_repos.get(chosen_index) {
-                        Some((chosen_alias, chosen_repo)) => (chosen_alias.as_str(), *chosen_repo),
-                        None => return Err(ReportalError::SelectionCancelled),
-                    },
-                    None => return Err(ReportalError::SelectionCancelled),
-                }
-            }
-        };
-
-    let resolved_title = match selected_repo.tab_title() {
-        TabTitle::Custom(custom_title) => custom_title.to_string(),
-        TabTitle::UseAlias => selected_alias.to_string(),
-    };
-
-    let tab_color_action = match selected_repo.repo_color() {
-        RepoColor::Themed(hex_color) => {
-            TabColorAction::SetColor(hex_color.as_osc_tab_color_sequence())
-        }
-        RepoColor::ResetToDefault => TabColorAction::Reset,
-    };
-
-    let identity = TerminalIdentity::new(TerminalIdentityParams {
-        resolved_title,
-        tab_color_action,
+    repo_selection::emit_repo_terminal_identity(TerminalIdentityEmitParams {
+        selected_alias: selected.repo_alias(),
+        selected_repo: selected.repo_config(),
+        title_override: "",
     });
-    terminal_style::emit_terminal_identity_to_console(&identity);
 
-    let raw_remote_url = match selected_repo.remote().is_empty() {
-        false => selected_repo.remote().to_string(),
-        true => match detect_git_remote(&selected_repo.resolved_path()) {
+    let raw_remote_url = match selected.repo_config().remote().is_empty() {
+        false => selected.repo_config().remote().to_string(),
+        true => match detect_git_remote(&selected.repo_config().resolved_path()) {
             RemoteResolution::Resolved(detected_url) => detected_url,
             RemoteResolution::NotFound => {
                 return Err(ReportalError::NoRemoteUrl {
-                    alias: selected_alias.to_string(),
+                    alias: selected.repo_alias().to_string(),
                 });
             }
         },
