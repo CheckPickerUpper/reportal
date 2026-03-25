@@ -119,6 +119,8 @@ ro
 | `rep add https://github.com/org/repo.git` | | Clone a repo and register it (asks where to place it) |
 | `rep remove my-api` | `rep rm my-api` | Unregister a repo (does not delete files) |
 | `rep ai` | | Fuzzy-select a repo and launch the default AI coding CLI in it |
+| `rep web` | `rep w` | Fuzzy-select a repo and open its remote URL in the browser |
+| `rep web my-api` | `rep w my-api` | Open a repo's remote directly by alias |
 | `rep ai my-api` | | Launch default AI tool directly in a repo by alias |
 | `rep ai --tool codex` | | Launch a specific AI tool (overrides default) |
 | `rep ai my-api --tool codex` | | Specific repo + specific tool |
@@ -134,6 +136,8 @@ ro
 | `rj my-api` | Jump directly to a repo by alias |
 | `ro` | Fuzzy-select a repo and open it in your editor |
 | `ro my-api` | Open a repo directly by alias |
+| `rw` | Fuzzy-select a repo and open it in the browser |
+| `rw my-api` | Open a repo's remote directly by alias |
 
 Supports PowerShell, Bash, Zsh. Detected and installed during `rep init`. Re-run `rep init` after major version updates to regenerate the integration file.
 
@@ -248,6 +252,7 @@ PROMPT_COMMAND='rep color 2>/dev/null'
 - [x] `sync` — pull latest across repos
 - [x] `doctor` — diagnose config, shell integration, and repo path issues
 - [x] `ai` — launch AI coding CLIs (Claude Code, Codex, aider) in any repo with configurable defaults
+- [x] `web` — open a repo's remote URL in the browser (converts SSH remotes to HTTPS)
 - [ ] `edit` UX overhaul — fuzzy-select what to edit (repos, AI tools, global settings), field menu
 - [ ] `dashboard` — rich overview with branches, dirty state, last commit
 - [ ] `clone --all` — clone missing repos from config (machine sync)
