@@ -9,7 +9,7 @@ mod reportal_config;
 mod terminal_style;
 
 use clap::{Args, Parser, Subcommand};
-use reportal_commands::{AiCommandParams, ColorCommandParams, JumpCommandParams, OpenCommandParams, TitleOutput};
+use reportal_commands::{AiCommandParams, ColorCommandParams, JumpCommandParams, OpenCommandParams, TitleOutput, WebCommandParams};
 use reportal_config::TagFilter;
 
 /// Shared --tag flag used by commands that filter repos.
@@ -118,6 +118,13 @@ struct AiArgs {
     tool: Option<String>,
 }
 
+/// CLI args for `rep web`.
+#[derive(Args)]
+struct WebArgs {
+    #[command(flatten)]
+    selection: RepoSelectionArgs,
+}
+
 /// A fast CLI tool for jumping between and managing your dev repos.
 #[derive(Parser)]
 #[command(name = "reportal", version, about)]
@@ -164,6 +171,9 @@ enum ReportalSubcommand {
     Doctor,
     /// Launch an AI coding CLI in a repo
     Ai(AiArgs),
+    /// Open a repo's remote URL in the browser
+    #[command(alias = "w")]
+    Web(WebArgs),
 }
 
 fn main() {
@@ -245,6 +255,16 @@ fn main() {
             reportal_commands::run_sync(sync_args.filter.into_tag_filter())
         }
         ReportalSubcommand::Doctor => reportal_commands::run_doctor(),
+        ReportalSubcommand::Web(web_args) => {
+            let direct_alias = match web_args.selection.alias {
+                Some(ref provided_alias) => provided_alias.as_str(),
+                None => "",
+            };
+            reportal_commands::run_web(WebCommandParams {
+                tag_filter: web_args.selection.tag_filter.into_tag_filter(),
+                direct_alias,
+            })
+        }
         ReportalSubcommand::Ai(ai_args) => {
             let direct_alias = match ai_args.selection.alias {
                 Some(ref provided_alias) => provided_alias.as_str(),

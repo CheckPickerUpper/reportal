@@ -31,6 +31,7 @@ fn powershell_integration_content() -> String {
 $env:REPORTAL_LOADED = "1"
 function rj {{ Set-Location (rep jump @args); rep color }}
 function ro {{ rep open @args; rep color }}
+function rw {{ rep web @args }}
 $_reportal_original_prompt = $function:prompt
 function prompt {{ $p = & $_reportal_original_prompt; $t = rep color --print-title 2>$null; if ($t) {{ $Host.UI.RawUI.WindowTitle = $t }}; $p }}
 "#,
@@ -49,6 +50,7 @@ fn bash_integration_content() -> String {
 export REPORTAL_LOADED=1
 rj() {{ cd "$(rep jump "$@")"; rep color; }}
 ro() {{ rep open "$@"; rep color; }}
+rw() {{ rep web "$@"; }}
 _reportal_hook() {{ local _t; _t=$(rep color --print-title 2>{null_device}); [ -n "$_t" ] && printf '\033]2;%s\007' "$_t"; }}
 PROMPT_COMMAND="${{PROMPT_COMMAND:+$PROMPT_COMMAND;}}_reportal_hook"
 "#,
@@ -180,16 +182,19 @@ fn strip_existing_integration(profile_content: &str) -> String {
                 let trimmed = line.trim();
                 let is_reportal_line = trimmed.starts_with("function rj")
                     || trimmed.starts_with("function ro")
+                    || trimmed.starts_with("function rw")
                     || trimmed.starts_with("function repup")
                     || trimmed.starts_with("function prompt")
                     || trimmed.starts_with("$_reportal_")
                     || trimmed.starts_with("rj()")
                     || trimmed.starts_with("ro()")
+                    || trimmed.starts_with("rw()")
                     || trimmed.starts_with("repup()")
                     || trimmed.starts_with("PROMPT_COMMAND")
                     || trimmed.contains("REPORTAL_LOADED")
                     || trimmed.contains("rep jump")
                     || trimmed.contains("rep open")
+                    || trimmed.contains("rep web")
                     || trimmed.contains("rep upgrade")
                     || trimmed.contains("rep color");
                 match is_reportal_line {
@@ -310,6 +315,7 @@ fn install_or_update_shell_integration() -> Result<(), ReportalError> {
     println!("  {} Shell integration:", ">>".style(terminal_style::LABEL_STYLE));
     println!("     {} jump to a repo (cd)", "rj".style(terminal_style::ALIAS_STYLE));
     println!("     {} open a repo in your editor", "ro".style(terminal_style::ALIAS_STYLE));
+    println!("     {} open a repo in the browser", "rw".style(terminal_style::ALIAS_STYLE));
     println!("     {} per-repo tab title + background color on every prompt", "color".style(terminal_style::ALIAS_STYLE));
     println!();
 
