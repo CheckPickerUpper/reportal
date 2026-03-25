@@ -1,16 +1,19 @@
 /// Subcommand implementations for the RePortal CLI.
 mod doctor;
+mod git_commands;
 mod initialization;
+mod path_display;
+mod prompts;
 mod repo_add;
 mod repo_ai;
 mod repo_color;
+mod repo_edit;
 mod repo_jump;
 mod repo_listing;
 mod repo_open;
-mod repo_edit;
 mod repo_remove;
-mod repo_status;
 mod repo_selection;
+mod repo_status;
 mod repo_sync;
 mod repo_web;
 

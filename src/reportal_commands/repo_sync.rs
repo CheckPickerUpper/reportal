@@ -1,21 +1,12 @@
 //! Pulls latest changes across all registered repos.
 
 use crate::error::ReportalError;
+use crate::reportal_commands::git_commands::{self, GitCommandOutcome, GitCommandParams};
 use crate::reportal_config::{ReportalConfig, TagFilter};
 use crate::terminal_style;
 use owo_colors::OwoColorize;
 use std::path::PathBuf;
 use std::process::Command;
-
-/// Whether a git command produced usable output or failed.
-enum GitCommandOutcome {
-    /// The command ran and produced stdout output.
-    Output(String),
-    /// The command failed to run (git not installed, not a repo, etc).
-    SpawnFailed,
-    /// The command ran but returned a non-zero exit code.
-    NonZeroExit,
-}
 
 /// Whether a repo's working tree is clean enough to pull.
 enum PullReadiness {
@@ -47,35 +38,9 @@ struct RepoSyncResult {
     outcome: SyncOutcome,
 }
 
-/// Parameters for running a git command inside a repo directory.
-struct GitCommandSpec<'a> {
-    /// The resolved filesystem path to run git in.
-    repo_path: &'a PathBuf,
-    /// The git subcommand and its arguments.
-    git_subcommand_args: &'a [&'a str],
-}
-
-/// Runs a git command in a directory and returns the trimmed stdout.
-fn run_git_command(git_command_spec: GitCommandSpec<'_>) -> GitCommandOutcome {
-    let command_result = Command::new("git")
-        .args(git_command_spec.git_subcommand_args)
-        .current_dir(git_command_spec.repo_path)
-        .output();
-
-    match command_result {
-        Ok(output) => match output.status.success() {
-            true => GitCommandOutcome::Output(
-                String::from_utf8_lossy(&output.stdout).trim().to_string(),
-            ),
-            false => GitCommandOutcome::NonZeroExit,
-        },
-        Err(_git_spawn_error) => GitCommandOutcome::SpawnFailed,
-    }
-}
-
 /// Checks whether the working tree is clean enough to safely pull.
 fn check_pull_readiness(repo_path: &PathBuf) -> PullReadiness {
-    match run_git_command(GitCommandSpec {
+    match git_commands::run_git_command(GitCommandParams {
         repo_path,
         git_subcommand_args: &["status", "--porcelain"],
     }) {
@@ -156,23 +121,23 @@ pub fn run_sync(tag_filter: TagFilter) -> Result<(), ReportalError> {
 
     for (alias, repo) in &matching_repos {
         let resolved = repo.resolved_path();
-        let result = sync_single_repo(alias, &resolved);
+        let sync_result = sync_single_repo(alias, &resolved);
 
-        match &result.outcome {
+        match &sync_result.outcome {
             SyncOutcome::Pulled(output) => {
                 pulled_count += 1;
                 match output.contains("Already up to date") {
                     true => {
                         println!(
                             "  {} {} up to date",
-                            result.alias.style(terminal_style::ALIAS_STYLE),
+                            sync_result.alias.style(terminal_style::ALIAS_STYLE),
                             "✓".style(terminal_style::SUCCESS_STYLE),
                         );
                     }
                     false => {
                         println!(
                             "  {} {} pulled",
-                            result.alias.style(terminal_style::ALIAS_STYLE),
+                            sync_result.alias.style(terminal_style::ALIAS_STYLE),
                             "↓".style(terminal_style::SUCCESS_STYLE),
                         );
                     }
@@ -182,7 +147,7 @@ pub fn run_sync(tag_filter: TagFilter) -> Result<(), ReportalError> {
                 skipped_count += 1;
                 eprintln!(
                     "  {} {} skipped (dirty working tree)",
-                    result.alias.style(terminal_style::ALIAS_STYLE),
+                    sync_result.alias.style(terminal_style::ALIAS_STYLE),
                     "!".style(terminal_style::FAILURE_STYLE),
                 );
             }
@@ -190,7 +155,7 @@ pub fn run_sync(tag_filter: TagFilter) -> Result<(), ReportalError> {
                 failed_count += 1;
                 eprintln!(
                     "  {} {} missing on disk",
-                    result.alias.style(terminal_style::ALIAS_STYLE),
+                    sync_result.alias.style(terminal_style::ALIAS_STYLE),
                     "✗".style(terminal_style::FAILURE_STYLE),
                 );
             }
@@ -198,7 +163,7 @@ pub fn run_sync(tag_filter: TagFilter) -> Result<(), ReportalError> {
                 failed_count += 1;
                 eprintln!(
                     "  {} {} pull failed: {}",
-                    result.alias.style(terminal_style::ALIAS_STYLE),
+                    sync_result.alias.style(terminal_style::ALIAS_STYLE),
                     "✗".style(terminal_style::FAILURE_STYLE),
                     error_message,
                 );

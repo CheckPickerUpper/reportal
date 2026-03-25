@@ -30,6 +30,9 @@ Produces two binaries: `reportal` and `rep` (short alias).
   - `repo_jump.rs` — `rep jump`
   - `repo_open.rs` — `rep open`
   - `repo_selection.rs` — shared repo fuzzy-selection and terminal identity emission
+  - `git_commands.rs` — shared git command execution (spawn + capture stdout)
+  - `prompts.rs` — shared interactive prompt helpers (text input, tag parsing, color prompts)
+  - `path_display.rs` — shared path visibility output after repo selection
   - `repo_ai.rs` — `rep ai` (launch AI coding CLIs in repos)
   - `repo_web.rs` — `rep web` (open repo remote URL in browser)
   - `repo_add.rs` — `rep add` (local paths + git URL cloning)
