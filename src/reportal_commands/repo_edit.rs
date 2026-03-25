@@ -122,7 +122,11 @@ pub fn run_edit(alias: &str) -> Result<(), ReportalError> {
         ColorEditResult::Cleared => RepoColor::ResetToDefault,
     };
 
-    loaded_config.update_repo_metadata(alias, new_description, new_tags, resolved_title, resolved_color)?;
+    let repo_to_update = loaded_config.get_repo_mut(alias)?;
+    repo_to_update.set_description(new_description);
+    repo_to_update.set_tags(new_tags);
+    repo_to_update.set_tab_title(resolved_title);
+    repo_to_update.set_repo_color(resolved_color);
     loaded_config.save_to_disk()?;
 
     terminal_style::print_success(&format!("Updated '{alias}'"));

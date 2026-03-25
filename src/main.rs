@@ -72,8 +72,8 @@ struct OpenArgs {
 /// CLI args for `rep edit`.
 #[derive(Args)]
 struct EditArgs {
-    /// Alias of the repo to edit
-    alias: String,
+    /// Alias of the repo to edit (skip top-level menu)
+    alias: Option<String>,
 }
 
 /// CLI args for `rep remove`.
@@ -215,7 +215,11 @@ fn main() {
             reportal_commands::run_add(&repo_path)
         }
         ReportalSubcommand::Edit(edit_args) => {
-            reportal_commands::run_edit(&edit_args.alias)
+            let direct_alias = match edit_args.alias {
+                Some(ref provided_alias) => provided_alias.as_str(),
+                None => "",
+            };
+            reportal_commands::run_edit(direct_alias)
         }
         ReportalSubcommand::Remove(remove_args) => {
             reportal_commands::run_remove(&remove_args.alias)
