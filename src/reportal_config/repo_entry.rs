@@ -4,6 +4,7 @@
 use crate::error::ReportalError;
 use crate::reportal_config::hex_color::HexColor;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 /// Whether a repo has a custom tab title or falls back to its alias.
@@ -88,6 +89,9 @@ pub struct RepoEntry {
     /// Terminal background color applied via OSC 11 when jumping to this repo.
     #[serde(default)]
     color: RepoColor,
+    /// Per-repo command overrides: key is command name, value is shell command string.
+    #[serde(default)]
+    commands: BTreeMap<String, String>,
 }
 
 /// Accessors and path resolution for a registered repository entry.
@@ -131,6 +135,11 @@ impl RepoEntry {
     /// The configured terminal background color preference for this repo.
     pub fn repo_color(&self) -> &RepoColor {
         &self.color
+    }
+
+    /// Per-repo command overrides (command name → shell command string).
+    pub fn repo_commands(&self) -> &BTreeMap<String, String> {
+        &self.commands
     }
 
     /// Replaces the description text.
@@ -259,6 +268,7 @@ impl RepoRegistrationBuilder {
             aliases: Vec::new(),
             title: self.repo_title,
             color: self.repo_color,
+            commands: BTreeMap::new(),
         };
         Ok((self.alias, validated_entry))
     }

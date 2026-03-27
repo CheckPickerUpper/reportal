@@ -3,6 +3,7 @@
 
 use crate::error::ReportalError;
 use crate::reportal_config::ai_tool_entry::AiToolEntry;
+use crate::reportal_config::command_entry::CommandEntry;
 use crate::reportal_config::global_settings::{PathDisplayFormat, PathVisibility, ReportalSettings};
 use crate::reportal_config::repo_entry::RepoEntry;
 use crate::reportal_config::tag_filter::TagFilter;
@@ -29,6 +30,9 @@ pub struct ReportalConfig {
     /// Map of tool name to AI CLI tool definition.
     #[serde(default)]
     ai_tools: BTreeMap<String, AiToolEntry>,
+    /// Map of command name to user-defined command definition.
+    #[serde(default)]
+    commands: BTreeMap<String, CommandEntry>,
 }
 
 /// Loading, saving, querying, and mutating the RePortal config file.
@@ -201,6 +205,18 @@ impl ReportalConfig {
         })
     }
 
+    /// Returns all globally registered commands with their names.
+    pub fn global_commands(&self) -> &BTreeMap<String, CommandEntry> {
+        &self.commands
+    }
+
+    /// Looks up a global command by name. Returns `CommandNotFound` if missing.
+    pub fn get_global_command(&self, command_name: &str) -> Result<&CommandEntry, ReportalError> {
+        self.commands.get(command_name).ok_or_else(|| ReportalError::CommandNotFound {
+            command_name: command_name.to_string(),
+        })
+    }
+
     /// Updates the default editor command in settings.
     pub fn set_default_editor(&mut self, editor_command: String) {
         self.settings.default_editor = editor_command;
@@ -232,6 +248,7 @@ impl ReportalConfig {
                 default_ai_tool: "claude".to_string(),
             },
             repos: BTreeMap::new(),
+            commands: BTreeMap::new(),
             ai_tools: BTreeMap::from([
                 ("claude".to_string(), AiToolEntry::with_executable("claude".to_string())),
                 ("codex".to_string(), AiToolEntry::with_executable("codex".to_string())),
