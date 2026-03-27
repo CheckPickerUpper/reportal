@@ -240,17 +240,16 @@ description = "Production build"
 | `command` | yes | — | The shell command to execute |
 | `description` | no | `""` | Shown in the fuzzy picker alongside the command name |
 
-Per-repo command overrides can be added inline to any `[repos.*]` section. These override global commands with the same name, or add repo-specific commands:
+Per-repo commands use the same format and can override global commands with the same name, or add repo-specific ones:
 
 ```toml
-[repos.my-api]
-path = "~/dev/my-api"
-description = "Django backend"
-tags = ["work"]
+[repos.my-api.commands.serve]
+command = "python manage.py runserver"
+description = "Start Django dev server"
 
-[repos.my-api.commands]
-serve = "python manage.py runserver"
-migrate = "python manage.py migrate"
+[repos.my-api.commands.migrate]
+command = "python manage.py migrate"
+description = "Run database migrations"
 ```
 
 ## Terminal personalization
