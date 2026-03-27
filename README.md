@@ -222,17 +222,10 @@ New configs created via `rep init` ship with claude, codex, and aider pre-regist
 Define reusable commands that can be run in any repo via `rep run`:
 
 ```toml
-[commands.test]
-command = "cargo test"
-description = "Run tests"
-
-[commands.serve]
-command = "npm run dev"
-description = "Start dev server"
-
-[commands.build]
-command = "cargo build --release"
-description = "Production build"
+[commands]
+test  = { command = "cargo test",          description = "Run tests" }
+serve = { command = "npm run dev",         description = "Start dev server" }
+build = { command = "cargo build --release", description = "Production build" }
 ```
 
 | Field | Required | Default | What it controls |
@@ -240,16 +233,12 @@ description = "Production build"
 | `command` | yes | — | The shell command to execute |
 | `description` | no | `""` | Shown in the fuzzy picker alongside the command name |
 
-Per-repo commands use the same format and can override global commands with the same name, or add repo-specific ones:
+Per-repo commands go under `[repos.<alias>.commands]` and can override global commands with the same name, or add repo-specific ones:
 
 ```toml
-[repos.my-api.commands.serve]
-command = "python manage.py runserver"
-description = "Start Django dev server"
-
-[repos.my-api.commands.migrate]
-command = "python manage.py migrate"
-description = "Run database migrations"
+[repos.my-api.commands]
+serve   = { command = "python manage.py runserver", description = "Start Django dev server" }
+migrate = { command = "python manage.py migrate",   description = "Run database migrations" }
 ```
 
 ## Terminal personalization
