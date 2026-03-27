@@ -38,18 +38,16 @@ struct MergedCommandEntry<'a> {
 struct ResolveCommandParams<'a> {
     /// Global commands from config.
     global_commands: &'a BTreeMap<String, CommandEntry>,
-    /// Per-repo command overrides.
-    repo_commands: &'a BTreeMap<String, String>,
+    /// Per-repo commands (override globals with same name, or add repo-specific ones).
+    repo_commands: &'a BTreeMap<String, CommandEntry>,
     /// If non-empty, skip the fuzzy finder and use this command directly.
     direct_command: &'a str,
 }
 
-/// Merges global commands with repo-level overrides, then resolves
+/// Merges global commands with repo-level commands, then resolves
 /// which command to run (direct or fuzzy-selected).
 ///
 /// Repo-level commands override global commands with the same name.
-/// Repo-level commands are flat `key = "command string"` (no description),
-/// so when a repo overrides a global command, the description is lost.
 fn resolve_command(resolve_params: ResolveCommandParams<'_>) -> Result<ResolvedCommand, ReportalError> {
     let mut merged: Vec<MergedCommandEntry<'_>> = Vec::new();
 
@@ -58,8 +56,8 @@ fn resolve_command(resolve_params: ResolveCommandParams<'_>) -> Result<ResolvedC
             Some(repo_override) => {
                 merged.push(MergedCommandEntry {
                     name,
-                    shell_command: repo_override,
-                    description: "",
+                    shell_command: repo_override.shell_command(),
+                    description: repo_override.description(),
                 });
             }
             None => {
@@ -72,15 +70,15 @@ fn resolve_command(resolve_params: ResolveCommandParams<'_>) -> Result<ResolvedC
         }
     }
 
-    for (name, shell_command) in resolve_params.repo_commands {
+    for (name, entry) in resolve_params.repo_commands {
         let already_merged = resolve_params.global_commands.contains_key(name);
         match already_merged {
             true => {}
             false => {
                 merged.push(MergedCommandEntry {
                     name,
-                    shell_command,
-                    description: "",
+                    shell_command: entry.shell_command(),
+                    description: entry.description(),
                 });
             }
         }
