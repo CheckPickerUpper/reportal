@@ -102,4 +102,22 @@ pub enum ReportalError {
         /// The underlying OS error message.
         reason: String,
     },
+
+    /// A command name was not found in global or repo-level config.
+    #[error("Command '{command_name}' not found. Add it under [commands.{command_name}] or [repos.<alias>.commands]")]
+    CommandNotFound {
+        /// The command name that was looked up.
+        command_name: String,
+    },
+
+    /// The user-defined command process failed to launch.
+    #[error("Failed to run command: {reason}")]
+    CommandLaunchFailure {
+        /// The underlying OS error message.
+        reason: String,
+    },
+
+    /// No commands are available (neither global nor repo-level).
+    #[error("No commands configured. Add [commands.<name>] sections to your config")]
+    NoCommandsAvailable,
 }
