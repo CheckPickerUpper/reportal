@@ -9,7 +9,7 @@ mod reportal_config;
 mod terminal_style;
 
 use clap::{Args, Parser, Subcommand};
-use reportal_commands::{AiCommandParams, ColorCommandParams, JumpCommandParams, OpenCommandParams, TitleOutput, WebCommandParams};
+use reportal_commands::{AiCommandParams, ColorCommandParams, JumpCommandParams, OpenCommandParams, RunCommandParams, TitleOutput, WebCommandParams};
 use reportal_config::TagFilter;
 
 /// Shared --tag flag used by commands that filter repos.
@@ -125,6 +125,16 @@ struct WebArgs {
     selection: RepoSelectionArgs,
 }
 
+/// CLI args for `rep run`.
+#[derive(Args)]
+struct RunArgs {
+    #[command(flatten)]
+    selection: RepoSelectionArgs,
+    /// Run this command directly (skip command fuzzy finder)
+    #[arg(long)]
+    cmd: Option<String>,
+}
+
 /// A fast CLI tool for jumping between and managing your dev repos.
 #[derive(Parser)]
 #[command(name = "reportal", version, about)]
@@ -174,6 +184,9 @@ enum ReportalSubcommand {
     /// Open a repo's remote URL in the browser
     #[command(alias = "w")]
     Web(WebArgs),
+    /// Run a configured command in a repo
+    #[command(alias = "r")]
+    Run(RunArgs),
 }
 
 fn main() {
@@ -263,6 +276,21 @@ fn main() {
             reportal_commands::run_web(WebCommandParams {
                 tag_filter: web_args.selection.tag_filter.into_tag_filter(),
                 direct_alias,
+            })
+        }
+        ReportalSubcommand::Run(run_args) => {
+            let direct_alias = match run_args.selection.alias {
+                Some(ref provided_alias) => provided_alias.as_str(),
+                None => "",
+            };
+            let direct_command = match run_args.cmd {
+                Some(ref provided_command) => provided_command.as_str(),
+                None => "",
+            };
+            reportal_commands::run_run(RunCommandParams {
+                tag_filter: run_args.selection.tag_filter.into_tag_filter(),
+                direct_alias,
+                direct_command,
             })
         }
         ReportalSubcommand::Ai(ai_args) => {

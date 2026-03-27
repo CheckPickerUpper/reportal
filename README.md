@@ -124,6 +124,10 @@ ro
 | `rep ai my-api` | | Launch default AI tool directly in a repo by alias |
 | `rep ai --tool codex` | | Launch a specific AI tool (overrides default) |
 | `rep ai my-api --tool codex` | | Specific repo + specific tool |
+| `rep run` | `rep r` | Fuzzy-select a repo and a configured command, then run it |
+| `rep run my-api` | `rep r my-api` | Skip repo selection, fuzzy-select a command to run |
+| `rep run --cmd test` | | Skip command selection, fuzzy-select a repo to run "test" in |
+| `rep run my-api --cmd test` | | Run "test" directly in my-api (no fuzzy menus) |
 | `rep doctor` | | Diagnose config, shell integration, and repo path issues |
 
 ## Shell integration
@@ -138,6 +142,8 @@ ro
 | `ro my-api` | Open a repo directly by alias |
 | `rw` | Fuzzy-select a repo and open it in the browser |
 | `rw my-api` | Open a repo's remote directly by alias |
+| `rr` | Fuzzy-select a repo and run a configured command in it |
+| `rr my-api` | Skip repo selection, fuzzy-select a command |
 
 Supports PowerShell, Bash, Zsh. Detected and installed during `rep init`. Re-run `rep init` after major version updates to regenerate the integration file.
 
@@ -211,6 +217,42 @@ args = []
 
 New configs created via `rep init` ship with claude, codex, and aider pre-registered.
 
+### Commands
+
+Define reusable commands that can be run in any repo via `rep run`:
+
+```toml
+[commands.test]
+command = "cargo test"
+description = "Run tests"
+
+[commands.serve]
+command = "npm run dev"
+description = "Start dev server"
+
+[commands.build]
+command = "cargo build --release"
+description = "Production build"
+```
+
+| Field | Required | Default | What it controls |
+|-------|----------|---------|-----------------|
+| `command` | yes | — | The shell command to execute |
+| `description` | no | `""` | Shown in the fuzzy picker alongside the command name |
+
+Per-repo command overrides can be added inline to any `[repos.*]` section. These override global commands with the same name, or add repo-specific commands:
+
+```toml
+[repos.my-api]
+path = "~/dev/my-api"
+description = "Django backend"
+tags = ["work"]
+
+[repos.my-api.commands]
+serve = "python manage.py runserver"
+migrate = "python manage.py migrate"
+```
+
 ## Terminal personalization
 
 When you jump to or open a repo, RePortal automatically sets:
@@ -253,6 +295,7 @@ PROMPT_COMMAND='rep color 2>/dev/null'
 - [x] `doctor` — diagnose config, shell integration, and repo path issues
 - [x] `ai` — launch AI coding CLIs (Claude Code, Codex, aider) in any repo with configurable defaults
 - [x] `web` — open a repo's remote URL in the browser (converts SSH remotes to HTTPS)
+- [x] `run` — run configured commands in repos with fuzzy selection and per-repo overrides
 - [ ] `edit` UX overhaul — fuzzy-select what to edit (repos, AI tools, global settings), field menu
 - [ ] `dashboard` — rich overview with branches, dirty state, last commit
 - [ ] `clone --all` — clone missing repos from config (machine sync)
