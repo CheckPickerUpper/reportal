@@ -9,7 +9,7 @@ mod reportal_config;
 mod terminal_style;
 
 use clap::{Args, Parser, Subcommand};
-use reportal_commands::{AiCommandParams, ColorCommandParams, JumpCommandParams, OpenCommandParams, RunCommandParams, TitleOutput, WebCommandParams};
+use reportal_commands::{AiCommandParams, ColorCommandParams, EditCommandParams, JumpCommandParams, OpenCommandParams, RunCommandParams, TitleOutput, WebCommandParams};
 use reportal_config::TagFilter;
 
 /// Shared --tag flag used by commands that filter repos.
@@ -72,8 +72,8 @@ struct OpenArgs {
 /// CLI args for `rep edit`.
 #[derive(Args)]
 struct EditArgs {
-    /// Alias of the repo to edit (skip top-level menu)
-    alias: Option<String>,
+    #[command(flatten)]
+    selection: RepoSelectionArgs,
 }
 
 /// CLI args for `rep remove`.
@@ -238,11 +238,14 @@ fn main() {
             reportal_commands::run_add(&repo_path)
         }
         ReportalSubcommand::Edit(edit_args) => {
-            let direct_alias = match edit_args.alias {
+            let direct_alias = match edit_args.selection.alias {
                 Some(ref provided_alias) => provided_alias.as_str(),
                 None => "",
             };
-            reportal_commands::run_edit(direct_alias)
+            reportal_commands::run_edit(EditCommandParams {
+                tag_filter: edit_args.selection.tag_filter.into_tag_filter(),
+                direct_alias,
+            })
         }
         ReportalSubcommand::Remove(remove_args) => {
             reportal_commands::run_remove(&remove_args.alias)
