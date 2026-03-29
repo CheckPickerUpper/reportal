@@ -114,7 +114,7 @@ ro
 | `rep status --tag work` | | Filter status by tag |
 | `rep sync` | | Pull latest changes across all repos (skips dirty repos) |
 | `rep sync --tag work` | | Pull only repos with this tag |
-| `rep edit` | `rep e` | Fuzzy-select a repo and interactively edit its description, tags, title, and color |
+| `rep edit` | `rep e` | Fuzzy-select a repo, then pick a field to edit from a menu (loops until Done) |
 | `rep add ~/dev/foo` | `rep a ~/dev/foo` | Register a local repo (auto-detects git remote, suggests alias) |
 | `rep add https://github.com/org/repo.git` | | Clone a repo and register it (asks where to place it) |
 | `rep remove my-api` | `rep rm my-api` | Unregister a repo (does not delete files) |
@@ -284,7 +284,7 @@ PROMPT_COMMAND='rep color 2>/dev/null'
 - [x] `ai` — launch AI coding CLIs (Claude Code, Codex, aider) in any repo with configurable defaults
 - [x] `web` — open a repo's remote URL in the browser (converts SSH remotes to HTTPS)
 - [x] `run` — run configured commands in repos with fuzzy selection and per-repo overrides
-- [ ] `edit` UX overhaul — field menu (pick Description/Tags/Title/Color individually, loop back)
+- [x] `edit` UX overhaul — field menu (pick Description/Tags/Title/Color individually, loop back)
 - [ ] `config` — manage AI tools and global settings (`rep config ai-tools`, `rep config settings`)
 - [ ] `dashboard` — rich overview with branches, dirty state, last commit
 - [ ] `clone --all` — clone missing repos from config (machine sync)
