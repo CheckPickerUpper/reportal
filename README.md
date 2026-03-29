@@ -114,7 +114,7 @@ ro
 | `rep status --tag work` | | Filter status by tag |
 | `rep sync` | | Pull latest changes across all repos (skips dirty repos) |
 | `rep sync --tag work` | | Pull only repos with this tag |
-| `rep edit my-api` | `rep e my-api` | Interactively edit a repo's description, tags, title, and color |
+| `rep edit` | `rep e` | Fuzzy-select a repo and interactively edit its description, tags, title, and color |
 | `rep add ~/dev/foo` | `rep a ~/dev/foo` | Register a local repo (auto-detects git remote, suggests alias) |
 | `rep add https://github.com/org/repo.git` | | Clone a repo and register it (asks where to place it) |
 | `rep remove my-api` | `rep rm my-api` | Unregister a repo (does not delete files) |
