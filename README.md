@@ -284,7 +284,8 @@ PROMPT_COMMAND='rep color 2>/dev/null'
 - [x] `ai` — launch AI coding CLIs (Claude Code, Codex, aider) in any repo with configurable defaults
 - [x] `web` — open a repo's remote URL in the browser (converts SSH remotes to HTTPS)
 - [x] `run` — run configured commands in repos with fuzzy selection and per-repo overrides
-- [ ] `edit` UX overhaul — fuzzy-select what to edit (repos, AI tools, global settings), field menu
+- [ ] `edit` UX overhaul — field menu (pick Description/Tags/Title/Color individually, loop back)
+- [ ] `config` — manage AI tools and global settings (`rep config ai-tools`, `rep config settings`)
 - [ ] `dashboard` — rich overview with branches, dirty state, last commit
 - [ ] `clone --all` — clone missing repos from config (machine sync)
 - [ ] Shell completions
