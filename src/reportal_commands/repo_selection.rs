@@ -46,8 +46,9 @@ pub struct SelectedRepoParams<'a> {
 ///
 /// If `direct_alias` is non-empty, looks it up directly in the config.
 /// Otherwise, presents a fuzzy finder filtered by `tag_filter`
-/// with the given `prompt_label`. Each item shows a color swatch,
-/// the alias, any configured aliases in parens, and the description.
+/// with the given `prompt_label`. Repos are sorted by their first tag
+/// so same-tag repos cluster visually. Each item shows a color swatch,
+/// the alias, aliases, description, and tags.
 pub fn select_repo<'a>(selection_params: SelectedRepoParams<'a>) -> Result<SelectedRepo<'a>, ReportalError> {
     match selection_params.direct_alias.is_empty() {
         false => {
@@ -58,10 +59,16 @@ pub fn select_repo<'a>(selection_params: SelectedRepoParams<'a>) -> Result<Selec
             });
         }
         true => {
-            let matching_repos = selection_params.loaded_config.repos_matching_tag_filter(selection_params.tag_filter);
+            let mut matching_repos = selection_params.loaded_config.repos_matching_tag_filter(selection_params.tag_filter);
             if matching_repos.is_empty() {
                 return Err(ReportalError::NoReposMatchFilter);
             }
+
+            matching_repos.sort_by(|(alias_a, repo_a), (alias_b, repo_b)| {
+                let first_tag_a = repo_a.tags().first().map(String::as_str);
+                let first_tag_b = repo_b.tags().first().map(String::as_str);
+                first_tag_a.cmp(&first_tag_b).then(alias_a.cmp(alias_b))
+            });
 
             let display_labels: Vec<String> = matching_repos
                 .iter()
@@ -86,6 +93,14 @@ pub fn select_repo<'a>(selection_params: SelectedRepoParams<'a>) -> Result<Selec
                         true => {}
                         false => {
                             label.push_str(&format!(" — {}", repo.description()));
+                        }
+                    }
+
+                    match repo.tags().is_empty() {
+                        true => {}
+                        false => {
+                            let tags_display = repo.tags().join(", ");
+                            label.push_str(&format!(" [{}]", tags_display));
                         }
                     }
 
