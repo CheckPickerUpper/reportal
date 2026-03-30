@@ -273,7 +273,7 @@ PROMPT_COMMAND='rep color 2>/dev/null'
 - [x] Shell integration auto-install (`rj`, `ro`)
 - [x] Clone from URL with sibling/child placement
 - [x] Auto-detect git remote on `add`
-- [x] Colored output with themed fuzzy finder (repo color swatches in `rep list`, aliases in fuzzy finder)
+- [x] Colored output with themed fuzzy finder (repo color swatches in `rep list` and fuzzy finder)
 - [x] `rep` short alias
 - [x] Configurable path display (absolute/relative, show/hide)
 - [x] Per-repo terminal tab title and background color (OSC 2 / OSC 11)

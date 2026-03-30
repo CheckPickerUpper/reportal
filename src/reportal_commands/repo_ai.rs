@@ -3,8 +3,9 @@
 use crate::error::ReportalError;
 use crate::reportal_config::{ReportalConfig, TagFilter};
 use crate::terminal_style;
-use crate::reportal_commands::repo_selection::{
-    self, RepoSelectionParams, TerminalIdentityEmitParams,
+use crate::reportal_commands::repo_selection::{self, SelectedRepoParams};
+use crate::reportal_commands::terminal_identity_emit::{
+    self, TerminalIdentityEmitParams,
 };
 use owo_colors::OwoColorize;
 use std::process::Command;
@@ -46,14 +47,14 @@ pub fn run_ai(ai_params: AiCommandParams<'_>) -> Result<(), ReportalError> {
     let ai_tool = loaded_config.get_ai_tool(tool_name)?;
 
     let prompt_label = format!("Launch {tool_name} in");
-    let selected = repo_selection::select_repo(RepoSelectionParams {
+    let selected = repo_selection::select_repo(SelectedRepoParams {
         loaded_config: &loaded_config,
         direct_alias: ai_params.direct_alias,
         tag_filter: &ai_params.tag_filter,
         prompt_label: &prompt_label,
     })?;
 
-    repo_selection::emit_repo_terminal_identity(TerminalIdentityEmitParams {
+    terminal_identity_emit::emit_repo_terminal_identity(TerminalIdentityEmitParams {
         selected_alias: selected.repo_alias(),
         selected_repo: selected.repo_config(),
         title_override: "",
