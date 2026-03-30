@@ -30,7 +30,8 @@ Produces two binaries: `reportal` and `rep` (short alias).
   - `repo_listing.rs` — `rep list`
   - `repo_jump.rs` — `rep jump`
   - `repo_open.rs` — `rep open`
-  - `repo_selection.rs` — shared repo fuzzy-selection and terminal identity emission
+  - `repo_selection.rs` — shared repo fuzzy-selection with color swatches
+  - `terminal_identity_emit.rs` — OSC tab title and color emission after repo selection
   - `git_commands.rs` — shared git command execution (spawn + capture stdout)
   - `prompts/` — shared interactive prompt helpers:
     - `text_prompt.rs` — `TextPromptParams`, `prompt_for_text`, `parse_comma_separated_tags`

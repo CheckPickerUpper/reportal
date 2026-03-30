@@ -3,8 +3,9 @@
 use crate::error::ReportalError;
 use crate::reportal_config::{CommandEntry, ReportalConfig, TagFilter};
 use crate::terminal_style;
-use crate::reportal_commands::repo_selection::{
-    self, RepoSelectionParams, TerminalIdentityEmitParams,
+use crate::reportal_commands::repo_selection::{self, SelectedRepoParams};
+use crate::reportal_commands::terminal_identity_emit::{
+    self, TerminalIdentityEmitParams,
 };
 use dialoguer::{theme::ColorfulTheme, FuzzySelect};
 use owo_colors::OwoColorize;
@@ -156,14 +157,14 @@ fn resolve_command(resolve_params: ResolveCommandParams<'_>) -> Result<ResolvedC
 pub fn run_run(run_params: RunCommandParams<'_>) -> Result<(), ReportalError> {
     let loaded_config = ReportalConfig::load_from_disk()?;
 
-    let selected = repo_selection::select_repo(RepoSelectionParams {
+    let selected = repo_selection::select_repo(SelectedRepoParams {
         loaded_config: &loaded_config,
         direct_alias: run_params.direct_alias,
         tag_filter: &run_params.tag_filter,
         prompt_label: "Run command in",
     })?;
 
-    repo_selection::emit_repo_terminal_identity(TerminalIdentityEmitParams {
+    terminal_identity_emit::emit_repo_terminal_identity(TerminalIdentityEmitParams {
         selected_alias: selected.repo_alias(),
         selected_repo: selected.repo_config(),
         title_override: "",
