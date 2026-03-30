@@ -2,6 +2,8 @@
 
 # Internal docs
 /_docs/
+DEV_TOOLS.md
+SPEC-*.md
 
 # Claude Code
 .claude/
