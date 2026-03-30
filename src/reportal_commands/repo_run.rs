@@ -7,7 +7,7 @@ use crate::reportal_commands::repo_selection::{self, SelectedRepoParams};
 use crate::reportal_commands::terminal_identity_emit::{
     self, TerminalIdentityEmitParams,
 };
-use dialoguer::{theme::ColorfulTheme, FuzzySelect};
+use dialoguer::FuzzySelect;
 use owo_colors::OwoColorize;
 use std::collections::BTreeMap;
 use std::process::Command;
@@ -124,7 +124,7 @@ fn resolve_command(resolve_params: ResolveCommandParams<'_>) -> Result<ResolvedC
                 })
                 .collect();
 
-            let selected_index = FuzzySelect::with_theme(&ColorfulTheme::default())
+            let selected_index = FuzzySelect::with_theme(&terminal_style::reportal_prompt_theme())
                 .with_prompt("Run command")
                 .items(&display_labels)
                 .interact_opt()

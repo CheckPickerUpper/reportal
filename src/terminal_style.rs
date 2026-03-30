@@ -29,6 +29,24 @@ pub const LABEL_STYLE: Style = Style::new().cyan();
 /// Bold white for emphasis.
 pub const EMPHASIS_STYLE: Style = Style::new().bold();
 
+/// Builds a dialoguer `ColorfulTheme` tuned to the Nightfall Candy palette.
+///
+/// Match-highlighted characters in fuzzy select use accent blue with bold.
+/// Non-matched items are dimmed so the highlighted item and matched
+/// characters pop visually. The prompt prefix uses cyan to match LABEL_STYLE.
+pub fn reportal_prompt_theme() -> dialoguer::theme::ColorfulTheme {
+    use console::Style as ConsoleStyle;
+
+    dialoguer::theme::ColorfulTheme {
+        fuzzy_match_highlight_style: ConsoleStyle::new().for_stderr().color256(117).bold(),
+        active_item_style: ConsoleStyle::new().for_stderr().color256(117),
+        inactive_item_style: ConsoleStyle::new().for_stderr().dim(),
+        prompt_prefix: console::style("?".to_string()).for_stderr().cyan(),
+        prompt_style: ConsoleStyle::new().for_stderr().bold(),
+        ..dialoguer::theme::ColorfulTheme::default()
+    }
+}
+
 /// Builds an owo-colors `Style` for the swatch block (`██`) based on
 /// the repo's configured color. Returns a truecolor foreground style
 /// for themed repos, or the default gray for repos with no color.

@@ -2,7 +2,8 @@
 
 use crate::error::ReportalError;
 use crate::reportal_config::ReportalConfig;
-use dialoguer::{theme::ColorfulTheme, FuzzySelect};
+use crate::terminal_style;
+use dialoguer::FuzzySelect;
 use std::path::PathBuf;
 
 use super::clone_placement;
@@ -19,7 +20,7 @@ pub enum CloneDestination {
 
 /// Asks the user what kind of placement they want, then which repo to place relative to.
 pub fn prompt_clone_destination(loaded_config: &ReportalConfig) -> Result<CloneDestination, ReportalError> {
-    let prompt_theme = ColorfulTheme::default();
+    let prompt_theme = terminal_style::reportal_prompt_theme();
 
     let sibling_directories = clone_placement::collect_registered_parent_directories(loaded_config);
     let child_directories = clone_placement::collect_registered_repo_directories(loaded_config);

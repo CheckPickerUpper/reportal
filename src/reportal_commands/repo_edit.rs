@@ -7,7 +7,6 @@ use crate::reportal_commands::prompts::{
 use crate::reportal_commands::repo_selection::{self, SelectedRepoParams};
 use crate::reportal_config::{RepoColor, ReportalConfig, TabTitle, TagFilter};
 use crate::terminal_style;
-use dialoguer::theme::ColorfulTheme;
 use dialoguer::Select;
 use owo_colors::OwoColorize;
 
@@ -58,7 +57,7 @@ pub fn run_edit(command_params: EditCommandParams<'_>) -> Result<(), ReportalErr
         repo_path_display.style(terminal_style::PATH_STYLE),
     );
 
-    let prompt_theme = ColorfulTheme::default();
+    let prompt_theme = terminal_style::reportal_prompt_theme();
 
     let repo_entry = loaded_config.get_repo(&selected_alias)?;
     let mut current_description = repo_entry.description().to_string();

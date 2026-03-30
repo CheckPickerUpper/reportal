@@ -3,7 +3,7 @@
 use crate::error::ReportalError;
 use crate::reportal_config::{RepoEntry, ReportalConfig, TagFilter};
 use crate::terminal_style;
-use dialoguer::{theme::ColorfulTheme, FuzzySelect};
+use dialoguer::FuzzySelect;
 use owo_colors::OwoColorize;
 
 /// A repo that was resolved either by direct alias lookup or fuzzy selection.
@@ -93,7 +93,8 @@ pub fn select_repo<'a>(selection_params: SelectedRepoParams<'a>) -> Result<Selec
                 })
                 .collect();
 
-            let selected_index = FuzzySelect::with_theme(&ColorfulTheme::default())
+            let prompt_theme = terminal_style::reportal_prompt_theme();
+            let selected_index = FuzzySelect::with_theme(&prompt_theme)
                 .with_prompt(selection_params.prompt_label)
                 .items(&display_labels)
                 .interact_opt()

@@ -3,7 +3,7 @@
 use crate::error::ReportalError;
 use crate::reportal_config::ReportalConfig;
 use crate::terminal_style;
-use dialoguer::{theme::ColorfulTheme, Input};
+use dialoguer::Input;
 use owo_colors::OwoColorize;
 use std::path::PathBuf;
 
@@ -55,7 +55,7 @@ pub fn run_add(raw_input: &str) -> Result<(), ReportalError> {
             println!();
 
             let clone_destination = prompt_clone_destination(&loaded_config)?;
-            let prompt_theme = ColorfulTheme::default();
+            let prompt_theme = terminal_style::reportal_prompt_theme();
 
             let clone_parent = match clone_destination {
                 CloneDestination::CustomPath => {
