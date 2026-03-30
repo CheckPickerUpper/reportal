@@ -6,7 +6,6 @@ use crate::reportal_commands::prompts::{
 };
 use crate::reportal_config::{RepoRegistrationBuilder, ReportalConfig};
 use crate::terminal_style;
-use dialoguer::theme::ColorfulTheme;
 use owo_colors::OwoColorize;
 
 /// All data needed to run the interactive metadata collection and registration.
@@ -27,7 +26,7 @@ impl<'a> RegistrationContext<'a> {
     /// and color prompts, shows a confirmation summary, then saves
     /// the new repo entry to disk.
     pub fn collect_metadata_and_register(self) -> Result<(), ReportalError> {
-        let prompt_theme = ColorfulTheme::default();
+        let prompt_theme = terminal_style::reportal_prompt_theme();
 
         let repo_alias = prompts::prompt_for_text(TextPromptParams {
             prompt_theme: &prompt_theme,
