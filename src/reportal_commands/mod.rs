@@ -15,6 +15,7 @@ mod repo_remove;
 mod repo_run;
 mod repo_selection;
 mod repo_status;
+mod terminal_identity_emit;
 mod repo_sync;
 mod repo_web;
 

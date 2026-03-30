@@ -4,7 +4,7 @@ use crate::error::ReportalError;
 use crate::reportal_commands::prompts::{
     self, ColorEditPromptParams, ColorEditResult, TextPromptParams,
 };
-use crate::reportal_commands::repo_selection::{self, RepoSelectionParams};
+use crate::reportal_commands::repo_selection::{self, SelectedRepoParams};
 use crate::reportal_config::{RepoColor, ReportalConfig, TabTitle, TagFilter};
 use crate::terminal_style;
 use dialoguer::theme::ColorfulTheme;
@@ -35,7 +35,7 @@ pub fn run_edit(command_params: EditCommandParams<'_>) -> Result<(), ReportalErr
     let mut loaded_config = ReportalConfig::load_from_disk()?;
 
     let selected_alias = {
-        let selection = repo_selection::select_repo(RepoSelectionParams {
+        let selection = repo_selection::select_repo(SelectedRepoParams {
             loaded_config: &loaded_config,
             direct_alias: command_params.direct_alias,
             tag_filter: &command_params.tag_filter,

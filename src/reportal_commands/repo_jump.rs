@@ -3,8 +3,9 @@
 use crate::error::ReportalError;
 use crate::reportal_config::{ReportalConfig, TagFilter};
 use crate::reportal_commands::path_display::{self, SelectedPathDisplayParams};
-use crate::reportal_commands::repo_selection::{
-    self, RepoSelectionParams, TerminalIdentityEmitParams,
+use crate::reportal_commands::repo_selection::{self, SelectedRepoParams};
+use crate::reportal_commands::terminal_identity_emit::{
+    self, TerminalIdentityEmitParams,
 };
 
 /// All parameters needed to run the jump command.
@@ -27,14 +28,14 @@ pub struct JumpCommandParams<'a> {
 pub fn run_jump(jump_params: JumpCommandParams<'_>) -> Result<(), ReportalError> {
     let loaded_config = ReportalConfig::load_from_disk()?;
 
-    let selected = repo_selection::select_repo(RepoSelectionParams {
+    let selected = repo_selection::select_repo(SelectedRepoParams {
         loaded_config: &loaded_config,
         direct_alias: jump_params.direct_alias,
         tag_filter: &jump_params.tag_filter,
         prompt_label: "Jump to repo",
     })?;
 
-    repo_selection::emit_repo_terminal_identity(TerminalIdentityEmitParams {
+    terminal_identity_emit::emit_repo_terminal_identity(TerminalIdentityEmitParams {
         selected_alias: selected.repo_alias(),
         selected_repo: selected.repo_config(),
         title_override: jump_params.title_override,
