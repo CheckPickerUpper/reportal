@@ -170,6 +170,20 @@ pub(crate) fn detect_shell_profile() -> DetectedShell {
     }
 }
 
+/// Returns true if the line looks like a RePortal shell function definition.
+fn is_reportal_function_line(trimmed: &str) -> bool {
+    return trimmed.starts_with("function rj")
+        || trimmed.starts_with("function ro")
+        || trimmed.starts_with("function rw")
+        || trimmed.starts_with("function rr")
+        || trimmed.starts_with("function repup")
+        || trimmed.starts_with("rj()")
+        || trimmed.starts_with("ro()")
+        || trimmed.starts_with("rw()")
+        || trimmed.starts_with("rr()")
+        || trimmed.starts_with("repup()");
+}
+
 /// Strips any existing RePortal integration from a profile string.
 /// Handles both legacy inline blocks (pre-v0.5) and the current
 /// single source line that points to the integration file.
@@ -182,18 +196,9 @@ fn strip_existing_integration(profile_content: &str) -> String {
         match skipping_reportal_block {
             true => {
                 let trimmed = line.trim();
-                let is_reportal_line = trimmed.starts_with("function rj")
-                    || trimmed.starts_with("function ro")
-                    || trimmed.starts_with("function rw")
-                    || trimmed.starts_with("function rr")
-                    || trimmed.starts_with("function repup")
+                let is_reportal_line = is_reportal_function_line(trimmed)
                     || trimmed.starts_with("function prompt")
                     || trimmed.starts_with("$_reportal_")
-                    || trimmed.starts_with("rj()")
-                    || trimmed.starts_with("ro()")
-                    || trimmed.starts_with("rw()")
-                    || trimmed.starts_with("rr()")
-                    || trimmed.starts_with("repup()")
                     || trimmed.starts_with("PROMPT_COMMAND")
                     || trimmed.contains("REPORTAL_LOADED")
                     || trimmed.contains("rep jump")
@@ -221,7 +226,22 @@ fn strip_existing_integration(profile_content: &str) -> String {
                         skipping_reportal_block = true;
                     }
                     false => {
-                        result_lines.push(line);
+                        let trimmed = line.trim();
+                        let is_stale_reportal_function =
+                            is_reportal_function_line(trimmed)
+                                || trimmed.contains("reportal jump")
+                                || trimmed.contains("reportal open")
+                                || trimmed.contains("reportal web")
+                                || trimmed.contains("reportal run");
+                        let is_stale_reportal_comment = trimmed
+                            .starts_with('#')
+                            && trimmed.contains("RePortal");
+                        match is_stale_reportal_function || is_stale_reportal_comment {
+                            true => {}
+                            false => {
+                                result_lines.push(line);
+                            }
+                        }
                     }
                 }
             }
