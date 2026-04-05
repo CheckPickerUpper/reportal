@@ -132,7 +132,9 @@ ro
 
 ## Shell integration
 
-`rep init` writes a standalone integration script to `~/.reportal/integration.ps1` (or `.sh`) and adds a single source line to your shell profile. The profile line never changes between versions; updating the binary is all you need.
+On **PowerShell**, `rep init` installs a proper PowerShell module to `Documents/PowerShell/Modules/RePortal/`. Functions load via module auto-import — they work even if your `$PROFILE` has errors. Existing profile-based installs are migrated automatically.
+
+On **Bash/Zsh**, `rep init` writes a standalone script to `~/.reportal/integration.sh` and adds a source line to your shell profile. The profile line never changes between versions; updating the binary is all you need.
 
 | Shortcut | What it does |
 |----------|-------------|
@@ -145,7 +147,7 @@ ro
 | `rr` | Fuzzy-select a repo and run a configured command in it |
 | `rr my-api` | Skip repo selection, fuzzy-select a command |
 
-Supports PowerShell, Bash, Zsh. Detected and installed during `rep init`. Re-run `rep init` after major version updates to regenerate the integration file.
+Supports PowerShell, Bash, Zsh. Detected and installed during `rep init`. Re-run `rep init` after major updates to regenerate integration files.
 
 ## Config
 
