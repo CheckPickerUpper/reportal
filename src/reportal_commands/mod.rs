@@ -1,7 +1,9 @@
 /// Subcommand implementations for the RePortal CLI.
+mod detected_shell;
 mod doctor;
 mod git_commands;
 mod initialization;
+mod integration_freshness;
 mod path_display;
 mod prompts;
 mod repo_add;
@@ -20,7 +22,7 @@ mod repo_sync;
 mod repo_web;
 
 pub use doctor::run_doctor;
-pub use initialization::ensure_integration_file_current;
+pub use integration_freshness::ensure_integration_file_current;
 pub use initialization::run_init;
 pub use repo_add::run_add;
 pub use repo_ai::{run_ai, AiCommandParams};
