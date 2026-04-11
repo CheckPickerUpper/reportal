@@ -1,4 +1,4 @@
-/// Removes a registered repo from the RePortal config by alias.
+//! Removes a registered repo from the `RePortal` config by alias.
 
 use crate::error::ReportalError;
 use crate::reportal_config::ReportalConfig;

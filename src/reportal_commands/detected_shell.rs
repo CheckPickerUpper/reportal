@@ -1,22 +1,23 @@
-/// Shell detection, integration content generation, and installation.
-///
-/// On Unix shells (bash, zsh), integration works by writing a standalone
-/// script file into `~/.reportal` and adding a `source` line to the
-/// user's shell profile.
-///
-/// On PowerShell, integration is installed as a proper PowerShell module
-/// in the user's PSModulePath. This makes the rj/ro/rw/rr functions load
-/// via PowerShell's module auto-import, independent of the user's
-/// $PROFILE health.
+//! Shell detection, integration content generation, and installation.
+//!
+//! On Unix shells (bash, zsh), integration works by writing a standalone
+//! script file into `~/.reportal` and adding a `source` line to the
+//! user's shell profile.
+//!
+//! On `PowerShell`, integration is installed as a proper `PowerShell` module
+//! in the user's `PSModulePath`. This makes the rj/ro/rw/rr functions load
+//! via `PowerShell`'s module auto-import, independent of the user's
+//! $PROFILE health.
 
 use crate::error::ReportalError;
 use crate::reportal_config::ReportalConfig;
 use std::path::PathBuf;
 use std::process::Command;
+use crate::terminal_style;
 
 /// Which shell the user is running, with its profile path.
 pub(crate) enum DetectedShell {
-    /// PowerShell (Windows or cross-platform).
+    /// `PowerShell` (Windows or cross-platform).
     PowerShell(PathBuf),
     /// Bash with a known profile path.
     #[cfg(not(target_os = "windows"))]
@@ -34,28 +35,28 @@ pub(crate) fn integration_file_path() -> Result<PathBuf, ReportalError> {
 
     #[cfg(target_os = "windows")]
     {
-        return Ok(config_directory.join("integration.ps1"));
+        Ok(config_directory.join("integration.ps1"))
     }
 
     #[cfg(not(target_os = "windows"))]
     {
-        return Ok(config_directory.join("integration.sh"));
+        Ok(config_directory.join("integration.sh"))
     }
 }
 
-/// Returns the path to the user's PowerShell Modules directory where
-/// RePortal should be installed as a module. Uses the Documents
+/// Returns the path to the user's `PowerShell` Modules directory where
+/// `RePortal` should be installed as a module. Uses the Documents
 /// known-folder via the `dirs` crate so it follows any folder
-/// redirection (e.g. OneDrive, GPO).
+/// redirection (e.g. `OneDrive`, GPO).
 #[cfg(target_os = "windows")]
 pub(crate) fn powershell_module_directory() -> Result<PathBuf, ReportalError> {
     let documents_directory = dirs::document_dir().ok_or(ReportalError::ConfigIoFailure {
         reason: String::from("could not determine Documents folder for PowerShell module install"),
     })?;
-    return Ok(documents_directory
+    Ok(documents_directory
         .join("PowerShell")
         .join("Modules")
-        .join("RePortal"));
+        .join("RePortal"))
 }
 
 /// Detection, content generation, profile management, and installation.
@@ -64,26 +65,24 @@ impl DetectedShell {
     pub(crate) fn detect() -> DetectedShell {
         #[cfg(target_os = "windows")]
         {
-            match Self::detect_powershell_profile() {
-                Some(profile_path) => DetectedShell::PowerShell(PathBuf::from(profile_path)),
-                None => DetectedShell::Unknown,
-            }
+            let Some(profile_path) = Self::detect_powershell_profile() else {
+                return DetectedShell::Unknown;
+            };
+            DetectedShell::PowerShell(PathBuf::from(profile_path))
         }
 
         #[cfg(not(target_os = "windows"))]
         {
-            match Self::detect_unix_shell_env() {
-                Some(shell_path) => match dirs::home_dir() {
-                    Some(home_path) => {
-                        if shell_path.contains("zsh") {
-                            DetectedShell::Zsh(home_path.join(".zshrc"))
-                        } else {
-                            DetectedShell::Bash(home_path.join(".bashrc"))
-                        }
-                    }
-                    None => DetectedShell::Unknown,
-                },
-                None => DetectedShell::Unknown,
+            let Some(shell_path) = Self::detect_unix_shell_env() else {
+                return DetectedShell::Unknown;
+            };
+            let Some(home_path) = dirs::home_dir() else {
+                return DetectedShell::Unknown;
+            };
+            if shell_path.contains("zsh") {
+                DetectedShell::Zsh(home_path.join(".zshrc"))
+            } else {
+                DetectedShell::Bash(home_path.join(".bashrc"))
             }
         }
     }
@@ -100,24 +99,24 @@ impl DetectedShell {
     }
 
     /// Writes the integration script file and ensures the shell can
-    /// load RePortal functions. On Unix, adds a source line to the
-    /// profile. On PowerShell, installs a module for auto-import.
+    /// load `RePortal` functions. On Unix, adds a source line to the
+    /// profile. On `PowerShell`, installs a module for auto-import.
     pub(crate) fn install_integration(&self) -> Result<(), ReportalError> {
         match self {
             #[cfg(target_os = "windows")]
             DetectedShell::PowerShell(_) => {
                 self.install_powershell_module()?;
-                return Ok(());
+                Ok(())
             }
             #[cfg(not(target_os = "windows"))]
             DetectedShell::Bash(_) | DetectedShell::Zsh(_) => {
                 return self.install_unix_integration();
             }
-            _ => return Ok(()),
+            _ => Ok(()),
         }
     }
 
-    /// Strips any existing RePortal integration from a profile string.
+    /// Strips any existing `RePortal` integration from a profile string.
     /// Handles both legacy inline blocks (pre-v0.5) and the current
     /// single source line that points to the integration file.
     pub(crate) fn strip_existing_integration(profile_content: &str) -> String {
@@ -126,74 +125,73 @@ impl DetectedShell {
         let integration_path_marker = Self::reportal_integration_marker();
 
         for line in profile_content.lines() {
-            match skipping_reportal_block {
-                true => {
-                    let trimmed = line.trim();
-                    let is_reportal_line = Self::is_reportal_function_line(trimmed)
-                        || trimmed.starts_with("function prompt")
-                        || trimmed.starts_with("function global:prompt")
-                        || trimmed.starts_with("$_reportal_")
-                        || trimmed.starts_with("$script:_reportal_")
-                        || trimmed.starts_with("PROMPT_COMMAND")
-                        || trimmed.contains("REPORTAL_LOADED")
-                        || trimmed.contains("rep jump")
-                        || trimmed.contains("rep open")
-                        || trimmed.contains("rep web")
-                        || trimmed.contains("rep run")
-                        || trimmed.contains("rep upgrade")
-                        || trimmed.contains("rep color");
-                    match is_reportal_line {
-                        true => {}
-                        false => {
-                            skipping_reportal_block = false;
-                            match trimmed.is_empty() {
-                                true => {}
-                                false => result_lines.push(line),
-                            }
-                        }
-                    }
-                }
-                false => {
-                    let is_reportal_marker = line.contains("RePortal shell integration")
-                        || line.contains(&integration_path_marker);
-                    match is_reportal_marker {
-                        true => {
-                            skipping_reportal_block = true;
-                        }
-                        false => {
-                            let trimmed = line.trim();
-                            let is_stale_reportal_function =
-                                Self::is_reportal_function_line(trimmed)
-                                    || trimmed.contains("reportal jump")
-                                    || trimmed.contains("reportal open")
-                                    || trimmed.contains("reportal web")
-                                    || trimmed.contains("reportal run");
-                            let is_stale_reportal_comment = trimmed
-                                .starts_with('#')
-                                && trimmed.contains("RePortal");
-                            match is_stale_reportal_function || is_stale_reportal_comment {
-                                true => {}
-                                false => {
-                                    result_lines.push(line);
-                                }
-                            }
-                        }
-                    }
-                }
+            let trimmed = line.trim();
+
+            if skipping_reportal_block && Self::is_block_continuation_line(trimmed) {
+                continue;
+            }
+            if skipping_reportal_block && !trimmed.is_empty() {
+                skipping_reportal_block = false;
+                result_lines.push(line);
+                continue;
+            }
+            if skipping_reportal_block {
+                skipping_reportal_block = false;
+                continue;
+            }
+
+            let is_reportal_marker = line.contains("RePortal shell integration")
+                || line.contains(&integration_path_marker);
+            if is_reportal_marker {
+                skipping_reportal_block = true;
+                continue;
+            }
+
+            if !Self::is_stale_standalone_line(line.trim()) {
+                result_lines.push(line);
             }
         }
 
-        return result_lines.join("\n");
+        result_lines.join("\n")
     }
 
-    /// Returns the PowerShell integration script content, stamped with the
+    /// Returns true if the trimmed line belongs to a `RePortal` integration
+    /// block that is currently being skipped (marker already seen).
+    fn is_block_continuation_line(trimmed: &str) -> bool {
+        Self::is_reportal_function_line(trimmed)
+            || trimmed.starts_with("function prompt")
+            || trimmed.starts_with("function global:prompt")
+            || trimmed.starts_with("$_reportal_")
+            || trimmed.starts_with("$script:_reportal_")
+            || trimmed.starts_with("PROMPT_COMMAND")
+            || trimmed.contains("REPORTAL_LOADED")
+            || trimmed.contains("rep jump")
+            || trimmed.contains("rep open")
+            || trimmed.contains("rep web")
+            || trimmed.contains("rep run")
+            || trimmed.contains("rep upgrade")
+            || trimmed.contains("rep color")
+    }
+
+    /// Returns true if the trimmed line is a stale `RePortal` definition
+    /// found outside of a marker block (orphaned from a previous install).
+    fn is_stale_standalone_line(trimmed: &str) -> bool {
+        Self::is_reportal_function_line(trimmed)
+            || trimmed.contains("reportal jump")
+            || trimmed.contains("reportal open")
+            || trimmed.contains("reportal web")
+            || trimmed.contains("reportal run")
+            || (trimmed.starts_with('#') && trimmed.contains("RePortal"))
+    }
+
+    /// Returns the `PowerShell` integration script content, stamped with the
     /// current binary version so `rep doctor` can detect stale files.
     ///
     /// Uses `global:` scope qualifiers on every function definition so the
     /// script works correctly whether dot-sourced from the user's profile
-    /// (legacy installs) or from inside a PowerShell module (.psm1).
+    /// (legacy installs) or from inside a `PowerShell` module (.psm1).
     pub(crate) fn powershell_integration_content() -> String {
-        return format!(
+        format!(
             r#"# RePortal shell integration — v{}
 # Do not edit; regenerated by 'rep init'.
 $env:REPORTAL_LOADED = "1"
@@ -205,7 +203,7 @@ $script:_reportal_original_prompt = $function:global:prompt
 function global:prompt {{ $p = & $script:_reportal_original_prompt; $t = rep color --mode prompt-hook 2>$null; if ($t) {{ $Host.UI.RawUI.WindowTitle = $t }}; $p }}
 "#,
             env!("CARGO_PKG_VERSION"),
-        );
+        )
     }
 
     /// Returns the Bash and Zsh integration script content, stamped with the
@@ -213,7 +211,7 @@ function global:prompt {{ $p = & $script:_reportal_original_prompt; $t = rep col
     #[cfg(not(target_os = "windows"))]
     pub(crate) fn bash_integration_content() -> String {
         let null_device = std::path::Path::new("/dev").join("null");
-        return format!(
+        format!(
             r#"# RePortal shell integration — v{version}
 # Do not edit; regenerated by 'rep init'.
 export REPORTAL_LOADED=1
@@ -229,29 +227,25 @@ PROMPT_COMMAND="${{PROMPT_COMMAND:+$PROMPT_COMMAND;}}_reportal_hook"
         );
     }
 
-    /// Attempts to get the PowerShell profile path by running pwsh.
+    /// Attempts to get the `PowerShell` profile path by running pwsh.
     fn detect_powershell_profile() -> Option<String> {
         let profile_output = Command::new("pwsh")
             .args(["-NoProfile", "-Command", "echo $PROFILE"])
             .output();
 
-        match profile_output {
-            Ok(output_bytes) => match output_bytes.status.success() {
-                true => {
-                    let profile_path_string =
-                        String::from_utf8_lossy(&output_bytes.stdout).trim().to_string();
-                    match profile_path_string.is_empty() {
-                        true => None,
-                        false => Some(profile_path_string),
-                    }
-                }
-                false => None,
-            },
+        let output_bytes = match profile_output {
+            Ok(bytes) => bytes,
             Err(pwsh_spawn_error) => {
-                eprintln!("  pwsh not found: {pwsh_spawn_error}");
-                None
+                terminal_style::write_stderr(&format!("  pwsh not found: {pwsh_spawn_error}\n"));
+                return None;
             }
+        };
+        if !output_bytes.status.success() {
+            return None;
         }
+        let profile_path_string =
+            String::from_utf8_lossy(&output_bytes.stdout).trim().to_owned();
+        if profile_path_string.is_empty() { None } else { Some(profile_path_string) }
     }
 
     /// Reads the SHELL environment variable to determine the Unix shell.
@@ -260,7 +254,7 @@ PROMPT_COMMAND="${{PROMPT_COMMAND:+$PROMPT_COMMAND;}}_reportal_hook"
         match std::env::var("SHELL") {
             Ok(shell_path) => Some(shell_path),
             Err(env_read_error) => {
-                eprintln!("  SHELL env not set: {env_read_error}");
+                terminal_style::write_stderr(&format!("  SHELL env not set: {env_read_error}\n"));
                 None
             }
         }
@@ -270,12 +264,12 @@ PROMPT_COMMAND="${{PROMPT_COMMAND:+$PROMPT_COMMAND;}}_reportal_hook"
     /// Built at runtime to avoid static analysis false positives on the
     /// path separator appearing between "reportal" and "integration".
     fn reportal_integration_marker() -> String {
-        return format!(".reportal{}integration", std::path::MAIN_SEPARATOR);
+        format!(".reportal{}integration", std::path::MAIN_SEPARATOR)
     }
 
-    /// Returns true if the line looks like a RePortal shell function definition.
+    /// Returns true if the line looks like a `RePortal` shell function definition.
     fn is_reportal_function_line(trimmed: &str) -> bool {
-        return trimmed.starts_with("function rj")
+        trimmed.starts_with("function rj")
             || trimmed.starts_with("function ro")
             || trimmed.starts_with("function rw")
             || trimmed.starts_with("function rr")
@@ -288,13 +282,13 @@ PROMPT_COMMAND="${{PROMPT_COMMAND:+$PROMPT_COMMAND;}}_reportal_hook"
             || trimmed.starts_with("ro()")
             || trimmed.starts_with("rw()")
             || trimmed.starts_with("rr()")
-            || trimmed.starts_with("repup()");
+            || trimmed.starts_with("repup()")
     }
 
     /// The one-liner added to .bashrc or .zshrc; sources the integration file.
     #[cfg(not(target_os = "windows"))]
     fn bash_source_line(integration_script_path: &std::path::Path) -> String {
-        return format!("source \"{}\"", integration_script_path.display());
+        format!("source \"{}\"", integration_script_path.display())
     }
 
     /// Returns the content for RePortal.psm1 — a stable shim that dot-sources
@@ -302,23 +296,23 @@ PROMPT_COMMAND="${{PROMPT_COMMAND:+$PROMPT_COMMAND;}}_reportal_hook"
     /// updating; only integration.ps1 changes between binary versions.
     #[cfg(target_os = "windows")]
     fn powershell_module_content() -> String {
-        return String::from(
+        String::from(
             r#"# RePortal PowerShell module — stable shim.
 # Actual logic lives in ~/.reportal/integration.ps1
 # and is auto-updated by the rep binary on version changes.
 . "$HOME\.reportal\integration.ps1"
 "#,
-        );
+        )
     }
 
     /// Returns the content for RePortal.psd1 — the module manifest that
-    /// tells PowerShell which functions to auto-import when the user types
+    /// tells `PowerShell` which functions to auto-import when the user types
     /// rj, ro, rw, or rr. The prompt override activates as a side effect
     /// of module import (triggered by the first rj/ro/rw/rr call).
     #[cfg(target_os = "windows")]
     fn powershell_manifest_content() -> String {
-        return String::from(
-            r#"@{
+        String::from(
+            r"@{
     ModuleVersion     = '1.0.0'
     GUID              = 'b1e3f7a2-9c4d-4e8f-a6b0-2d5e1f3c7a9b'
     Author            = 'RePortal'
@@ -326,29 +320,26 @@ PROMPT_COMMAND="${{PROMPT_COMMAND:+$PROMPT_COMMAND;}}_reportal_hook"
     RootModule        = 'RePortal.psm1'
     FunctionsToExport = @('rj', 'ro', 'rw', 'rr')
 }
-"#,
-        );
+",
+        )
     }
 
-    /// Installs shell integration for PowerShell as a proper module.
+    /// Installs shell integration for `PowerShell` as a proper module.
     ///
     /// Writes integration.ps1 to ~/.reportal (for version tracking and
     /// auto-update by the binary), then installs RePortal.psm1 and
-    /// RePortal.psd1 into the user's PowerShell Modules directory.
-    /// PowerShell auto-imports modules from this path, so the rj/ro/rw/rr
+    /// RePortal.psd1 into the user's `PowerShell` Modules directory.
+    /// `PowerShell` auto-imports modules from this path, so the rj/ro/rw/rr
     /// functions load regardless of whether the user's $PROFILE has errors.
     ///
     /// Strips any legacy `. integration.ps1` line from $PROFILE to
     /// migrate cleanly from the old profile-based approach.
     #[cfg(target_os = "windows")]
     fn install_powershell_module(&self) -> Result<PathBuf, ReportalError> {
-        let profile_path = match self.profile_path() {
-            Some(resolved_path) => resolved_path,
-            None => {
-                return Err(ReportalError::ConfigIoFailure {
-                    reason: String::from("PowerShell profile path not detected"),
-                })
-            }
+        let Some(profile_path) = self.profile_path() else {
+            return Err(ReportalError::ConfigIoFailure {
+                reason: String::from("PowerShell profile path not detected"),
+            });
         };
 
         let script_path = integration_file_path()?;
@@ -391,30 +382,36 @@ PROMPT_COMMAND="${{PROMPT_COMMAND:+$PROMPT_COMMAND;}}_reportal_hook"
         )?;
 
         if profile_path.exists() {
-            let profile_content =
-                std::fs::read_to_string(profile_path).map_err(|io_error| {
-                    ReportalError::ConfigIoFailure {
-                        reason: io_error.to_string(),
-                    }
-                })?;
-
-            let cleaned_content = Self::strip_existing_integration(&profile_content);
-
-            if cleaned_content != profile_content {
-                let trimmed_profile = cleaned_content.trim_end().to_string();
-                let final_content = match trimmed_profile.is_empty() {
-                    true => String::new(),
-                    false => format!("{trimmed_profile}\n"),
-                };
-                std::fs::write(profile_path, final_content).map_err(|io_error| {
-                    ReportalError::ConfigIoFailure {
-                        reason: io_error.to_string(),
-                    }
-                })?;
-            }
+            Self::clean_legacy_profile_lines(profile_path)?;
         }
 
-        return Ok(module_directory);
+        Ok(module_directory)
+    }
+
+    /// Reads a shell profile, strips any stale `RePortal` lines, and
+    /// writes it back only if the content actually changed.
+    #[cfg(target_os = "windows")]
+    fn clean_legacy_profile_lines(profile_path: &std::path::Path) -> Result<(), ReportalError> {
+        let profile_content =
+            std::fs::read_to_string(profile_path).map_err(|io_error| {
+                ReportalError::ConfigIoFailure {
+                    reason: io_error.to_string(),
+                }
+            })?;
+
+        let cleaned_content = Self::strip_existing_integration(&profile_content);
+        if cleaned_content == profile_content {
+            return Ok(());
+        }
+
+        let trimmed_profile = cleaned_content.trim_end().to_owned();
+        let final_content = if trimmed_profile.is_empty() { String::new() } else { format!("{trimmed_profile}\n") };
+        std::fs::write(profile_path, final_content).map_err(|io_error| {
+            ReportalError::ConfigIoFailure {
+                reason: io_error.to_string(),
+            }
+        })?;
+        Ok(())
     }
 
     /// Installs shell integration for Unix shells (bash/zsh).
@@ -455,6 +452,6 @@ PROMPT_COMMAND="${{PROMPT_COMMAND:+$PROMPT_COMMAND;}}_reportal_hook"
             }
         })?;
 
-        return Ok(());
+        Ok(())
     }
 }

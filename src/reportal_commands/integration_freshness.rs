@@ -1,8 +1,8 @@
-/// Checks whether the shell integration script file matches the running
-/// binary version and silently rewrites it on mismatch. Called at the
-/// top of main() before subcommand dispatch so that binary updates via
-/// cargo, scoop, or brew take effect on the next shell session without
-/// any manual steps.
+//! Checks whether the shell integration script file matches the running
+//! binary version and silently rewrites it on mismatch. Called at the
+//! top of `main()` before subcommand dispatch so that binary updates via
+//! cargo, scoop, or brew take effect on the next shell session without
+//! any manual steps.
 
 use crate::reportal_config::ReportalConfig;
 
@@ -33,26 +33,18 @@ pub(crate) fn check_integration_file_state() -> IntegrationFileState {
 
     let binary_version = env!("CARGO_PKG_VERSION");
 
-    let first_line = match file_content.lines().next() {
-        Some(line) => line,
-        None => {
-            return IntegrationFileState::Outdated {
-                file_version: String::from("empty"),
-            }
-        }
+    let Some(first_line) = file_content.lines().next() else {
+        return IntegrationFileState::Outdated {
+            file_version: String::from("empty"),
+        };
     };
 
-    match first_line.contains(binary_version) {
-        true => IntegrationFileState::Current,
-        false => {
-            let extracted_version = first_line
-                .rsplit("— v")
-                .next()
-                .map(String::from)
-                .unwrap_or_else(|| String::from("unknown"));
-            IntegrationFileState::Outdated {
-                file_version: extracted_version,
-            }
+    if first_line.contains(binary_version) { IntegrationFileState::Current } else {
+        let extracted_version = first_line
+            .rsplit("— v")
+            .next().map_or_else(|| String::from("unknown"), String::from);
+        IntegrationFileState::Outdated {
+            file_version: extracted_version,
         }
     }
 }
@@ -66,10 +58,7 @@ pub fn ensure_integration_file_current() {
         Err(_path_error) => return,
     };
 
-    match config_directory.exists() {
-        true => {}
-        false => return,
-    }
+    if !config_directory.exists() { return }
 
     match check_integration_file_state() {
         IntegrationFileState::Current => {}

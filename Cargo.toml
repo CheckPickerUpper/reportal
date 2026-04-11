@@ -1,6 +1,6 @@
 [package]
 name = "reportal"
-version = "0.11.0"
+version = "0.12.0"
 edition = "2021"
 description = "A fast, cross-platform CLI for jumping between, opening, and managing your dev repos"
 license = "MIT"
@@ -27,6 +27,85 @@ open = "5"
 
 [lints.clippy]
 allow_attributes_without_reason = "warn"
+
+# ── Deny: compiler-level enforcement ──
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+unimplemented = "deny"
+todo = "deny"
+dbg_macro = "deny"
+# CLI tool — stdout/stderr are the primary user-facing output channels
+print_stdout = "allow"
+print_stderr = "allow"
+# CLI tool — process::exit in main() is the standard error-reporting pattern
+exit = "allow"
+mem_forget = "deny"
+lossy_float_literal = "deny"
+rest_pat_in_fully_bound_structs = "deny"
+verbose_file_reads = "deny"
+infinite_loop = "deny"
+large_include_file = "deny"
+
+# ── Deny: type safety ──
+as_conversions = "deny"
+cast_possible_truncation = "deny"
+cast_possible_wrap = "deny"
+cast_precision_loss = "deny"
+cast_sign_loss = "deny"
+checked_conversions = "deny"
+implicit_clone = "deny"
+clone_on_ref_ptr = "deny"
+rc_buffer = "deny"
+rc_mutex = "deny"
+mutex_atomic = "deny"
+
+# ── Deny: correctness ──
+undocumented_unsafe_blocks = "deny"
+multiple_unsafe_ops_per_block = "deny"
+unnecessary_safety_comment = "deny"
+unnecessary_safety_doc = "deny"
+
+# ── Warn: pedantic (upgrade to deny once codebase is clean) ──
+pedantic = { level = "warn", priority = -1 }
+
+# ── Warn: strict patterns ──
+needless_pass_by_value = "warn"
+needless_pass_by_ref_mut = "warn"
+trivially_copy_pass_by_ref = "warn"
+cloned_instead_of_copied = "warn"
+redundant_closure_for_method_calls = "warn"
+unnested_or_patterns = "warn"
+unused_self = "warn"
+unused_async = "warn"
+used_underscore_binding = "warn"
+str_to_string = "warn"
+semicolon_if_nothing_returned = "warn"
+match_wildcard_for_single_variants = "warn"
+inconsistent_struct_constructor = "warn"
+doc_markdown = "warn"
+missing_errors_doc = "warn"
+missing_panics_doc = "warn"
+wildcard_imports = "warn"
+enum_glob_use = "warn"
+flat_map_option = "warn"
+manual_let_else = "warn"
+option_if_let_else = "warn"
+redundant_else = "warn"
+ref_option_ref = "warn"
+same_functions_in_if_condition = "warn"
+map_unwrap_or = "warn"
+filter_map_next = "warn"
+manual_ok_or = "warn"
+implicit_hasher = "warn"
+return_self_not_must_use = "warn"
+must_use_candidate = "warn"
+
+# ── Allow: intentional relaxations ──
+module_name_repetitions = "allow"
+must_use_unit = "allow"
+# Transitive dep version conflicts — not actionable in source code
+multiple_crate_versions = "allow"
 
 [[bin]]
 name = "reportal"

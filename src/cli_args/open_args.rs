@@ -1,4 +1,4 @@
-/// CLI args for `rep open`.
+//! CLI args for `rep open`.
 
 use clap::Args;
 use crate::reportal_config::TagFilter;
@@ -22,9 +22,9 @@ pub struct OpenArgs {
 
 /// Consuming conversion that splits into domain-layer parts.
 impl OpenArgs {
-    /// Returns (alias, tag_filter, editor_override, title_override), consuming self.
+    /// Returns (alias, `tag_filter`, `editor_override`, `title_override`), consuming self.
     pub fn into_parts(self) -> (String, TagFilter, String, String) {
         let (alias, tag_filter) = self.selection.into_parts();
-        return (alias, tag_filter, self.editor, self.title);
+        (alias, tag_filter, self.editor, self.title)
     }
 }
