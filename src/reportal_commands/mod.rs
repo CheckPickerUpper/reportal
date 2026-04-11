@@ -1,4 +1,5 @@
 /// Subcommand implementations for the RePortal CLI.
+mod color_command_mode;
 mod detected_shell;
 mod doctor;
 mod git_commands;
@@ -21,13 +22,14 @@ mod terminal_identity_emit;
 mod repo_sync;
 mod repo_web;
 
+pub use color_command_mode::ColorCommandMode;
 pub use doctor::run_doctor;
 pub use integration_freshness::ensure_integration_file_current;
 pub use initialization::run_init;
 pub use repo_add::run_add;
 pub use repo_ai::{run_ai, AiCommandParams};
 pub use repo_edit::{run_edit, EditCommandParams};
-pub use repo_color::{run_color, ColorCommandParams, TitleOutput};
+pub use repo_color::{run_color, ColorCommandParams};
 pub use repo_jump::{run_jump, JumpCommandParams};
 pub use repo_listing::run_list;
 pub use repo_open::{run_open, OpenCommandParams};
