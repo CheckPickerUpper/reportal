@@ -13,10 +13,10 @@ pub fn classify_add_source(raw_input: &str) -> AddSource {
     if raw_input.starts_with("https://")
         || raw_input.starts_with("git@")
         || raw_input.starts_with("ssh://")
-        || raw_input.ends_with(".git")
+        || raw_input.to_ascii_lowercase().ends_with(".git")
     {
-        AddSource::GitUrl(raw_input.to_string())
+        AddSource::GitUrl(raw_input.to_owned())
     } else {
-        AddSource::LocalPath(raw_input.to_string())
+        AddSource::LocalPath(raw_input.to_owned())
     }
 }

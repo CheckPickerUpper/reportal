@@ -1,4 +1,4 @@
-/// CLI args for `rep ai`.
+//! CLI args for `rep ai`.
 
 use clap::Args;
 use crate::reportal_config::TagFilter;
@@ -12,16 +12,16 @@ use super::repo_selection_args::RepoSelectionArgs;
 pub struct AiArgs {
     #[command(flatten)]
     selection: RepoSelectionArgs,
-    /// Which AI tool to launch (overrides default_ai_tool setting)
+    /// Which AI tool to launch (overrides `default_ai_tool` setting)
     #[arg(long, default_value = "", hide_default_value = true)]
     tool: String,
 }
 
 /// Consuming conversion that splits into domain-layer parts.
 impl AiArgs {
-    /// Returns (alias, tag_filter, tool_override), consuming self.
+    /// Returns (alias, `tag_filter`, `tool_override`), consuming self.
     pub fn into_parts(self) -> (String, TagFilter, String) {
         let (alias, tag_filter) = self.selection.into_parts();
-        return (alias, tag_filter, self.tool);
+        (alias, tag_filter, self.tool)
     }
 }

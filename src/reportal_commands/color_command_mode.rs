@@ -1,5 +1,5 @@
-/// How the `rep color` subcommand was invoked, controlling both stdout
-/// output and no-match behavior.
+//! How the `rep color` subcommand was invoked, controlling both stdout
+//! output and no-match behavior.
 
 /// Invocation mode for the color subcommand.
 ///

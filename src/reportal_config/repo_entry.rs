@@ -1,5 +1,5 @@
-/// Repository entry types: `RepoEntry`, `RepoRegistrationBuilder`,
-/// `TabTitle`, and `RepoColor`.
+//! Repository entry types: `RepoEntry`, `RepoRegistrationBuilder`,
+//! `TabTitle`, and `RepoColor`.
 
 use crate::error::ReportalError;
 use crate::reportal_config::command_entry::CommandEntry;
@@ -29,10 +29,7 @@ impl Default for TabTitle {
 impl<'de> Deserialize<'de> for TabTitle {
     fn deserialize<D: serde::Deserializer<'de>>(tab_title_deserializer: D) -> Result<Self, D::Error> {
         let raw: String = String::deserialize(tab_title_deserializer)?;
-        match raw.is_empty() {
-            true => return Ok(TabTitle::UseAlias),
-            false => return Ok(TabTitle::Custom(raw)),
-        }
+        if raw.is_empty() { Ok(TabTitle::UseAlias) } else { Ok(TabTitle::Custom(raw)) }
     }
 }
 
@@ -57,12 +54,9 @@ impl Default for RepoColor {
 impl<'de> Deserialize<'de> for RepoColor {
     fn deserialize<D: serde::Deserializer<'de>>(repo_color_deserializer: D) -> Result<Self, D::Error> {
         let raw: String = String::deserialize(repo_color_deserializer)?;
-        match raw.is_empty() {
-            true => return Ok(RepoColor::ResetToDefault),
-            false => {
-                let parsed = HexColor::parse(&raw).map_err(serde::de::Error::custom)?;
-                return Ok(RepoColor::Themed(parsed));
-            }
+        if raw.is_empty() { Ok(RepoColor::ResetToDefault) } else {
+            let parsed = HexColor::parse(&raw).map_err(serde::de::Error::custom)?;
+            Ok(RepoColor::Themed(parsed))
         }
     }
 }
@@ -243,21 +237,21 @@ impl RepoRegistrationBuilder {
     pub fn build(self) -> Result<(String, RepoEntry), ReportalError> {
         if self.alias.trim().is_empty() {
             return Err(ReportalError::ValidationFailure {
-                field: "alias".to_string(),
-                reason: "must not be empty".to_string(),
+                field: "alias".to_owned(),
+                reason: "must not be empty".to_owned(),
             });
         }
         if self.repo_path.trim().is_empty() {
             return Err(ReportalError::ValidationFailure {
-                field: "path".to_string(),
-                reason: "must not be empty".to_string(),
+                field: "path".to_owned(),
+                reason: "must not be empty".to_owned(),
             });
         }
         let expanded_path = shellexpand::tilde(&self.repo_path);
         let resolved = PathBuf::from(expanded_path.as_ref());
         if !resolved.exists() {
             return Err(ReportalError::ValidationFailure {
-                field: "path".to_string(),
+                field: "path".to_owned(),
                 reason: format!("{} does not exist", resolved.display()),
             });
         }

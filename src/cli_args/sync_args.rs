@@ -1,4 +1,4 @@
-/// CLI args for `rep sync`.
+//! CLI args for `rep sync`.
 
 use clap::Args;
 use crate::reportal_config::TagFilter;
@@ -17,6 +17,6 @@ pub struct SyncArgs {
 impl SyncArgs {
     /// Extracts the tag filter, consuming the parsed args.
     pub fn into_tag_filter(self) -> TagFilter {
-        return self.filter.into_tag_filter();
+        self.filter.into_tag_filter()
     }
 }

@@ -1,4 +1,4 @@
-/// Shared interactive prompt helpers for add and edit commands.
+//! Shared interactive prompt helpers for add and edit commands.
 mod color_edit_prompt;
 mod color_edit_result;
 mod color_prompt;

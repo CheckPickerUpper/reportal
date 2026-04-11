@@ -1,4 +1,4 @@
-/// Shared optional alias positional arg + `--tag` flag for repo selection.
+//! Shared optional alias positional arg + `--tag` flag for repo selection.
 
 use clap::Args;
 use crate::reportal_config::TagFilter;
@@ -25,6 +25,6 @@ impl RepoSelectionArgs {
     /// The alias may be empty (meaning no direct selection was provided).
     /// The tag filter is converted from the CLI flag value.
     pub fn into_parts(self) -> (String, TagFilter) {
-        return (self.alias, self.tag_filter.into_tag_filter());
+        (self.alias, self.tag_filter.into_tag_filter())
     }
 }

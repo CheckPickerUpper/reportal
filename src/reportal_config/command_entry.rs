@@ -1,5 +1,5 @@
-/// User-defined command entries stored in the `[commands.*]`
-/// sections of `config.toml`.
+//! User-defined command entries stored in the `[commands.*]`
+//! sections of `config.toml`.
 
 use serde::{Deserialize, Serialize};
 

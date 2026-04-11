@@ -1,4 +1,4 @@
-/// CLI args for `rep jump`.
+//! CLI args for `rep jump`.
 
 use clap::Args;
 use crate::reportal_config::TagFilter;
@@ -19,9 +19,9 @@ pub struct JumpArgs {
 
 /// Consuming conversion that splits into domain-layer parts.
 impl JumpArgs {
-    /// Returns (alias, tag_filter, title_override), consuming self.
+    /// Returns (alias, `tag_filter`, `title_override`), consuming self.
     pub fn into_parts(self) -> (String, TagFilter, String) {
         let (alias, tag_filter) = self.selection.into_parts();
-        return (alias, tag_filter, self.title);
+        (alias, tag_filter, self.title)
     }
 }

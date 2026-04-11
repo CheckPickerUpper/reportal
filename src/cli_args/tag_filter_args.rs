@@ -1,4 +1,4 @@
-/// Shared `--tag` flag used by commands that filter repos.
+//! Shared `--tag` flag used by commands that filter repos.
 
 use clap::Args;
 use crate::reportal_config::TagFilter;
@@ -21,9 +21,6 @@ impl TagFilterArgs {
     /// Empty string (absent flag) becomes `All`; any non-empty value
     /// becomes `ByTag` with that string.
     pub fn into_tag_filter(self) -> TagFilter {
-        match self.tag.is_empty() {
-            true => TagFilter::All,
-            false => TagFilter::ByTag(self.tag),
-        }
+        if self.tag.is_empty() { TagFilter::All } else { TagFilter::ByTag(self.tag) }
     }
 }

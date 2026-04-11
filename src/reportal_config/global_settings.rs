@@ -1,7 +1,8 @@
-/// Global settings that apply across all repos, stored in the
-/// `[settings]` section of `config.toml`.
+//! Global settings that apply across all repos, stored in the
+//! `[settings]` section of `config.toml`.
 
 use serde::{Deserialize, Serialize};
+use crate::terminal_style;
 
 /// How repo paths are displayed in output after selecting a repo.
 #[derive(Debug, Deserialize, Serialize)]
@@ -22,21 +23,21 @@ impl PathDisplayFormat {
     pub fn format_path(&self, absolute_path: &std::path::PathBuf) -> String {
         match self {
             PathDisplayFormat::Absolute => {
-                return absolute_path.display().to_string();
+                absolute_path.display().to_string()
             }
             PathDisplayFormat::Relative => {
                 let current_directory = std::env::current_dir();
                 match current_directory {
                     Ok(working_directory) => {
                         let relative_result = pathdiff::diff_paths(absolute_path, &working_directory);
-                        match relative_result {
-                            Some(relative_path) => return relative_path.display().to_string(),
-                            None => return absolute_path.display().to_string(),
-                        }
+                        relative_result.map_or_else(
+                            || absolute_path.display().to_string(),
+                            |relative_path| relative_path.display().to_string(),
+                        )
                     }
                     Err(cwd_read_error) => {
-                        eprintln!("  Could not read working directory: {cwd_read_error}");
-                        return absolute_path.display().to_string();
+                        terminal_style::write_stderr(&format!("  Could not read working directory: {cwd_read_error}\n"));
+                        absolute_path.display().to_string()
                     }
                 }
             }
@@ -56,7 +57,7 @@ pub enum PathVisibility {
 
 /// Returns the default editor command when none is configured.
 pub fn default_editor_command() -> String {
-    "cursor".to_string()
+    "cursor".to_owned()
 }
 
 /// Returns the default path visibility (show).

@@ -1,4 +1,4 @@
-/// All error conditions that RePortal can encounter during operation.
+//! All error conditions that `RePortal` can encounter during operation.
 #[derive(Debug, thiserror::Error)]
 pub enum ReportalError {
     /// Config file does not exist at the expected location.

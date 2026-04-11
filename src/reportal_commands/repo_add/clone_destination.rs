@@ -22,19 +22,19 @@ pub enum CloneDestination {
 pub fn prompt_clone_destination(loaded_config: &ReportalConfig) -> Result<CloneDestination, ReportalError> {
     let prompt_theme = terminal_style::reportal_prompt_theme();
 
-    let sibling_directories = clone_placement::collect_registered_parent_directories(loaded_config);
-    let child_directories = clone_placement::collect_registered_repo_directories(loaded_config);
+    let mut sibling_directories = clone_placement::collect_registered_parent_directories(loaded_config);
+    let mut child_directories = clone_placement::collect_registered_repo_directories(loaded_config);
 
-    let mut placement_labels: Vec<String> = vec!["Custom path".to_string()];
+    let mut placement_labels: Vec<String> = vec!["Custom path".to_owned()];
     let mut placement_has_sibling = false;
     let mut placement_has_child = false;
 
     if !sibling_directories.is_empty() {
-        placement_labels.push("Sibling of existing repo".to_string());
+        placement_labels.push("Sibling of existing repo".to_owned());
         placement_has_sibling = true;
     }
     if !child_directories.is_empty() {
-        placement_labels.push("Child of existing repo".to_string());
+        placement_labels.push("Child of existing repo".to_owned());
         placement_has_child = true;
     }
 
@@ -55,12 +55,11 @@ pub fn prompt_clone_destination(loaded_config: &ReportalConfig) -> Result<CloneD
     };
 
     match chosen_placement {
-        "Custom path" => Ok(CloneDestination::CustomPath),
         "Sibling of existing repo" if placement_has_sibling => {
             let sibling_labels: Vec<String> = sibling_directories
                 .iter()
                 .map(|(near_alias, parent_path)| {
-                    format!("{} ({})", near_alias, parent_path.display())
+                    format!("{near_alias} ({})", parent_path.display())
                 })
                 .collect();
 
@@ -73,18 +72,18 @@ pub fn prompt_clone_destination(loaded_config: &ReportalConfig) -> Result<CloneD
                 })?;
 
             match sibling_index {
-                Some(chosen_index) => match sibling_directories.get(chosen_index) {
-                    Some((_, parent_path)) => Ok(CloneDestination::SiblingOf(parent_path.to_path_buf())),
-                    None => Err(ReportalError::SelectionCancelled),
-                },
-                None => Err(ReportalError::SelectionCancelled),
+                Some(chosen_index) if chosen_index < sibling_directories.len() => {
+                    let (_, parent_path) = sibling_directories.swap_remove(chosen_index);
+                    Ok(CloneDestination::SiblingOf(parent_path))
+                }
+                _ => Err(ReportalError::SelectionCancelled),
             }
         }
         "Child of existing repo" if placement_has_child => {
             let child_labels: Vec<String> = child_directories
                 .iter()
                 .map(|(inside_alias, repo_path)| {
-                    format!("{} ({})", inside_alias, repo_path.display())
+                    format!("{inside_alias} ({})", repo_path.display())
                 })
                 .collect();
 
@@ -97,11 +96,11 @@ pub fn prompt_clone_destination(loaded_config: &ReportalConfig) -> Result<CloneD
                 })?;
 
             match child_index {
-                Some(chosen_index) => match child_directories.get(chosen_index) {
-                    Some((_, repo_path)) => Ok(CloneDestination::ChildOf(repo_path.to_path_buf())),
-                    None => Err(ReportalError::SelectionCancelled),
-                },
-                None => Err(ReportalError::SelectionCancelled),
+                Some(chosen_index) if chosen_index < child_directories.len() => {
+                    let (_, repo_path) = child_directories.swap_remove(chosen_index);
+                    Ok(CloneDestination::ChildOf(repo_path))
+                }
+                _ => Err(ReportalError::SelectionCancelled),
             }
         }
         _ => Ok(CloneDestination::CustomPath),

@@ -1,7 +1,10 @@
-/// RePortal CLI entry point.
-///
-/// Parses command-line arguments via clap and dispatches
-/// to the appropriate subcommand handler.
+#![warn(missing_docs)]
+#![forbid(unsafe_code)]
+
+//! `RePortal` CLI entry point.
+//!
+//! Parses command-line arguments via clap and dispatches
+//! to the appropriate subcommand handler.
 
 mod cli_args;
 mod error;
@@ -28,7 +31,7 @@ fn main() {
         }
         ReportalCliSubcommand::Jump(jump_args) => {
             let (direct_alias, tag_filter, title_override) = jump_args.into_parts();
-            reportal_commands::run_jump(JumpCommandParams {
+            reportal_commands::run_jump(&JumpCommandParams {
                 tag_filter,
                 direct_alias: &direct_alias,
                 title_override: &title_override,
@@ -36,7 +39,7 @@ fn main() {
         }
         ReportalCliSubcommand::Open(open_args) => {
             let (direct_alias, tag_filter, editor_override, title_override) = open_args.into_parts();
-            reportal_commands::run_open(OpenCommandParams {
+            reportal_commands::run_open(&OpenCommandParams {
                 tag_filter,
                 direct_alias: &direct_alias,
                 editor_override: &editor_override,
@@ -48,7 +51,7 @@ fn main() {
         }
         ReportalCliSubcommand::Edit(edit_args) => {
             let (direct_alias, tag_filter) = edit_args.into_parts();
-            reportal_commands::run_edit(EditCommandParams {
+            reportal_commands::run_edit(&EditCommandParams {
                 tag_filter,
                 direct_alias: &direct_alias,
             })
@@ -58,28 +61,31 @@ fn main() {
         }
         ReportalCliSubcommand::Color(color_args) => {
             let (repo_alias, mode) = color_args.into_parts();
-            reportal_commands::run_color(ColorCommandParams {
+            reportal_commands::run_color(&ColorCommandParams {
                 repo_alias: &repo_alias,
                 mode,
             })
         }
         ReportalCliSubcommand::Status(status_args) => {
-            reportal_commands::run_status(status_args.into_tag_filter())
+            reportal_commands::run_status(&status_args.into_tag_filter())
         }
         ReportalCliSubcommand::Sync(sync_args) => {
-            reportal_commands::run_sync(sync_args.into_tag_filter())
+            reportal_commands::run_sync(&sync_args.into_tag_filter())
         }
-        ReportalCliSubcommand::Doctor => reportal_commands::run_doctor(),
+        ReportalCliSubcommand::Doctor => {
+            reportal_commands::run_doctor();
+            Ok(())
+        }
         ReportalCliSubcommand::Web(web_args) => {
             let (direct_alias, tag_filter) = web_args.into_parts();
-            reportal_commands::run_web(WebCommandParams {
+            reportal_commands::run_web(&WebCommandParams {
                 tag_filter,
                 direct_alias: &direct_alias,
             })
         }
         ReportalCliSubcommand::Run(run_args) => {
             let (direct_alias, tag_filter, direct_command) = run_args.into_parts();
-            reportal_commands::run_run(RunCommandParams {
+            reportal_commands::run_run(&RunCommandParams {
                 tag_filter,
                 direct_alias: &direct_alias,
                 direct_command: &direct_command,
@@ -87,7 +93,7 @@ fn main() {
         }
         ReportalCliSubcommand::Ai(ai_args) => {
             let (direct_alias, tag_filter, tool_override) = ai_args.into_parts();
-            reportal_commands::run_ai(AiCommandParams {
+            reportal_commands::run_ai(&AiCommandParams {
                 tag_filter,
                 direct_alias: &direct_alias,
                 tool_override: &tool_override,
