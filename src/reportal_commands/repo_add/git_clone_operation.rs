@@ -15,15 +15,15 @@ pub struct GitCloneOperation<'a> {
 }
 
 /// Spawns `git clone <url>` in the target directory.
-impl<'a> GitCloneOperation<'a> {
+impl GitCloneOperation<'_> {
     /// Spawns `git clone` as a child process, waits for completion,
     /// and returns an error if git is unavailable or the clone fails.
     pub fn run_git_clone(&self) -> Result<(), ReportalError> {
-        println!(
-            "  {} {}",
+        terminal_style::write_stdout(&format!(
+            "  {} {}\n",
             "Cloning:".style(terminal_style::LABEL_STYLE),
             self.git_url.style(terminal_style::PATH_STYLE),
-        );
+        ));
 
         let clone_result = Command::new("git")
             .args(["clone", self.git_url])
@@ -31,14 +31,11 @@ impl<'a> GitCloneOperation<'a> {
             .status();
 
         match clone_result {
-            Ok(exit_status) => match exit_status.success() {
-                true => Ok(()),
-                false => Err(ReportalError::ConfigIoFailure {
-                    reason: format!("git clone exited with status {}", exit_status),
-                }),
-            },
+            Ok(exit_status) => if exit_status.success() { Ok(()) } else { Err(ReportalError::ConfigIoFailure {
+                reason: format!("git clone exited with status {exit_status}"),
+            }) },
             Err(git_spawn_error) => Err(ReportalError::ConfigIoFailure {
-                reason: format!("Failed to run git: {}", git_spawn_error),
+                reason: format!("Failed to run git: {git_spawn_error}"),
             }),
         }
     }

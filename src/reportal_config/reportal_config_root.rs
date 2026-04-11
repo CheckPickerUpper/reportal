@@ -1,5 +1,5 @@
-/// Top-level RePortal config: load/save, repo queries, AI tool registry,
-/// and settings mutation.
+//! Top-level `RePortal` config: load/save, repo queries, AI tool registry,
+//! and settings mutation.
 
 use crate::error::ReportalError;
 use crate::reportal_config::ai_tool_entry::AiToolEntry;
@@ -14,7 +14,7 @@ use std::path::PathBuf;
 /// Resolves the user home directory or returns an error if unavailable.
 fn resolve_home_directory() -> Result<PathBuf, ReportalError> {
     dirs::home_dir().ok_or(ReportalError::ConfigIoFailure {
-        reason: "Could not determine home directory".to_string(),
+        reason: "Could not determine home directory".to_owned(),
     })
 }
 
@@ -35,9 +35,9 @@ pub struct ReportalConfig {
     commands: BTreeMap<String, CommandEntry>,
 }
 
-/// Loading, saving, querying, and mutating the RePortal config file.
+/// Loading, saving, querying, and mutating the `RePortal` config file.
 impl ReportalConfig {
-    /// Returns the directory where RePortal stores its config.
+    /// Returns the directory where `RePortal` stores its config.
     pub fn config_directory() -> Result<PathBuf, ReportalError> {
         Ok(resolve_home_directory()?.join(".reportal"))
     }
@@ -73,10 +73,8 @@ impl ReportalConfig {
         let file_path = Self::config_file_path()?;
         let parent_directory = Self::config_directory()?;
         if !parent_directory.exists() {
-            std::fs::create_dir_all(&parent_directory).map_err(|io_error| {
-                ReportalError::ConfigIoFailure {
-                    reason: io_error.to_string(),
-                }
+            std::fs::create_dir_all(&parent_directory).map_err(|io_error| ReportalError::ConfigIoFailure {
+                reason: io_error.to_string(),
             })?;
         }
         let serialized_toml =
@@ -128,28 +126,24 @@ impl ReportalConfig {
     /// Checks the primary key first, then walks all repos checking their
     /// `aliases` field. Returns `RepoNotFound` if no match is found.
     pub fn get_repo(&self, alias: &str) -> Result<&RepoEntry, ReportalError> {
-        match self.repos.get(alias) {
-            Some(found_repo) => return Ok(found_repo),
-            None => {
-                for (_primary_key, repo_entry) in &self.repos {
-                    let has_matching_alias = repo_entry.aliases().iter().any(|alt| alt == alias);
-                    match has_matching_alias {
-                        true => return Ok(repo_entry),
-                        false => {}
-                    }
-                }
-                return Err(ReportalError::RepoNotFound {
-                    alias: alias.to_string(),
-                });
-            }
+        if let Some(found_repo) = self.repos.get(alias) {
+            return Ok(found_repo);
         }
+        let alias_match = self.repos.values()
+            .find(|repo_entry| repo_entry.aliases().iter().any(|alt| alt == alias));
+        alias_match.map_or_else(
+            || Err(ReportalError::RepoNotFound {
+                alias: alias.to_owned(),
+            }),
+            Ok,
+        )
     }
 
     /// Returns a mutable reference to a repo by its primary key.
     /// Returns `RepoNotFound` if the alias is not a primary key.
     pub fn get_repo_mut(&mut self, alias: &str) -> Result<&mut RepoEntry, ReportalError> {
         self.repos.get_mut(alias).ok_or_else(|| ReportalError::RepoNotFound {
-            alias: alias.to_string(),
+            alias: alias.to_owned(),
         })
     }
 
@@ -170,7 +164,7 @@ impl ReportalConfig {
     /// Removes a repo by alias. Returns `RepoNotFound` if missing.
     pub fn remove_repo(&mut self, alias: &str) -> Result<RepoEntry, ReportalError> {
         self.repos.remove(alias).ok_or_else(|| ReportalError::RepoNotFound {
-            alias: alias.to_string(),
+            alias: alias.to_owned(),
         })
     }
 
@@ -182,7 +176,7 @@ impl ReportalConfig {
     /// Looks up an AI tool by name. Returns `AiToolNotFound` if missing.
     pub fn get_ai_tool(&self, tool_name: &str) -> Result<&AiToolEntry, ReportalError> {
         self.ai_tools.get(tool_name).ok_or_else(|| ReportalError::AiToolNotFound {
-            tool_name: tool_name.to_string(),
+            tool_name: tool_name.to_owned(),
         })
     }
 
@@ -191,68 +185,27 @@ impl ReportalConfig {
         self.ai_tools.iter().collect()
     }
 
-    /// Inserts or replaces an AI tool entry in the registry.
-    /// Takes a (name, entry) pair, same shape as `ai_tools_list()` returns.
-    pub fn set_ai_tool(&mut self, registration: (String, AiToolEntry)) {
-        let (tool_name, tool_entry) = registration;
-        self.ai_tools.insert(tool_name, tool_entry);
-    }
-
-    /// Removes an AI tool by name. Returns `AiToolNotFound` if missing.
-    pub fn remove_ai_tool(&mut self, tool_name: &str) -> Result<AiToolEntry, ReportalError> {
-        self.ai_tools.remove(tool_name).ok_or_else(|| ReportalError::AiToolNotFound {
-            tool_name: tool_name.to_string(),
-        })
-    }
-
     /// Returns all globally registered commands with their names.
     pub fn global_commands(&self) -> &BTreeMap<String, CommandEntry> {
         &self.commands
-    }
-
-    /// Looks up a global command by name. Returns `CommandNotFound` if missing.
-    pub fn get_global_command(&self, command_name: &str) -> Result<&CommandEntry, ReportalError> {
-        self.commands.get(command_name).ok_or_else(|| ReportalError::CommandNotFound {
-            command_name: command_name.to_string(),
-        })
-    }
-
-    /// Updates the default editor command in settings.
-    pub fn set_default_editor(&mut self, editor_command: String) {
-        self.settings.default_editor = editor_command;
-    }
-
-    /// Updates the default AI tool name in settings.
-    pub fn set_default_ai_tool(&mut self, tool_name: String) {
-        self.settings.default_ai_tool = tool_name;
-    }
-
-    /// Updates the default clone root path in settings.
-    pub fn set_default_clone_root(&mut self, clone_root: String) {
-        self.settings.default_clone_root = clone_root;
-    }
-
-    /// Returns the configured default clone root path.
-    pub fn default_clone_root(&self) -> &str {
-        &self.settings.default_clone_root
     }
 
     /// Creates a default empty config with sensible defaults for first-time setup.
     pub fn create_default() -> Self {
         Self {
             settings: ReportalSettings {
-                default_editor: "cursor".to_string(),
-                default_clone_root: "~/dev".to_string(),
+                default_editor: "cursor".to_owned(),
+                default_clone_root: "~/dev".to_owned(),
                 path_on_select: PathVisibility::Show,
                 path_display_format: PathDisplayFormat::Absolute,
-                default_ai_tool: "claude".to_string(),
+                default_ai_tool: "claude".to_owned(),
             },
             repos: BTreeMap::new(),
             commands: BTreeMap::new(),
             ai_tools: BTreeMap::from([
-                ("claude".to_string(), AiToolEntry::with_executable("claude".to_string())),
-                ("codex".to_string(), AiToolEntry::with_executable("codex".to_string())),
-                ("aider".to_string(), AiToolEntry::with_executable("aider".to_string())),
+                ("claude".to_owned(), AiToolEntry::with_executable("claude".to_owned())),
+                ("codex".to_owned(), AiToolEntry::with_executable("codex".to_owned())),
+                ("aider".to_owned(), AiToolEntry::with_executable("aider".to_owned())),
             ]),
         }
     }

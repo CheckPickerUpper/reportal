@@ -1,5 +1,5 @@
-/// AI coding CLI tool registry entries stored in the `[ai_tools.*]`
-/// sections of `config.toml`.
+//! AI coding CLI tool registry entries stored in the `[ai_tools.*]`
+//! sections of `config.toml`.
 
 use serde::{Deserialize, Serialize};
 

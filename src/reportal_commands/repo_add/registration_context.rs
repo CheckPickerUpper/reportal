@@ -21,26 +21,26 @@ pub struct RegistrationContext<'a> {
 }
 
 /// Prompts the user for metadata then registers the repo in config.
-impl<'a> RegistrationContext<'a> {
+impl RegistrationContext<'_> {
     /// Walks the user through alias, description, tags, remote, title,
     /// and color prompts, shows a confirmation summary, then saves
     /// the new repo entry to disk.
     pub fn collect_metadata_and_register(self) -> Result<(), ReportalError> {
         let prompt_theme = terminal_style::reportal_prompt_theme();
 
-        let repo_alias = prompts::prompt_for_text(TextPromptParams {
+        let repo_alias = prompts::prompt_for_text(&TextPromptParams {
             prompt_theme: &prompt_theme,
             label: "Alias",
             default_value: &self.suggested_alias,
         })?;
 
-        let repo_description = prompts::prompt_for_text(TextPromptParams {
+        let repo_description = prompts::prompt_for_text(&TextPromptParams {
             prompt_theme: &prompt_theme,
             label: "Description",
             default_value: "",
         })?;
 
-        let tags_input = prompts::prompt_for_text(TextPromptParams {
+        let tags_input = prompts::prompt_for_text(&TextPromptParams {
             prompt_theme: &prompt_theme,
             label: "Tags (comma-separated)",
             default_value: "",
@@ -48,13 +48,13 @@ impl<'a> RegistrationContext<'a> {
 
         let parsed_tags = prompts::parse_comma_separated_tags(&tags_input);
 
-        let repo_remote = prompts::prompt_for_text(TextPromptParams {
+        let repo_remote = prompts::prompt_for_text(&TextPromptParams {
             prompt_theme: &prompt_theme,
             label: "Remote URL",
             default_value: &self.detected_remote,
         })?;
 
-        let tab_title = prompts::prompt_for_text(TextPromptParams {
+        let tab_title = prompts::prompt_for_text(&TextPromptParams {
             prompt_theme: &prompt_theme,
             label: "Tab title (empty = use alias)",
             default_value: "",
@@ -62,33 +62,33 @@ impl<'a> RegistrationContext<'a> {
 
         let repo_color = prompts::prompt_for_color(&prompt_theme)?;
 
-        println!();
-        println!("  {} {}", "Alias:".style(terminal_style::LABEL_STYLE), repo_alias.style(terminal_style::ALIAS_STYLE));
-        println!("  {} {}", "Path:".style(terminal_style::LABEL_STYLE), self.filesystem_path.style(terminal_style::PATH_STYLE));
+        terminal_style::write_stdout("\n");
+        terminal_style::write_stdout(&format!("  {} {}\n", "Alias:".style(terminal_style::LABEL_STYLE), repo_alias.style(terminal_style::ALIAS_STYLE)));
+        terminal_style::write_stdout(&format!("  {} {}\n", "Path:".style(terminal_style::LABEL_STYLE), self.filesystem_path.style(terminal_style::PATH_STYLE)));
         if !repo_description.is_empty() {
-            println!("  {} {}", "Desc:".style(terminal_style::LABEL_STYLE), repo_description);
+            terminal_style::write_stdout(&format!("  {} {}\n", "Desc:".style(terminal_style::LABEL_STYLE), repo_description));
         }
         if !parsed_tags.is_empty() {
-            println!("  {} {}", "Tags:".style(terminal_style::LABEL_STYLE), parsed_tags.join(", ").style(terminal_style::TAG_STYLE));
+            terminal_style::write_stdout(&format!("  {} {}\n", "Tags:".style(terminal_style::LABEL_STYLE), parsed_tags.join(", ").style(terminal_style::TAG_STYLE)));
         }
         if !repo_remote.is_empty() {
-            println!("  {} {}", "Remote:".style(terminal_style::LABEL_STYLE), repo_remote.style(terminal_style::PATH_STYLE));
+            terminal_style::write_stdout(&format!("  {} {}\n", "Remote:".style(terminal_style::LABEL_STYLE), repo_remote.style(terminal_style::PATH_STYLE)));
         }
         if !tab_title.is_empty() {
-            println!("  {} {}", "Title:".style(terminal_style::LABEL_STYLE), tab_title.style(terminal_style::ALIAS_STYLE));
+            terminal_style::write_stdout(&format!("  {} {}\n", "Title:".style(terminal_style::LABEL_STYLE), tab_title.style(terminal_style::ALIAS_STYLE)));
         }
         match &repo_color {
             ColorPromptResult::Provided(hex_color) => {
-                println!("  {} {}", "Color:".style(terminal_style::LABEL_STYLE), hex_color.raw_value());
+                terminal_style::write_stdout(&format!("  {} {}\n", "Color:".style(terminal_style::LABEL_STYLE), hex_color.raw_value()));
             }
             ColorPromptResult::Skipped => {}
         }
-        println!();
+        terminal_style::write_stdout("\n");
 
-        let display_alias = repo_alias.as_str().to_string();
+        let display_alias = repo_alias.as_str().to_owned();
 
         let mut builder = RepoRegistrationBuilder::start(repo_alias)
-            .repo_path(self.filesystem_path.to_string())
+            .repo_path(self.filesystem_path.to_owned())
             .repo_description(repo_description)
             .repo_tags(parsed_tags)
             .repo_remote(repo_remote);
@@ -108,7 +108,7 @@ impl<'a> RegistrationContext<'a> {
         self.loaded_config.add_repo(validated_registration)?;
         self.loaded_config.save_to_disk()?;
 
-        terminal_style::print_success(&format!("Registered '{}'", display_alias));
+        terminal_style::print_success(&format!("Registered '{display_alias}'"));
         Ok(())
     }
 }
