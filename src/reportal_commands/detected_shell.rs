@@ -202,7 +202,7 @@ function global:ro {{ rep open @args; rep color }}
 function global:rw {{ rep web @args }}
 function global:rr {{ rep run @args }}
 $script:_reportal_original_prompt = $function:global:prompt
-function global:prompt {{ $p = & $script:_reportal_original_prompt; $t = rep color --print-title 2>$null; if ($t) {{ $Host.UI.RawUI.WindowTitle = $t }}; $p }}
+function global:prompt {{ $p = & $script:_reportal_original_prompt; $t = rep color --mode prompt-hook 2>$null; if ($t) {{ $Host.UI.RawUI.WindowTitle = $t }}; $p }}
 "#,
             env!("CARGO_PKG_VERSION"),
         );
@@ -221,7 +221,7 @@ rj() {{ cd "$(rep jump "$@")"; rep color; }}
 ro() {{ rep open "$@"; rep color; }}
 rw() {{ rep web "$@"; }}
 rr() {{ rep run "$@"; }}
-_reportal_hook() {{ local _t; _t=$(rep color --print-title 2>{null_device}); [ -n "$_t" ] && printf '\033]2;%s\007' "$_t"; }}
+_reportal_hook() {{ local _t; _t=$(rep color --mode prompt-hook 2>{null_device}); [ -n "$_t" ] && printf '\033]2;%s\007' "$_t"; }}
 PROMPT_COMMAND="${{PROMPT_COMMAND:+$PROMPT_COMMAND;}}_reportal_hook"
 "#,
             version = env!("CARGO_PKG_VERSION"),
