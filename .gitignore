@@ -23,3 +23,4 @@ Desktop.ini
 # MCP / Puppeteer logs
 logs/
 .claude/_agent_state/
+.claude/kagemusha/
