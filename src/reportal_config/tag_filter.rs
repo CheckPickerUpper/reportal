@@ -1,4 +1,4 @@
-/// Filtering repos by tag for list, status, sync, and fuzzy-select commands.
+//! Filtering repos by tag for list, status, sync, and fuzzy-select commands.
 
 /// Whether to filter repos by a specific tag or show all repos.
 #[derive(Debug)]

@@ -1,4 +1,4 @@
-/// Subcommand implementations for the RePortal CLI.
+//! Subcommand implementations for the `RePortal` CLI.
 mod color_command_mode;
 mod detected_shell;
 mod doctor;

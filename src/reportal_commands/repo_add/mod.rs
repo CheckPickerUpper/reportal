@@ -1,5 +1,5 @@
-/// Interactively registers a new repo in the RePortal config.
-/// Supports both local paths and git URLs (clones first, then registers).
+//! Interactively registers a new repo in the `RePortal` config.
+//! Supports both local paths and git URLs (clones first, then registers).
 mod add_source;
 mod alias_suggestion;
 mod clone_destination;

@@ -1,10 +1,11 @@
-/// Shared repo fuzzy-selection helper used across jump, open, ai, edit, and web.
+//! Shared repo fuzzy-selection helper used across jump, open, ai, edit, and web.
 
 use crate::error::ReportalError;
 use crate::reportal_config::{RepoEntry, ReportalConfig, TagFilter};
 use crate::terminal_style;
 use dialoguer::FuzzySelect;
 use owo_colors::OwoColorize;
+use std::fmt::Write;
 
 /// A repo that was resolved either by direct alias lookup or fuzzy selection.
 /// Holds borrowed references into the loaded config so callers can read
@@ -42,6 +43,12 @@ pub struct SelectedRepoParams<'a> {
     pub prompt_label: &'a str,
 }
 
+/// Appends formatted text to a `String`, which is infallible.
+/// Wraps `write!` so callers avoid discarding a `Result` that can never be `Err`.
+fn push_formatted(target: &mut String, format_payload: std::fmt::Arguments<'_>) {
+    target.write_fmt(format_payload).unwrap_or(());
+}
+
 /// Resolves a repo by direct alias or interactive fuzzy selection.
 ///
 /// If `direct_alias` is non-empty, looks it up directly in the config.
@@ -49,16 +56,16 @@ pub struct SelectedRepoParams<'a> {
 /// with the given `prompt_label`. Repos are sorted by their first tag
 /// so same-tag repos cluster visually. Each item shows a color swatch,
 /// the alias, aliases, description, and tags.
-pub fn select_repo<'a>(selection_params: SelectedRepoParams<'a>) -> Result<SelectedRepo<'a>, ReportalError> {
-    match selection_params.direct_alias.is_empty() {
-        false => {
-            let found_repo = selection_params.loaded_config.get_repo(selection_params.direct_alias)?;
-            return Ok(SelectedRepo {
-                repo_alias: selection_params.direct_alias,
-                repo_config: found_repo,
-            });
-        }
-        true => {
+pub fn select_repo<'a>(selection_params: &'a SelectedRepoParams<'a>) -> Result<SelectedRepo<'a>, ReportalError> {
+    if !selection_params.direct_alias.is_empty() {
+        let found_repo = selection_params.loaded_config.get_repo(selection_params.direct_alias)?;
+        return Ok(SelectedRepo {
+            repo_alias: selection_params.direct_alias,
+            repo_config: found_repo,
+        });
+    }
+
+    {
             let mut matching_repos = selection_params.loaded_config.repos_matching_tag_filter(selection_params.tag_filter);
             if matching_repos.is_empty() {
                 return Err(ReportalError::NoReposMatchFilter);
@@ -81,30 +88,21 @@ pub fn select_repo<'a>(selection_params: SelectedRepoParams<'a>) -> Result<Selec
 
                     let mut label = format!("{swatch} {alias}");
 
-                    match repo.aliases().is_empty() {
-                        true => {}
-                        false => {
-                            let aliases_joined = repo.aliases().join(", ");
-                            label.push_str(&format!(" ({aliases_joined})"));
-                        }
+                    if !repo.aliases().is_empty() {
+                        let aliases_joined = repo.aliases().join(", ");
+                        push_formatted(&mut label, format_args!(" ({aliases_joined})"));
                     }
 
-                    match repo.description().is_empty() {
-                        true => {}
-                        false => {
-                            label.push_str(&format!(" — {}", repo.description()));
-                        }
+                    if !repo.description().is_empty() {
+                        push_formatted(&mut label, format_args!(" — {}", repo.description()));
                     }
 
-                    match repo.tags().is_empty() {
-                        true => {}
-                        false => {
-                            let tags_display = repo.tags().join(", ");
-                            label.push_str(&format!(" [{}]", tags_display));
-                        }
+                    if !repo.tags().is_empty() {
+                        let tags_display = repo.tags().join(", ");
+                        push_formatted(&mut label, format_args!(" [{tags_display}]"));
                     }
 
-                    return label;
+                    label
                 })
                 .collect();
 
@@ -118,18 +116,12 @@ pub fn select_repo<'a>(selection_params: SelectedRepoParams<'a>) -> Result<Selec
                     reason: select_error.to_string(),
                 })?;
 
-            match selected_index {
-                Some(chosen_index) => match matching_repos.get(chosen_index) {
-                    Some((chosen_alias, chosen_repo)) => {
-                        return Ok(SelectedRepo {
-                            repo_alias: chosen_alias.as_str(),
-                            repo_config: *chosen_repo,
-                        });
-                    }
-                    None => return Err(ReportalError::SelectionCancelled),
-                },
-                None => return Err(ReportalError::SelectionCancelled),
-            }
-        }
+            let Some(chosen_index) = selected_index else {
+                return Err(ReportalError::SelectionCancelled);
+            };
+            matching_repos.get(chosen_index).map_or(Err(ReportalError::SelectionCancelled), |(chosen_alias, chosen_repo)| Ok(SelectedRepo {
+                repo_alias: chosen_alias.as_str(),
+                repo_config: chosen_repo,
+            }))
     }
 }

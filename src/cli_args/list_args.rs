@@ -1,4 +1,4 @@
-/// CLI args for `rep list`.
+//! CLI args for `rep list`.
 
 use clap::Args;
 use crate::reportal_config::TagFilter;
@@ -17,6 +17,6 @@ pub struct ListArgs {
 impl ListArgs {
     /// Extracts the tag filter, consuming the parsed args.
     pub fn into_tag_filter(self) -> TagFilter {
-        return self.tag_filter.into_tag_filter();
+        self.tag_filter.into_tag_filter()
     }
 }

@@ -1,7 +1,7 @@
-/// A validated `#RRGGBB` hex color for terminal background theming.
-///
-/// Validated at parse time so downstream code can emit OSC sequences
-/// without rechecking format. Serializes/deserializes as a plain string.
+//! A validated `#RRGGBB` hex color for terminal background theming.
+//!
+//! Validated at parse time so downstream code can emit OSC sequences
+//! without rechecking format. Serializes/deserializes as a plain string.
 
 use crate::error::ReportalError;
 
@@ -21,19 +21,19 @@ impl HexColor {
         let trimmed = raw.trim();
         if trimmed.len() != 7 || !trimmed.starts_with('#') {
             return Err(ReportalError::InvalidColor {
-                value: raw.to_string(),
+                value: raw.to_owned(),
             });
         }
         let hex_digits = &trimmed[1..];
         let all_hex = hex_digits.chars().all(|character| character.is_ascii_hexdigit());
         if !all_hex {
             return Err(ReportalError::InvalidColor {
-                value: raw.to_string(),
+                value: raw.to_owned(),
             });
         }
-        return Ok(Self {
-            value: trimmed.to_string(),
-        });
+        Ok(Self {
+            value: trimmed.to_owned(),
+        })
     }
 
     /// The raw hex string as stored (e.g. `#1a1a2e`).
@@ -56,11 +56,11 @@ impl HexColor {
         let red = parse_hex_pair(&hex_digits[0..2])?;
         let green = parse_hex_pair(&hex_digits[2..4])?;
         let blue = parse_hex_pair(&hex_digits[4..6])?;
-        return Ok((red, green, blue));
+        Ok((red, green, blue))
     }
 
     /// Returns the OSC 4;264 escape sequence that sets the Windows Terminal
-    /// tab color strip to this color. Index 264 is FRAME_BACKGROUND in WT's
+    /// tab color strip to this color. Index 264 is `FRAME_BACKGROUND` in WT's
     /// color table. Silently ignored by terminals that don't support it.
     /// Format: `\x1b]4;264;rgb:RR/GG/BB\x07`
     pub fn as_osc_tab_color_sequence(&self) -> String {
@@ -68,20 +68,20 @@ impl HexColor {
         let red_hex = &hex_digits[0..2];
         let green_hex = &hex_digits[2..4];
         let blue_hex = &hex_digits[4..6];
-        return format!(
+        format!(
             "\x1b]4;264;rgb:{red_hex}/{green_hex}/{blue_hex}\x07"
-        );
+        )
     }
 }
 
-/// Serializes a HexColor as its raw `#RRGGBB` string for TOML output.
+/// Serializes a `HexColor` as its raw `#RRGGBB` string for TOML output.
 impl serde::Serialize for HexColor {
     fn serialize<S: serde::Serializer>(&self, toml_serializer: S) -> Result<S::Ok, S::Error> {
         toml_serializer.serialize_str(&self.value)
     }
 }
 
-/// Deserializes a `#RRGGBB` string into a validated HexColor.
+/// Deserializes a `#RRGGBB` string into a validated `HexColor`.
 impl<'de> serde::Deserialize<'de> for HexColor {
     fn deserialize<D: serde::Deserializer<'de>>(toml_deserializer: D) -> Result<Self, D::Error> {
         let raw = String::deserialize(toml_deserializer)?;

@@ -1,4 +1,4 @@
-/// Fuzzy-selects a repo and opens it in the configured editor.
+//! Fuzzy-selects a repo and opens it in the configured editor.
 
 use crate::error::ReportalError;
 use crate::reportal_config::{PathVisibility, ReportalConfig, TagFilter};
@@ -29,17 +29,18 @@ pub struct OpenCommandParams<'a> {
 /// The editor is launched by `cd`-ing into the repo directory first,
 /// then running `<editor> .` so the editor opens the folder correctly.
 /// Also emits OSC escape sequences for tab title and background color.
-pub fn run_open(open_params: OpenCommandParams<'_>) -> Result<(), ReportalError> {
+pub fn run_open(open_params: &OpenCommandParams<'_>) -> Result<(), ReportalError> {
     let loaded_config = ReportalConfig::load_from_disk()?;
 
-    let selected = repo_selection::select_repo(SelectedRepoParams {
+    let selection_params = SelectedRepoParams {
         loaded_config: &loaded_config,
         direct_alias: open_params.direct_alias,
         tag_filter: &open_params.tag_filter,
         prompt_label: "Open in editor",
-    })?;
+    };
+    let selected = repo_selection::select_repo(&selection_params)?;
 
-    terminal_identity_emit::emit_repo_terminal_identity(TerminalIdentityEmitParams {
+    terminal_identity_emit::emit_repo_terminal_identity(&TerminalIdentityEmitParams {
         selected_alias: selected.repo_alias(),
         selected_repo: selected.repo_config(),
         title_override: open_params.title_override,
@@ -47,10 +48,7 @@ pub fn run_open(open_params: OpenCommandParams<'_>) -> Result<(), ReportalError>
 
     let resolved_repo_path = selected.repo_config().resolved_path();
 
-    let editor_command = match open_params.editor_override.is_empty() {
-        true => loaded_config.default_editor(),
-        false => open_params.editor_override,
-    };
+    let editor_command = if open_params.editor_override.is_empty() { loaded_config.default_editor() } else { open_params.editor_override };
 
     #[cfg(target_os = "windows")]
     let spawn_result = Command::new("cmd")
@@ -81,5 +79,5 @@ pub fn run_open(open_params: OpenCommandParams<'_>) -> Result<(), ReportalError>
         PathVisibility::Hide => {}
     }
 
-    return Ok(());
+    Ok(())
 }

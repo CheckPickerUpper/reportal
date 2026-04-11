@@ -1,4 +1,4 @@
-/// CLI args for `rep web`.
+//! CLI args for `rep web`.
 
 use clap::Args;
 use crate::reportal_config::TagFilter;
@@ -16,8 +16,8 @@ pub struct WebArgs {
 
 /// Consuming conversion that splits into domain-layer parts.
 impl WebArgs {
-    /// Returns (alias, tag_filter), consuming self.
+    /// Returns (alias, `tag_filter`), consuming self.
     pub fn into_parts(self) -> (String, TagFilter) {
-        return self.selection.into_parts();
+        self.selection.into_parts()
     }
 }
