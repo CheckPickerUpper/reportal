@@ -1,4 +1,4 @@
-/// CLI args for `rep run`.
+//! CLI args for `rep run`.
 
 use clap::Args;
 use crate::reportal_config::TagFilter;
@@ -19,9 +19,9 @@ pub struct RunArgs {
 
 /// Consuming conversion that splits into domain-layer parts.
 impl RunArgs {
-    /// Returns (alias, tag_filter, direct_command), consuming self.
+    /// Returns (alias, `tag_filter`, `direct_command`), consuming self.
     pub fn into_parts(self) -> (String, TagFilter, String) {
         let (alias, tag_filter) = self.selection.into_parts();
-        return (alias, tag_filter, self.cmd);
+        (alias, tag_filter, self.cmd)
     }
 }

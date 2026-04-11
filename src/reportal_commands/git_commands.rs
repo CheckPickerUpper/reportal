@@ -1,4 +1,4 @@
-/// Shared git command execution used by status, sync, and web.
+//! Shared git command execution used by status, sync, and web.
 
 use std::path::PathBuf;
 use std::process::Command;
@@ -18,28 +18,25 @@ pub enum GitCommandOutcome {
 pub struct GitCommandParams<'a> {
     /// The resolved filesystem path to run git in.
     pub repo_path: &'a PathBuf,
-    /// The git subcommand and its arguments (e.g. ["status", "--porcelain"]).
+    /// The git subcommand and its arguments (e.g. `["status", "--porcelain"]`).
     pub git_subcommand_args: &'a [&'a str],
 }
 
 /// Spawns `git <args>` in the given repo directory and captures stdout.
 ///
-/// Returns `Output(trimmed_stdout)` on zero exit, `NonZeroExit` on
+/// Returns `Output(trimmed_stdout)` on zero exit, [`NonZeroExit`] on
 /// non-zero exit, or `SpawnFailed` if the git binary couldn't be found.
 /// Used by status, sync, and web to avoid duplicating the spawn+capture logic.
-pub fn run_git_command(git_command_params: GitCommandParams<'_>) -> GitCommandOutcome {
+pub fn run_git_command(git_command_params: &GitCommandParams<'_>) -> GitCommandOutcome {
     let command_result = Command::new("git")
         .args(git_command_params.git_subcommand_args)
         .current_dir(git_command_params.repo_path)
         .output();
 
     match command_result {
-        Ok(output) => match output.status.success() {
-            true => GitCommandOutcome::Output(
-                String::from_utf8_lossy(&output.stdout).trim().to_string(),
-            ),
-            false => GitCommandOutcome::NonZeroExit,
-        },
+        Ok(output) => if output.status.success() { GitCommandOutcome::Output(
+            String::from_utf8_lossy(&output.stdout).trim().to_owned(),
+        ) } else { GitCommandOutcome::NonZeroExit },
         Err(_git_spawn_error) => GitCommandOutcome::SpawnFailed,
     }
 }

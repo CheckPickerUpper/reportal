@@ -1,4 +1,4 @@
-/// Fuzzy-selects a repo and runs a user-defined command in it.
+//! Fuzzy-selects a repo and runs a user-defined command in it.
 
 use crate::error::ReportalError;
 use crate::reportal_config::{CommandEntry, ReportalConfig, TagFilter};
@@ -49,7 +49,7 @@ struct ResolveCommandParams<'a> {
 /// which command to run (direct or fuzzy-selected).
 ///
 /// Repo-level commands override global commands with the same name.
-fn resolve_command(resolve_params: ResolveCommandParams<'_>) -> Result<ResolvedCommand, ReportalError> {
+fn resolve_command(resolve_params: &ResolveCommandParams<'_>) -> Result<ResolvedCommand, ReportalError> {
     let mut merged: Vec<MergedCommandEntry<'_>> = Vec::new();
 
     for (name, entry) in resolve_params.global_commands {
@@ -73,78 +73,60 @@ fn resolve_command(resolve_params: ResolveCommandParams<'_>) -> Result<ResolvedC
 
     for (name, entry) in resolve_params.repo_commands {
         let already_merged = resolve_params.global_commands.contains_key(name);
-        match already_merged {
-            true => {}
-            false => {
-                merged.push(MergedCommandEntry {
-                    name,
-                    shell_command: entry.shell_command(),
-                    description: entry.description(),
-                });
-            }
+        if !already_merged {
+            merged.push(MergedCommandEntry {
+                name,
+                shell_command: entry.shell_command(),
+                description: entry.description(),
+            });
         }
     }
 
-    match merged.is_empty() {
-        true => return Err(ReportalError::NoCommandsAvailable),
-        false => {}
-    }
+    if merged.is_empty() { return Err(ReportalError::NoCommandsAvailable) }
 
-    match resolve_params.direct_command.is_empty() {
-        false => {
-            let found = merged.iter().find(|entry| entry.name == resolve_params.direct_command);
-            match found {
-                Some(entry) => {
-                    return Ok(ResolvedCommand {
-                        command_name: entry.name.to_string(),
-                        shell_command: entry.shell_command.to_string(),
-                    });
-                }
-                None => {
-                    return Err(ReportalError::CommandNotFound {
-                        command_name: resolve_params.direct_command.to_string(),
-                    });
-                }
-            }
-        }
-        true => {
-            let display_labels: Vec<String> = merged
-                .iter()
-                .map(|entry| {
-                    let mut label = entry.name.to_string();
-                    match entry.description.is_empty() {
-                        true => {
-                            label.push_str(&format!(" — {}", entry.shell_command));
-                        }
-                        false => {
-                            label.push_str(&format!(" — {}", entry.description));
-                        }
-                    }
-                    return label;
-                })
-                .collect();
+    if resolve_params.direct_command.is_empty() {
+        let display_labels: Vec<String> = merged
+            .iter()
+            .map(|entry| {
+                let mut label = entry.name.to_owned();
+                let suffix = if entry.description.is_empty() {
+                    entry.shell_command
+                } else {
+                    entry.description
+                };
+                label.push_str(" — ");
+                label.push_str(suffix);
+                label
+            })
+            .collect();
 
-            let selected_index = FuzzySelect::with_theme(&terminal_style::reportal_prompt_theme())
-                .with_prompt("Run command")
-                .items(&display_labels)
-                .interact_opt()
-                .map_err(|select_error| ReportalError::ConfigIoFailure {
-                    reason: select_error.to_string(),
-                })?;
+        let selected_index = FuzzySelect::with_theme(&terminal_style::reportal_prompt_theme())
+            .with_prompt("Run command")
+            .items(&display_labels)
+            .interact_opt()
+            .map_err(|select_error| ReportalError::ConfigIoFailure {
+                reason: select_error.to_string(),
+            })?;
 
-            match selected_index {
-                Some(chosen_index) => match merged.get(chosen_index) {
-                    Some(entry) => {
-                        return Ok(ResolvedCommand {
-                            command_name: entry.name.to_string(),
-                            shell_command: entry.shell_command.to_string(),
-                        });
-                    }
-                    None => return Err(ReportalError::SelectionCancelled),
-                },
-                None => return Err(ReportalError::SelectionCancelled),
-            }
-        }
+        let Some(chosen_index) = selected_index else {
+            return Err(ReportalError::SelectionCancelled);
+        };
+        merged.get(chosen_index).map_or(Err(ReportalError::SelectionCancelled), |entry| Ok(ResolvedCommand {
+            command_name: entry.name.to_owned(),
+            shell_command: entry.shell_command.to_owned(),
+        }))
+    } else {
+        merged.iter()
+            .find(|entry| entry.name == resolve_params.direct_command)
+            .map_or_else(
+                || Err(ReportalError::CommandNotFound {
+                    command_name: resolve_params.direct_command.to_owned(),
+                }),
+                |entry| Ok(ResolvedCommand {
+                    command_name: entry.name.to_owned(),
+                    shell_command: entry.shell_command.to_owned(),
+                }),
+            )
     }
 }
 
@@ -154,23 +136,24 @@ fn resolve_command(resolve_params: ResolveCommandParams<'_>) -> Result<ResolvedC
 /// from `[repos.<alias>.commands]`. Repo-level commands override globals
 /// with the same name. The command is spawned via the system shell with
 /// inherited stdio for interactive passthrough.
-pub fn run_run(run_params: RunCommandParams<'_>) -> Result<(), ReportalError> {
+pub fn run_run(run_params: &RunCommandParams<'_>) -> Result<(), ReportalError> {
     let loaded_config = ReportalConfig::load_from_disk()?;
 
-    let selected = repo_selection::select_repo(SelectedRepoParams {
+    let selection_params = SelectedRepoParams {
         loaded_config: &loaded_config,
         direct_alias: run_params.direct_alias,
         tag_filter: &run_params.tag_filter,
         prompt_label: "Run command in",
-    })?;
+    };
+    let selected = repo_selection::select_repo(&selection_params)?;
 
-    terminal_identity_emit::emit_repo_terminal_identity(TerminalIdentityEmitParams {
+    terminal_identity_emit::emit_repo_terminal_identity(&TerminalIdentityEmitParams {
         selected_alias: selected.repo_alias(),
         selected_repo: selected.repo_config(),
         title_override: "",
     });
 
-    let resolved_command = resolve_command(ResolveCommandParams {
+    let resolved_command = resolve_command(&ResolveCommandParams {
         global_commands: loaded_config.global_commands(),
         repo_commands: selected.repo_config().repo_commands(),
         direct_command: run_params.direct_command,
@@ -213,25 +196,22 @@ pub fn run_run(run_params: RunCommandParams<'_>) -> Result<(), ReportalError> {
         reason: format!("process exited unexpectedly: {wait_error}"),
     })?;
 
-    match exit_status.success() {
-        true => {}
-        false => {
-            match exit_status.code() {
-                Some(exit_code) => {
-                    terminal_style::print_error(&format!(
-                        "Command '{}' exited with code {}",
-                        resolved_command.command_name, exit_code
-                    ));
-                }
-                None => {
-                    terminal_style::print_error(&format!(
-                        "Command '{}' was terminated by signal",
-                        resolved_command.command_name
-                    ));
-                }
+    if !exit_status.success() {
+        match exit_status.code() {
+            Some(exit_code) => {
+                terminal_style::print_error(&format!(
+                    "Command '{}' exited with code {}",
+                    resolved_command.command_name, exit_code
+                ));
+            }
+            None => {
+                terminal_style::print_error(&format!(
+                    "Command '{}' was terminated by signal",
+                    resolved_command.command_name
+                ));
             }
         }
     }
 
-    return Ok(());
+    Ok(())
 }

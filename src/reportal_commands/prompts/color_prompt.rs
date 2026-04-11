@@ -25,14 +25,11 @@ pub fn prompt_for_color(prompt_theme: &ColorfulTheme) -> Result<ColorPromptResul
                 reason: prompt_error.to_string(),
             })?;
 
-        match color_input.is_empty() {
-            true => return Ok(ColorPromptResult::Skipped),
-            false => match HexColor::parse(&color_input) {
-                Ok(valid_color) => return Ok(ColorPromptResult::Provided(valid_color)),
-                Err(color_error) => {
-                    terminal_style::print_error(&color_error.to_string());
-                }
-            },
-        }
+        if color_input.is_empty() { return Ok(ColorPromptResult::Skipped) }        match HexColor::parse(&color_input) {
+                   Ok(valid_color) => return Ok(ColorPromptResult::Provided(valid_color)),
+                   Err(color_error) => {
+                       terminal_style::print_error(&color_error.to_string());
+                   }
+               }
     }
 }

@@ -40,16 +40,12 @@ struct RepoSyncResult {
 
 /// Checks whether the working tree is clean enough to safely pull.
 fn check_pull_readiness(repo_path: &PathBuf) -> PullReadiness {
-    match git_commands::run_git_command(GitCommandParams {
+    match git_commands::run_git_command(&GitCommandParams {
         repo_path,
         git_subcommand_args: &["status", "--porcelain"],
     }) {
-        GitCommandOutcome::Output(output) => match output.is_empty() {
-            true => PullReadiness::Ready,
-            false => PullReadiness::DirtyWorkingTree,
-        },
-        GitCommandOutcome::NonZeroExit => PullReadiness::Unknown,
-        GitCommandOutcome::SpawnFailed => PullReadiness::Unknown,
+        GitCommandOutcome::Output(output) => if output.is_empty() { PullReadiness::Ready } else { PullReadiness::DirtyWorkingTree },
+        GitCommandOutcome::NonZeroExit | GitCommandOutcome::SpawnFailed => PullReadiness::Unknown,
     }
 }
 
@@ -61,15 +57,12 @@ fn pull_repo(repo_path: &PathBuf) -> SyncOutcome {
         .output();
 
     match pull_result {
-        Ok(output) => match output.status.success() {
-            true => {
-                let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                SyncOutcome::Pulled(stdout)
-            }
-            false => {
-                let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-                SyncOutcome::PullFailed(stderr)
-            }
+        Ok(output) => if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+            SyncOutcome::Pulled(stdout)
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_owned();
+            SyncOutcome::PullFailed(stderr)
         },
         Err(spawn_error) => SyncOutcome::PullFailed(spawn_error.to_string()),
     }
@@ -77,29 +70,61 @@ fn pull_repo(repo_path: &PathBuf) -> SyncOutcome {
 
 /// Syncs a single repo: checks if clean, then pulls.
 fn sync_single_repo(alias: &str, repo_path: &PathBuf) -> RepoSyncResult {
-    match repo_path.exists() {
-        false => RepoSyncResult {
-            alias: alias.to_string(),
+    if !repo_path.exists() {
+        return RepoSyncResult {
+            alias: alias.to_owned(),
             outcome: SyncOutcome::Missing,
-        },
-        true => {
-            match check_pull_readiness(repo_path) {
-                PullReadiness::Ready => {
-                    let outcome = pull_repo(repo_path);
-                    RepoSyncResult {
-                        alias: alias.to_string(),
-                        outcome,
-                    }
-                }
-                PullReadiness::DirtyWorkingTree => RepoSyncResult {
-                    alias: alias.to_string(),
-                    outcome: SyncOutcome::SkippedDirty,
-                },
-                PullReadiness::Unknown => RepoSyncResult {
-                    alias: alias.to_string(),
-                    outcome: SyncOutcome::PullFailed("could not determine working tree state".to_string()),
-                },
-            }
+        };
+    }
+    let outcome = match check_pull_readiness(repo_path) {
+        PullReadiness::Ready => pull_repo(repo_path),
+        PullReadiness::DirtyWorkingTree => SyncOutcome::SkippedDirty,
+        PullReadiness::Unknown => SyncOutcome::PullFailed("could not determine working tree state".to_owned()),
+    };
+    RepoSyncResult {
+        alias: alias.to_owned(),
+        outcome,
+    }
+}
+
+/// Prints a styled status line for a single repo sync result.
+fn print_sync_result(sync_result: &RepoSyncResult) {
+    match &sync_result.outcome {
+        SyncOutcome::Pulled(output) => {
+            let marker = if output.contains("Already up to date") { "✓" } else { "↓" };
+            let suffix = if output.contains("Already up to date") { "up to date" } else { "pulled" };
+            terminal_style::write_stdout(&format!(
+                "  {} {} {}
+",
+                sync_result.alias.style(terminal_style::ALIAS_STYLE),
+                marker.style(terminal_style::SUCCESS_STYLE),
+                suffix,
+            ));
+        }
+        SyncOutcome::SkippedDirty => {
+            terminal_style::write_stderr(&format!(
+                "  {} {} skipped (dirty working tree)
+",
+                sync_result.alias.style(terminal_style::ALIAS_STYLE),
+                "!".style(terminal_style::FAILURE_STYLE),
+            ));
+        }
+        SyncOutcome::Missing => {
+            terminal_style::write_stderr(&format!(
+                "  {} {} missing on disk
+",
+                sync_result.alias.style(terminal_style::ALIAS_STYLE),
+                "✗".style(terminal_style::FAILURE_STYLE),
+            ));
+        }
+        SyncOutcome::PullFailed(error_message) => {
+            terminal_style::write_stderr(&format!(
+                "  {} {} pull failed: {}
+",
+                sync_result.alias.style(terminal_style::ALIAS_STYLE),
+                "✗".style(terminal_style::FAILURE_STYLE),
+                error_message,
+            ));
         }
     }
 }
@@ -107,9 +132,9 @@ fn sync_single_repo(alias: &str, repo_path: &PathBuf) -> RepoSyncResult {
 /// Pulls latest changes for every repo matching the tag filter.
 /// Skips repos with uncommitted changes (with a warning).
 /// Prints a per-repo summary showing what happened.
-pub fn run_sync(tag_filter: TagFilter) -> Result<(), ReportalError> {
+pub fn run_sync(tag_filter: &TagFilter) -> Result<(), ReportalError> {
     let loaded_config = ReportalConfig::load_from_disk()?;
-    let matching_repos = loaded_config.repos_matching_tag_filter(&tag_filter);
+    let matching_repos = loaded_config.repos_matching_tag_filter(tag_filter);
 
     if matching_repos.is_empty() {
         return Err(ReportalError::NoReposMatchFilter);
@@ -122,62 +147,22 @@ pub fn run_sync(tag_filter: TagFilter) -> Result<(), ReportalError> {
     for (alias, repo) in &matching_repos {
         let resolved = repo.resolved_path();
         let sync_result = sync_single_repo(alias, &resolved);
+        print_sync_result(&sync_result);
 
         match &sync_result.outcome {
-            SyncOutcome::Pulled(output) => {
-                pulled_count += 1;
-                match output.contains("Already up to date") {
-                    true => {
-                        println!(
-                            "  {} {} up to date",
-                            sync_result.alias.style(terminal_style::ALIAS_STYLE),
-                            "✓".style(terminal_style::SUCCESS_STYLE),
-                        );
-                    }
-                    false => {
-                        println!(
-                            "  {} {} pulled",
-                            sync_result.alias.style(terminal_style::ALIAS_STYLE),
-                            "↓".style(terminal_style::SUCCESS_STYLE),
-                        );
-                    }
-                }
-            }
-            SyncOutcome::SkippedDirty => {
-                skipped_count += 1;
-                eprintln!(
-                    "  {} {} skipped (dirty working tree)",
-                    sync_result.alias.style(terminal_style::ALIAS_STYLE),
-                    "!".style(terminal_style::FAILURE_STYLE),
-                );
-            }
-            SyncOutcome::Missing => {
-                failed_count += 1;
-                eprintln!(
-                    "  {} {} missing on disk",
-                    sync_result.alias.style(terminal_style::ALIAS_STYLE),
-                    "✗".style(terminal_style::FAILURE_STYLE),
-                );
-            }
-            SyncOutcome::PullFailed(error_message) => {
-                failed_count += 1;
-                eprintln!(
-                    "  {} {} pull failed: {}",
-                    sync_result.alias.style(terminal_style::ALIAS_STYLE),
-                    "✗".style(terminal_style::FAILURE_STYLE),
-                    error_message,
-                );
-            }
+            SyncOutcome::Pulled(_) => pulled_count += 1,
+            SyncOutcome::SkippedDirty => skipped_count += 1,
+            SyncOutcome::Missing | SyncOutcome::PullFailed(_) => failed_count += 1,
         }
     }
 
-    println!();
-    println!(
-        "  {} pulled, {} skipped, {} failed",
+    terminal_style::write_stdout("\n");
+    terminal_style::write_stdout(&format!(
+        "  {} pulled, {} skipped, {} failed\n",
         pulled_count.to_string().style(terminal_style::SUCCESS_STYLE),
         skipped_count.to_string().style(terminal_style::TAG_STYLE),
         failed_count.to_string().style(terminal_style::FAILURE_STYLE),
-    );
+    ));
 
-    return Ok(());
+    Ok(())
 }

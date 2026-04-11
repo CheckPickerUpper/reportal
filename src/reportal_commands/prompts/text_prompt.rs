@@ -17,16 +17,16 @@ pub struct TextPromptParams<'a> {
 ///
 /// Wraps the dialoguer `Input` widget and maps IO errors into
 /// `ReportalError::ConfigIoFailure` so callers can propagate with `?`.
-pub fn prompt_for_text(text_prompt_params: TextPromptParams<'_>) -> Result<String, ReportalError> {
+pub fn prompt_for_text(text_prompt_params: &TextPromptParams<'_>) -> Result<String, ReportalError> {
     let entered_text: String = Input::with_theme(text_prompt_params.prompt_theme)
         .with_prompt(text_prompt_params.label)
-        .default(text_prompt_params.default_value.to_string())
+        .default(text_prompt_params.default_value.to_owned())
         .interact_text()
         .map_err(|prompt_error| ReportalError::ConfigIoFailure {
             reason: prompt_error.to_string(),
         })?;
 
-    return Ok(entered_text);
+    Ok(entered_text)
 }
 
 /// Splits a comma-separated string into trimmed, non-empty tag strings.
@@ -34,9 +34,9 @@ pub fn prompt_for_text(text_prompt_params: TextPromptParams<'_>) -> Result<Strin
 /// Empty segments (from double commas or trailing commas) are filtered out.
 /// Returns an empty vec if the input is empty.
 pub fn parse_comma_separated_tags(raw_input: &str) -> Vec<String> {
-    return raw_input
+    raw_input
         .split(',')
-        .map(|tag_segment| tag_segment.trim().to_string())
+        .map(|tag_segment| tag_segment.trim().to_owned())
         .filter(|trimmed_tag| !trimmed_tag.is_empty())
-        .collect();
+        .collect()
 }

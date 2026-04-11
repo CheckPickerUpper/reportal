@@ -1,4 +1,4 @@
-/// CLI args for `rep remove`.
+//! CLI args for `rep remove`.
 
 use clap::Args;
 
@@ -16,6 +16,6 @@ pub struct RemoveArgs {
 impl RemoveArgs {
     /// The alias of the repo to unregister.
     pub fn alias(&self) -> &str {
-        return &self.alias;
+        &self.alias
     }
 }

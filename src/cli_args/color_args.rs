@@ -1,4 +1,4 @@
-/// CLI args for `rep color`.
+//! CLI args for `rep color`.
 
 use clap::Args;
 use crate::reportal_commands::ColorCommandMode;
@@ -21,8 +21,8 @@ pub struct ColorArgs {
 
 /// Consuming conversion that splits into domain-layer parts.
 impl ColorArgs {
-    /// Returns (repo_alias, mode), consuming self.
+    /// Returns (`repo_alias`, mode), consuming self.
     pub fn into_parts(self) -> (String, ColorCommandMode) {
-        return (self.repo, self.mode);
+        (self.repo, self.mode)
     }
 }

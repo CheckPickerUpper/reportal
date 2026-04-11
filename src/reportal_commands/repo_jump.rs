@@ -1,4 +1,4 @@
-/// Fuzzy-selects a repo and prints its path for shell `cd` integration.
+//! Fuzzy-selects a repo and prints its path for shell `cd` integration.
 
 use crate::error::ReportalError;
 use crate::reportal_config::{ReportalConfig, TagFilter};
@@ -7,6 +7,7 @@ use crate::reportal_commands::repo_selection::{self, SelectedRepoParams};
 use crate::reportal_commands::terminal_identity_emit::{
     self, TerminalIdentityEmitParams,
 };
+use crate::terminal_style;
 
 /// All parameters needed to run the jump command.
 pub struct JumpCommandParams<'a> {
@@ -25,17 +26,18 @@ pub struct JumpCommandParams<'a> {
 /// The raw path always goes to stdout for the shell function;
 /// an optional styled confirmation goes to stderr based on config.
 /// Also emits OSC escape sequences for tab title and background color.
-pub fn run_jump(jump_params: JumpCommandParams<'_>) -> Result<(), ReportalError> {
+pub fn run_jump(jump_params: &JumpCommandParams<'_>) -> Result<(), ReportalError> {
     let loaded_config = ReportalConfig::load_from_disk()?;
 
-    let selected = repo_selection::select_repo(SelectedRepoParams {
+    let selection_params = SelectedRepoParams {
         loaded_config: &loaded_config,
         direct_alias: jump_params.direct_alias,
         tag_filter: &jump_params.tag_filter,
         prompt_label: "Jump to repo",
-    })?;
+    };
+    let selected = repo_selection::select_repo(&selection_params)?;
 
-    terminal_identity_emit::emit_repo_terminal_identity(TerminalIdentityEmitParams {
+    terminal_identity_emit::emit_repo_terminal_identity(&TerminalIdentityEmitParams {
         selected_alias: selected.repo_alias(),
         selected_repo: selected.repo_config(),
         title_override: jump_params.title_override,
@@ -44,12 +46,12 @@ pub fn run_jump(jump_params: JumpCommandParams<'_>) -> Result<(), ReportalError>
     let resolved_path = selected.repo_config().resolved_path();
     let formatted_path = loaded_config.path_display_format().format_path(&resolved_path);
 
-    print!("{formatted_path}");
+    terminal_style::write_stdout(&formatted_path.clone());
 
-    path_display::print_selected_path_if_visible(SelectedPathDisplayParams {
+    path_display::print_selected_path_if_visible(&SelectedPathDisplayParams {
         loaded_config: &loaded_config,
         resolved_path: &resolved_path,
     });
 
-    return Ok(());
+    Ok(())
 }

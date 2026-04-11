@@ -1,7 +1,7 @@
-/// CLI argument types for the RePortal binary.
-///
-/// Each subcommand's args live in their own file. Shared building
-/// blocks (tag filter, repo selection) are composed via `#[command(flatten)]`.
+//! CLI argument types for the `RePortal` binary.
+//!
+//! Each subcommand's args live in their own file. Shared building
+//! blocks (tag filter, repo selection) are composed via `#[command(flatten)]`.
 mod ai_args;
 mod color_args;
 mod edit_args;

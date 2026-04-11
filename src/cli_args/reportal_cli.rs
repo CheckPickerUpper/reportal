@@ -1,4 +1,4 @@
-/// Top-level CLI parser and subcommand dispatch enum.
+//! Top-level CLI parser and subcommand dispatch enum.
 
 use clap::{Parser, Subcommand};
 use super::{
@@ -19,11 +19,11 @@ pub struct ReportalCli {
 impl ReportalCli {
     /// The subcommand the user invoked.
     pub fn into_subcommand(self) -> ReportalCliSubcommand {
-        return self.subcommand;
+        self.subcommand
     }
 }
 
-/// All available subcommands for the RePortal CLI.
+/// All available subcommands for the `RePortal` CLI.
 #[derive(Subcommand)]
 pub enum ReportalCliSubcommand {
     /// Set up config and shell integration (safe to re-run on updates)

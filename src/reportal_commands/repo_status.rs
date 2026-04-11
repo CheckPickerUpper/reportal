@@ -94,41 +94,31 @@ fn parse_usize(raw_text: &str) -> UsizeParse {
 
 /// Reads the current branch name from a repo directory.
 fn read_branch_name(repo_path: &PathBuf) -> String {
-    match git_commands::run_git_command(GitCommandParams {
+    match git_commands::run_git_command(&GitCommandParams {
         repo_path,
         git_subcommand_args: &["rev-parse", "--abbrev-ref", "HEAD"],
     }) {
-        GitCommandOutcome::Output(branch) => match branch.is_empty() {
-            true => "detached".to_string(),
-            false => match branch.eq("HEAD") {
-                true => "detached".to_string(),
-                false => branch,
-            },
-        },
-        GitCommandOutcome::NonZeroExit => "unknown".to_string(),
-        GitCommandOutcome::SpawnFailed => "no-git".to_string(),
+        GitCommandOutcome::Output(branch) => if branch.is_empty() || branch == "HEAD" { "detached".to_owned() } else { branch },
+        GitCommandOutcome::NonZeroExit => "unknown".to_owned(),
+        GitCommandOutcome::SpawnFailed => "no-git".to_owned(),
     }
 }
 
 /// Checks whether the working tree has uncommitted changes.
 fn read_working_tree_state(repo_path: &PathBuf) -> WorkingTreeState {
-    match git_commands::run_git_command(GitCommandParams {
+    match git_commands::run_git_command(&GitCommandParams {
         repo_path,
         git_subcommand_args: &["status", "--porcelain"],
     }) {
-        GitCommandOutcome::Output(output) => match output.is_empty() {
-            true => WorkingTreeState::Clean,
-            false => WorkingTreeState::Dirty,
-        },
-        GitCommandOutcome::NonZeroExit => WorkingTreeState::Dirty,
-        GitCommandOutcome::SpawnFailed => WorkingTreeState::Dirty,
+        GitCommandOutcome::Output(output) => if output.is_empty() { WorkingTreeState::Clean } else { WorkingTreeState::Dirty },
+        GitCommandOutcome::NonZeroExit | GitCommandOutcome::SpawnFailed => WorkingTreeState::Dirty,
     }
 }
 
 /// Parses a "N\tM" rev-list count string into ahead/behind counts.
 fn parse_rev_list_counts(raw_counts: &str) -> RevListParse {
     let parts: Vec<&str> = raw_counts.split('\t').collect();
-    match (parts.get(0), parts.get(1)) {
+    match (parts.first(), parts.get(1)) {
         (Some(ahead_str), Some(behind_str)) => {
             match (parse_usize(ahead_str), parse_usize(behind_str)) {
                 (UsizeParse::Valid(ahead), UsizeParse::Valid(behind)) => {
@@ -143,7 +133,7 @@ fn parse_rev_list_counts(raw_counts: &str) -> RevListParse {
 
 /// Reads ahead/behind counts relative to the upstream tracking branch.
 fn read_upstream_delta(repo_path: &PathBuf) -> UpstreamDelta {
-    match git_commands::run_git_command(GitCommandParams {
+    match git_commands::run_git_command(&GitCommandParams {
         repo_path,
         git_subcommand_args: &["rev-list", "--left-right", "--count", "HEAD...@{upstream}"],
     }) {
@@ -151,47 +141,43 @@ fn read_upstream_delta(repo_path: &PathBuf) -> UpstreamDelta {
             RevListParse::Parsed(counts) => UpstreamDelta::Tracked(counts),
             RevListParse::Malformed => UpstreamDelta::NoUpstream,
         },
-        GitCommandOutcome::NonZeroExit => UpstreamDelta::NoUpstream,
-        GitCommandOutcome::SpawnFailed => UpstreamDelta::NoUpstream,
+        GitCommandOutcome::NonZeroExit | GitCommandOutcome::SpawnFailed => UpstreamDelta::NoUpstream,
     }
 }
 
 /// Reads the relative age of the last commit (e.g. "3 days ago").
 fn read_last_commit_age(repo_path: &PathBuf) -> String {
-    match git_commands::run_git_command(GitCommandParams {
+    match git_commands::run_git_command(&GitCommandParams {
         repo_path,
         git_subcommand_args: &["log", "-1", "--format=%cr"],
     }) {
         GitCommandOutcome::Output(age) => age,
-        GitCommandOutcome::NonZeroExit => "no commits".to_string(),
-        GitCommandOutcome::SpawnFailed => "no-git".to_string(),
+        GitCommandOutcome::NonZeroExit => "no commits".to_owned(),
+        GitCommandOutcome::SpawnFailed => "no-git".to_owned(),
     }
 }
 
 /// Collects git status for a single repo by running git commands in its directory.
-fn collect_repo_status(status_collection_params: StatusCollectionParams<'_>) -> RepoGitStatus {
-    match status_collection_params.repo_path.exists() {
-        true => {
-            let branch = read_branch_name(status_collection_params.repo_path);
-            let working_tree = read_working_tree_state(status_collection_params.repo_path);
-            let upstream_delta = read_upstream_delta(status_collection_params.repo_path);
-            let last_commit_age = read_last_commit_age(status_collection_params.repo_path);
+fn collect_repo_status(status_collection_params: &StatusCollectionParams<'_>) -> RepoGitStatus {
+    if status_collection_params.repo_path.exists() {
+        let branch = read_branch_name(status_collection_params.repo_path);
+        let working_tree = read_working_tree_state(status_collection_params.repo_path);
+        let upstream_delta = read_upstream_delta(status_collection_params.repo_path);
+        let last_commit_age = read_last_commit_age(status_collection_params.repo_path);
 
-            RepoGitStatus {
-                alias: status_collection_params.alias.to_string(),
-                presence: RepoPresence::Present(GitInfo {
-                    branch,
-                    working_tree,
-                    upstream_delta,
-                    last_commit_age,
-                }),
-            }
+        RepoGitStatus {
+            alias: status_collection_params.alias.to_owned(),
+            presence: RepoPresence::Present(GitInfo {
+                branch,
+                working_tree,
+                upstream_delta,
+                last_commit_age,
+            }),
         }
-        false => RepoGitStatus {
-            alias: status_collection_params.alias.to_string(),
-            presence: RepoPresence::Missing,
-        },
-    }
+    } else { RepoGitStatus {
+        alias: status_collection_params.alias.to_owned(),
+        presence: RepoPresence::Missing,
+    } }
 }
 
 /// Formats the upstream delta into a string like "2↑ 1↓" or "synced".
@@ -207,21 +193,18 @@ fn format_upstream_delta(upstream_delta: &UpstreamDelta) -> String {
                 0 => {}
                 behind_count => parts.push(format!("{behind_count}↓")),
             }
-            match parts.is_empty() {
-                true => "synced".to_string(),
-                false => parts.join(" "),
-            }
+            if parts.is_empty() { "synced".to_owned() } else { parts.join(" ") }
         }
-        UpstreamDelta::NoUpstream => "no upstream".to_string(),
+        UpstreamDelta::NoUpstream => "no upstream".to_owned(),
     }
 }
 
 /// Collects git metadata (branch, dirty state, upstream delta, last commit)
 /// from every repo matching the tag filter and prints a summary table.
 /// Reports dirty and missing repo counts in a footer on stderr.
-pub fn run_status(tag_filter: TagFilter) -> Result<(), ReportalError> {
+pub fn run_status(tag_filter: &TagFilter) -> Result<(), ReportalError> {
     let loaded_config = ReportalConfig::load_from_disk()?;
-    let matching_repos = loaded_config.repos_matching_tag_filter(&tag_filter);
+    let matching_repos = loaded_config.repos_matching_tag_filter(tag_filter);
 
     if matching_repos.is_empty() {
         return Err(ReportalError::NoReposMatchFilter);
@@ -231,7 +214,7 @@ pub fn run_status(tag_filter: TagFilter) -> Result<(), ReportalError> {
         .iter()
         .map(|(alias, repo)| {
             let resolved = repo.resolved_path();
-            collect_repo_status(StatusCollectionParams {
+            collect_repo_status(&StatusCollectionParams {
                 alias,
                 repo_path: &resolved,
             })
@@ -245,12 +228,8 @@ pub fn run_status(tag_filter: TagFilter) -> Result<(), ReportalError> {
         match &repo_status.presence {
             RepoPresence::Present(git_info) => {
                 let status_text = match &git_info.working_tree {
-                    WorkingTreeState::Clean => {
-                        "clean".style(terminal_style::SUCCESS_STYLE).to_string()
-                    }
-                    WorkingTreeState::Dirty => {
-                        "dirty".style(terminal_style::FAILURE_STYLE).to_string()
-                    }
+                    WorkingTreeState::Clean => "clean".style(terminal_style::SUCCESS_STYLE).to_string(),
+                    WorkingTreeState::Dirty => "dirty".style(terminal_style::FAILURE_STYLE).to_string(),
                 };
 
                 let upstream_text = format_upstream_delta(&git_info.upstream_delta);
@@ -279,7 +258,7 @@ pub fn run_status(tag_filter: TagFilter) -> Result<(), ReportalError> {
         }
     }
 
-    println!("{table}");
+    terminal_style::write_stdout(&format!("{table}\n"));
 
     let dirty_count = statuses
         .iter()
@@ -300,35 +279,35 @@ pub fn run_status(tag_filter: TagFilter) -> Result<(), ReportalError> {
         })
         .count();
 
-    println!();
+    terminal_style::write_stdout("\n");
     match dirty_count {
         0 => {}
         count => {
-            eprintln!(
-                "  {} {} {} with uncommitted changes",
+            terminal_style::write_stderr(&format!(
+                "  {} {} {} with uncommitted changes\n",
                 "!".style(terminal_style::FAILURE_STYLE),
                 count,
                 match count {
                     1 => "repo",
                     _ => "repos",
                 },
-            );
+            ));
         }
     }
     match missing_count {
         0 => {}
         count => {
-            eprintln!(
-                "  {} {} {} not found on disk",
+            terminal_style::write_stderr(&format!(
+                "  {} {} {} not found on disk\n",
                 "!".style(terminal_style::FAILURE_STYLE),
                 count,
                 match count {
                     1 => "repo",
                     _ => "repos",
                 },
-            );
+            ));
         }
     }
 
-    return Ok(());
+    Ok(())
 }
