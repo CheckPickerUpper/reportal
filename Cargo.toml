@@ -1,6 +1,6 @@
 [package]
 name = "reportal"
-version = "0.13.0"
+version = "0.14.0"
 edition = "2021"
 description = "A fast, cross-platform CLI for jumping between, opening, and managing your dev repos"
 license = "MIT"
