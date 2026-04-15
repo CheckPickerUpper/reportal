@@ -7,6 +7,7 @@
 //! to the appropriate subcommand handler.
 
 mod cli_args;
+mod code_workspace;
 mod error;
 mod reportal_commands;
 mod reportal_config;
@@ -98,6 +99,9 @@ fn main() {
                 direct_alias: &direct_alias,
                 tool_override: &tool_override,
             })
+        }
+        ReportalCliSubcommand::Workspace(workspace_args) => {
+            reportal_commands::dispatch_workspace_subcommand(workspace_args)
         }
     };
 
