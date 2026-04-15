@@ -120,4 +120,66 @@ pub enum ReportalError {
     /// No commands are available (neither global nor repo-level).
     #[error("No commands configured. Add [commands.<name>] sections to your config")]
     NoCommandsAvailable,
+
+    /// A workspace name was not found in the config.
+    #[error("Workspace '{workspace_name}' not found in config")]
+    WorkspaceNotFound {
+        /// The workspace name that was looked up.
+        workspace_name: String,
+    },
+
+    /// A workspace name already exists in the config.
+    #[error("Workspace '{workspace_name}' already exists in config")]
+    WorkspaceAlreadyExists {
+        /// The workspace name that collided.
+        workspace_name: String,
+    },
+
+    /// A workspace references a repo alias that is not registered.
+    ///
+    /// Detected during the post-parse validation pass on config load,
+    /// which prevents shipping a config where `.code-workspace` files
+    /// would be generated pointing at a non-existent repo.
+    #[error("Workspace '{workspace_name}' references unknown repo '{missing_alias}'")]
+    WorkspaceHasDanglingRepo {
+        /// The workspace that contains the dangling reference.
+        workspace_name: String,
+        /// The repo alias that does not resolve to any registered repo.
+        missing_alias: String,
+    },
+
+    /// Failed to read or write a `.code-workspace` file on disk.
+    #[error("`.code-workspace` file I/O error for '{file_path}': {reason}")]
+    CodeWorkspaceIoFailure {
+        /// The path of the `.code-workspace` file that failed I/O.
+        file_path: String,
+        /// The underlying filesystem error message.
+        reason: String,
+    },
+
+    /// A `.code-workspace` file exists but is not valid JSONC, or has
+    /// a shape that the parse-merge-write path cannot round-trip.
+    #[error("`.code-workspace` file at '{file_path}' is not valid JSONC: {reason}")]
+    CodeWorkspaceParseFailure {
+        /// The path of the `.code-workspace` file that failed to parse.
+        file_path: String,
+        /// The parse error detail from the JSONC deserializer.
+        reason: String,
+    },
+
+    /// Refuses to remove a repo that is still a member of one or
+    /// more workspaces. The user must edit those workspaces (or
+    /// delete them) before the repo can be unregistered, because
+    /// silently stripping the repo from every containing workspace
+    /// would destroy user-declared membership without consent.
+    #[error(
+        "Repo '{alias}' is still a member of workspace(s): {affected_workspaces}. \
+         Remove it from each workspace (rep workspace remove-repo) or delete them, then retry."
+    )]
+    RepoIsWorkspaceMember {
+        /// The repo alias the user asked to remove.
+        alias: String,
+        /// Comma-separated list of workspace names that still contain the repo.
+        affected_workspaces: String,
+    },
 }

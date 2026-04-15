@@ -3,7 +3,7 @@
 use clap::{Parser, Subcommand};
 use super::{
     AiArgs, ColorArgs, EditArgs, JumpArgs, ListArgs,
-    OpenArgs, RemoveArgs, RunArgs, StatusArgs, SyncArgs, WebArgs,
+    OpenArgs, RemoveArgs, RunArgs, StatusArgs, SyncArgs, WebArgs, WorkspaceArgs,
 };
 
 /// A fast CLI tool for jumping between and managing your dev repos.
@@ -66,4 +66,7 @@ pub enum ReportalCliSubcommand {
     /// Run a configured command in a repo
     #[command(alias = "r")]
     Run(RunArgs),
+    /// Manage VSCode/Cursor `.code-workspace` definitions
+    #[command(alias = "ws")]
+    Workspace(WorkspaceArgs),
 }
