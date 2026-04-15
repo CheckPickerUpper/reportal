@@ -16,6 +16,7 @@ mod status_args;
 mod sync_args;
 mod tag_filter_args;
 mod web_args;
+mod workspace_args;
 
 pub use ai_args::AiArgs;
 pub use color_args::ColorArgs;
@@ -29,3 +30,6 @@ pub use run_args::RunArgs;
 pub use status_args::StatusArgs;
 pub use sync_args::SyncArgs;
 pub use web_args::WebArgs;
+pub use workspace_args::{
+    WorkspaceArgs, WorkspaceArgsCreateParts, WorkspaceArgsMemberEditParts, WorkspaceArgsSubcommand,
+};
