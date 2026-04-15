@@ -6,7 +6,10 @@ DEV_TOOLS.md
 SPEC-*.md
 
 # Claude Code
-.claude/
+.claude/*
+!.claude/ai-lab/
+.claude/ai-lab/*
+!.claude/ai-lab/agent-boomerang/
 CLAUDE.md
 
 # OS
