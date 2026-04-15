@@ -28,7 +28,7 @@ fn main() {
     let command_result = match parsed_cli.into_subcommand() {
         ReportalCliSubcommand::Init => reportal_commands::run_init(),
         ReportalCliSubcommand::List(list_args) => {
-            reportal_commands::run_list(list_args.into_tag_filter())
+            reportal_commands::run_list(&list_args.into_filter_parts())
         }
         ReportalCliSubcommand::Jump(jump_args) => {
             let (direct_alias, tag_filter, title_override) = jump_args.into_parts();

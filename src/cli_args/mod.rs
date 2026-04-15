@@ -17,12 +17,13 @@ mod sync_args;
 mod tag_filter_args;
 mod web_args;
 mod workspace_args;
+mod workspace_filter_args;
 
 pub use ai_args::AiArgs;
 pub use color_args::ColorArgs;
 pub use edit_args::EditArgs;
 pub use jump_args::JumpArgs;
-pub use list_args::ListArgs;
+pub use list_args::{ListArgs, ListArgsFilterParts};
 pub use open_args::OpenArgs;
 pub use remove_args::RemoveArgs;
 pub use reportal_cli::{ReportalCli, ReportalCliSubcommand};
