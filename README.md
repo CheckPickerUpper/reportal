@@ -128,6 +128,13 @@ ro
 | `rep run my-api` | `rep r my-api` | Skip repo selection, fuzzy-select a command to run |
 | `rep run --cmd test` | | Skip command selection, fuzzy-select a repo to run "test" in |
 | `rep run my-api --cmd test` | | Run "test" directly in my-api (no fuzzy menus) |
+| `rep workspace list` | `rep ws ls` | List all registered VSCode/Cursor workspaces with their member repos |
+| `rep workspace show <name>` | | Show a workspace's description, file path, and resolved member paths |
+| `rep workspace create <name> --repos a,b,c` | | Register a new workspace and write its `.code-workspace` file |
+| `rep workspace delete <name>` | `rep ws rm` | Unregister a workspace (leaves the `.code-workspace` file on disk) |
+| `rep workspace add-repo <name> <alias>` | | Add a repo to a workspace and regenerate its file |
+| `rep workspace remove-repo <name> <alias>` | | Remove a repo from a workspace and regenerate its file |
+| `rep workspace open <name>` | | Open a workspace in your default editor |
 | `rep doctor` | | Diagnose config, shell integration, and repo path issues |
 
 ## Shell integration
@@ -219,6 +226,27 @@ args = []
 
 New configs created via `rep init` ship with claude, codex, and aider pre-registered.
 
+### Workspaces
+
+A workspace is a named group of repos that open together as one VSCode/Cursor window. RePortal owns the `[workspaces.<name>]` table as the single source of truth, and the `.code-workspace` file on disk is a derived artifact generated from the member repos' current paths.
+
+```toml
+[workspaces.backend]
+repos = ["api", "worker", "db-migrations"]   # ordered — controls sidebar order
+description = "Jakuta backend services"
+path = ""                                     # empty = ~/.reportal/workspaces/backend.code-workspace
+```
+
+| Field | Required | Default | What it controls |
+|-------|----------|---------|-----------------|
+| `repos` | yes | — | Ordered list of repo aliases that belong to this workspace. Order matches the editor sidebar. Each alias must be a registered repo — dangling references are rejected on config load |
+| `description` | no | `""` | Human-readable description shown in `rep workspace list` |
+| `path` | no | `""` | Filesystem path for the `.code-workspace` file. Empty falls back to `~/.reportal/workspaces/<name>.code-workspace` |
+
+**Regeneration is automatic.** When you change a repo's path via `rep edit`, every workspace that contains it regenerates its `.code-workspace` file so the folder entries reflect the new location. User-authored fields inside the file (`settings`, `extensions`, `launch`, `tasks`, plus any JSONC comments) round-trip byte-stable across regeneration — RePortal only touches the `folders` array.
+
+**Removing a repo that's still a workspace member is refused** with a message listing the blocking workspaces. Remove the repo from each workspace first (or delete those workspaces), then retry. This keeps destructive membership changes explicit.
+
 ### Commands
 
 Define reusable commands that can be run in any repo via `rep run`:
@@ -286,8 +314,11 @@ PROMPT_COMMAND='rep color 2>/dev/null'
 - [x] `ai` — launch AI coding CLIs (Claude Code, Codex, aider) in any repo with configurable defaults
 - [x] `web` — open a repo's remote URL in the browser (converts SSH remotes to HTTPS)
 - [x] `run` — run configured commands in repos with fuzzy selection and per-repo overrides
-- [x] `edit` UX overhaul — field menu (pick Description/Tags/Title/Color individually, loop back)
+- [x] `edit` UX overhaul — field menu (pick Path/Description/Tags/Title/Color individually, loop back)
+- [x] VSCode/Cursor `.code-workspace` integration — `rep workspace` subcommands, owned config, auto-regenerate on repo path changes, JSONC round-trip preservation
 - [ ] `config` — manage AI tools and global settings (`rep config ai-tools`, `rep config settings`)
+- [ ] Workspace-tree grouping in `rep list` (workspaces become the tree root, tags become a secondary filter)
+- [ ] Interactive ratatui TUI absorbing `list` / `dash` with live git-status column
 - [ ] `dashboard` — rich overview with branches, dirty state, last commit
 - [ ] `clone --all` — clone missing repos from config (machine sync)
 - [ ] Shell completions

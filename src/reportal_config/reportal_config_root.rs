@@ -7,6 +7,7 @@ use crate::reportal_config::command_entry::CommandEntry;
 use crate::reportal_config::global_settings::{PathDisplayFormat, PathVisibility, ReportalSettings};
 use crate::reportal_config::repo_entry::RepoEntry;
 use crate::reportal_config::tag_filter::TagFilter;
+use crate::reportal_config::workspace_entry::WorkspaceEntry;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -33,6 +34,14 @@ pub struct ReportalConfig {
     /// Map of command name to user-defined command definition.
     #[serde(default)]
     commands: BTreeMap<String, CommandEntry>,
+    /// Map of workspace name to VSCode/Cursor workspace definition.
+    ///
+    /// Each entry is the single source of truth for one
+    /// `.code-workspace` file, which reportal generates from the
+    /// member repos' current paths so that moving a repo updates
+    /// every workspace that contains it.
+    #[serde(default)]
+    workspaces: BTreeMap<String, WorkspaceEntry>,
 }
 
 /// Loading, saving, querying, and mutating the `RePortal` config file.
@@ -47,10 +56,20 @@ impl ReportalConfig {
         Ok(Self::config_directory()?.join("config.toml"))
     }
 
-    /// Loads and parses the config from disk.
+    /// Loads, parses, and validates the config from disk.
+    ///
+    /// After successful TOML parsing, runs the workspace reference
+    /// check so any workspace that points at a repo no longer
+    /// registered is rejected at startup rather than silently
+    /// producing broken `.code-workspace` files on a later regen.
+    ///
+    /// # Errors
     ///
     /// Returns `ConfigNotFound` if the file does not exist,
-    /// or `ConfigParseFailure` if the TOML is malformed.
+    /// `ConfigIoFailure` if the file cannot be read,
+    /// `ConfigParseFailure` if the TOML is malformed, or
+    /// `WorkspaceHasDanglingRepo` if a workspace references an
+    /// unknown repo alias.
     pub fn load_from_disk() -> Result<Self, ReportalError> {
         let file_path = Self::config_file_path()?;
         if !file_path.exists() {
@@ -63,9 +82,48 @@ impl ReportalConfig {
                 reason: io_error.to_string(),
             }
         })?;
-        toml::from_str(&toml_content).map_err(|parse_error| ReportalError::ConfigParseFailure {
-            reason: parse_error.to_string(),
-        })
+        let parsed_config: Self = toml::from_str(&toml_content).map_err(|parse_error| {
+            ReportalError::ConfigParseFailure {
+                reason: parse_error.to_string(),
+            }
+        })?;
+        parsed_config.validate_workspace_references()?;
+        Ok(parsed_config)
+    }
+
+    /// Validates that every workspace's repo alias list references
+    /// only registered repos.
+    ///
+    /// Runs on every config load so a hand-edited TOML that drops a
+    /// repo without cleaning up workspace membership is rejected at
+    /// startup. Prevents the failure mode where `.code-workspace`
+    /// files would later be regenerated pointing at a non-existent
+    /// repo path. Uses the canonical repo registry keys only, not
+    /// the repo `aliases` field, because workspace membership is
+    /// stored against the canonical key.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ReportalError::WorkspaceHasDanglingRepo`] at the
+    /// first dangling reference encountered, identifying both the
+    /// workspace and the missing alias so the user can fix either
+    /// side of the broken reference.
+    pub fn validate_workspace_references(&self) -> Result<(), ReportalError> {
+        let all_pairs = self.workspaces.iter().flat_map(|(workspace_name, workspace)| {
+            workspace
+                .repo_aliases()
+                .iter()
+                .map(move |member_alias| (workspace_name, member_alias))
+        });
+        for (workspace_name, member_alias) in all_pairs {
+            if !self.repos.contains_key(member_alias) {
+                return Err(ReportalError::WorkspaceHasDanglingRepo {
+                    workspace_name: workspace_name.to_owned(),
+                    missing_alias: member_alias.to_owned(),
+                });
+            }
+        }
+        Ok(())
     }
 
     /// Serializes and writes the config to disk, creating the directory if needed.
@@ -168,6 +226,109 @@ impl ReportalConfig {
         })
     }
 
+    /// Returns all registered workspaces with their names, for iteration.
+    ///
+    /// The list reflects the `BTreeMap` iteration order so display
+    /// and tree rendering are deterministic across runs.
+    #[must_use]
+    pub fn workspaces_with_names(&self) -> Vec<(&String, &WorkspaceEntry)> {
+        self.workspaces.iter().collect()
+    }
+
+    /// Looks up a workspace by name.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ReportalError::WorkspaceNotFound`] if the name has
+    /// no matching workspace entry.
+    pub fn get_workspace(&self, workspace_name: &str) -> Result<&WorkspaceEntry, ReportalError> {
+        self.workspaces.get(workspace_name).ok_or_else(|| ReportalError::WorkspaceNotFound {
+            workspace_name: workspace_name.to_owned(),
+        })
+    }
+
+    /// Returns a mutable reference to a workspace by name.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ReportalError::WorkspaceNotFound`] if the name has
+    /// no matching workspace entry.
+    pub fn get_workspace_mut(
+        &mut self,
+        workspace_name: &str,
+    ) -> Result<&mut WorkspaceEntry, ReportalError> {
+        self.workspaces.get_mut(workspace_name).ok_or_else(|| ReportalError::WorkspaceNotFound {
+            workspace_name: workspace_name.to_owned(),
+        })
+    }
+
+    /// Registers a new workspace from a validated builder result.
+    ///
+    /// Runs the dangling-reference check before accepting the new
+    /// entry so an insert that would leave the config invalid is
+    /// rejected at mutation time, not at the next load.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ReportalError::WorkspaceAlreadyExists`] if the
+    /// name is taken, or [`ReportalError::WorkspaceHasDanglingRepo`]
+    /// if any of the new entry's repo aliases is not registered.
+    pub fn add_workspace(
+        &mut self,
+        validated_registration: (String, WorkspaceEntry),
+    ) -> Result<(), ReportalError> {
+        let (workspace_name, workspace_entry) = validated_registration;
+        if self.workspaces.contains_key(&workspace_name) {
+            return Err(ReportalError::WorkspaceAlreadyExists {
+                workspace_name,
+            });
+        }
+        for member_alias in workspace_entry.repo_aliases() {
+            if !self.repos.contains_key(member_alias) {
+                return Err(ReportalError::WorkspaceHasDanglingRepo {
+                    workspace_name,
+                    missing_alias: member_alias.to_owned(),
+                });
+            }
+        }
+        self.workspaces.insert(workspace_name, workspace_entry);
+        Ok(())
+    }
+
+    /// Removes a workspace by name.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ReportalError::WorkspaceNotFound`] if the name has
+    /// no matching workspace entry.
+    pub fn remove_workspace(
+        &mut self,
+        workspace_name: &str,
+    ) -> Result<WorkspaceEntry, ReportalError> {
+        self.workspaces.remove(workspace_name).ok_or_else(|| ReportalError::WorkspaceNotFound {
+            workspace_name: workspace_name.to_owned(),
+        })
+    }
+
+    /// Returns every workspace that contains the given repo alias.
+    ///
+    /// This is the reverse index that makes repo path changes
+    /// correct: when `rep edit` changes a repo's path, every
+    /// workspace containing that repo must regenerate its
+    /// `.code-workspace` file so the folder entries stay aligned
+    /// with reality. Without this lookup, path changes silently
+    /// strand workspace files pointing at the old location.
+    #[must_use]
+    pub fn workspaces_containing_repo(
+        &self,
+        repo_alias: &str,
+    ) -> Vec<(&String, &WorkspaceEntry)> {
+        self.workspaces
+            .iter()
+            .filter(|(_, workspace)| workspace.contains_repo(repo_alias))
+            .collect()
+    }
+
     /// Returns the configured default AI tool name, if set.
     pub fn default_ai_tool(&self) -> &str {
         &self.settings.default_ai_tool
@@ -202,6 +363,7 @@ impl ReportalConfig {
             },
             repos: BTreeMap::new(),
             commands: BTreeMap::new(),
+            workspaces: BTreeMap::new(),
             ai_tools: BTreeMap::from([
                 ("claude".to_owned(), AiToolEntry::with_executable("claude".to_owned())),
                 ("codex".to_owned(), AiToolEntry::with_executable("codex".to_owned())),
