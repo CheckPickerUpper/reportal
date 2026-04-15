@@ -99,8 +99,9 @@ ro
 | Command | Alias | What it does |
 |---------|-------|-------------|
 | `rep init` | | Creates config and installs shell integration (safe to re-run on updates) |
-| `rep list` | `rep l` | Shows all repos with path, description, tags, and whether it exists on disk |
-| `rep list --tag work` | | Filters repos by tag |
+| `rep list` | `rep l` | Shows repos grouped by workspace, with unassigned repos in a trailing section |
+| `rep list --tag work` | | Filters repos by tag (composes with `--workspace`) |
+| `rep list --workspace backend` | | Scopes the listing to one workspace (suppresses the unassigned section) |
 | `rep jump` | `rep j` | Fuzzy-select a repo, prints the path (used by `rj` shell function) |
 | `rep jump my-api` | `rep j my-api` | Jump directly to a repo by alias (also matches `aliases` field) |
 | `rep jump --title "Debug"` | | Override the terminal tab title for this session |
@@ -317,7 +318,7 @@ PROMPT_COMMAND='rep color 2>/dev/null'
 - [x] `edit` UX overhaul — field menu (pick Path/Description/Tags/Title/Color individually, loop back)
 - [x] VSCode/Cursor `.code-workspace` integration — `rep workspace` subcommands, owned config, auto-regenerate on repo path changes, JSONC round-trip preservation
 - [ ] `config` — manage AI tools and global settings (`rep config ai-tools`, `rep config settings`)
-- [ ] Workspace-tree grouping in `rep list` (workspaces become the tree root, tags become a secondary filter)
+- [x] Workspace-tree grouping in `rep list` (workspaces as the tree root, `--workspace` as a first-class filter composable with `--tag`)
 - [ ] Interactive ratatui TUI absorbing `list` / `dash` with live git-status column
 - [ ] `dashboard` — rich overview with branches, dirty state, last commit
 - [ ] `clone --all` — clone missing repos from config (machine sync)

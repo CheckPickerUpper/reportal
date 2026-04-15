@@ -14,6 +14,7 @@ mod reportal_config_root;
 mod tab_title;
 mod tag_filter;
 mod workspace_entry;
+mod workspace_filter;
 mod workspace_registration_builder;
 
 pub use command_entry::CommandEntry;
@@ -26,4 +27,5 @@ pub use reportal_config_root::ReportalConfig;
 pub use tab_title::TabTitle;
 pub use tag_filter::TagFilter;
 pub use workspace_entry::WorkspaceEntry;
+pub use workspace_filter::WorkspaceFilter;
 pub use workspace_registration_builder::WorkspaceRegistrationBuilder;
