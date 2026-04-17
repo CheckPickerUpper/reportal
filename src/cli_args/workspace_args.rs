@@ -258,9 +258,37 @@ pub enum WorkspaceArgsSubcommand {
     /// regenerate its `.code-workspace` file.
     RemoveRepo(WorkspaceArgsMemberEdit),
     /// Open a workspace in the configured default editor by
-    /// running `<editor> <workspace-file-path>`.
-    Open(WorkspaceArgsNameOnly),
+    /// running `<editor> <workspace-file-path>`. Without a
+    /// workspace name, presents a fuzzy finder.
+    Open(WorkspaceArgsOptionalNameOnly),
     /// Print the workspace's `.code-workspace` file parent
     /// directory so the `rjw` shell wrapper can cd there.
-    Jump(WorkspaceArgsNameOnly),
+    /// Without a workspace name, presents a fuzzy finder.
+    Jump(WorkspaceArgsOptionalNameOnly),
+}
+
+/// Payload for actions that target a workspace by name but fall
+/// back to fuzzy-select when no name is given — currently `jump`
+/// and `open`.
+///
+/// Distinct from [`WorkspaceArgsNameOnly`] because `show`,
+/// `delete`, and the member-edit actions must name an explicit
+/// target — silently fuzzy-selecting a destructive action's
+/// subject would violate the explicit-mutation rule.
+#[derive(Args)]
+pub struct WorkspaceArgsOptionalNameOnly {
+    /// The workspace this action targets, or empty to present a
+    /// fuzzy-select prompt.
+    #[arg(default_value = "")]
+    workspace_name: String,
+}
+
+/// Consuming accessor for the optional target name.
+impl WorkspaceArgsOptionalNameOnly {
+    /// Extracts the optional workspace name as a string that is
+    /// empty when the user omitted the argument.
+    #[must_use]
+    pub fn into_optional_workspace_name(self) -> String {
+        self.workspace_name
+    }
 }

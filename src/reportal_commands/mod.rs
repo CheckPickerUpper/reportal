@@ -26,6 +26,8 @@ mod repo_status;
 mod terminal_identity_emit;
 mod repo_sync;
 mod repo_web;
+mod target_selection;
+mod workspace_selection;
 mod workspace_create;
 mod workspace_delete;
 mod workspace_dispatch;
