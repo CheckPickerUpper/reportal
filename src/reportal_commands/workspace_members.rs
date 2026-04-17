@@ -3,7 +3,9 @@
 use crate::cli_args::WorkspaceArgsMemberEditParts;
 use crate::error::ReportalError;
 use crate::reportal_commands::workspace_operations::WorkspaceRegenerator;
-use crate::reportal_config::ReportalConfig;
+use crate::reportal_config::{
+    ReportalConfig, WorkspaceMember, WorkspaceMemberAliasLookup,
+};
 use crate::terminal_style;
 use owo_colors::OwoColorize;
 
@@ -41,9 +43,11 @@ pub fn run_workspace_add_repo(
             ),
         });
     }
-    let mut updated_member_aliases = target_workspace.repo_aliases().to_vec();
-    updated_member_aliases.push(member_edit.repo_alias().to_owned());
-    target_workspace.set_repo_aliases(updated_member_aliases);
+    let mut updated_members = target_workspace.members().to_vec();
+    updated_members.push(WorkspaceMember::RegisteredRepo(
+        member_edit.repo_alias().to_owned(),
+    ));
+    target_workspace.set_members(updated_members);
     loaded_config.save_to_disk()?;
 
     let regenerator = WorkspaceRegenerator::for_config(&loaded_config);
@@ -91,13 +95,18 @@ pub fn run_workspace_remove_repo(
             ),
         });
     }
-    let remaining_member_aliases: Vec<String> = target_workspace
-        .repo_aliases()
+    let remaining_members: Vec<WorkspaceMember> = target_workspace
+        .members()
         .iter()
-        .filter(|existing_alias| existing_alias.as_str() != member_edit.repo_alias())
+        .filter(|member| match member.registered_repo_alias() {
+            WorkspaceMemberAliasLookup::Matches(existing_alias) => {
+                existing_alias != member_edit.repo_alias()
+            }
+            WorkspaceMemberAliasLookup::NotARepoReference => true,
+        })
         .cloned()
         .collect();
-    if remaining_member_aliases.is_empty() {
+    if remaining_members.is_empty() {
         return Err(ReportalError::ValidationFailure {
             field: "workspace member".to_owned(),
             reason: format!(
@@ -106,7 +115,7 @@ pub fn run_workspace_remove_repo(
             ),
         });
     }
-    target_workspace.set_repo_aliases(remaining_member_aliases);
+    target_workspace.set_members(remaining_members);
     loaded_config.save_to_disk()?;
 
     let regenerator = WorkspaceRegenerator::for_config(&loaded_config);

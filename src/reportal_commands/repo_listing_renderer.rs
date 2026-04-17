@@ -144,7 +144,7 @@ impl<'tree> RepoListingRenderer<'tree> {
     /// `(alias, entry)` tuple as one parameter because the
     /// project's argument rules cap non-`self` parameters at one
     /// per method.
-    fn render_repo_leaf(repo_pair: &(&String, &RepoEntry)) -> Result<(), ReportalError> {
+    fn render_repo_leaf(repo_pair: &(&str, &RepoEntry)) -> Result<(), ReportalError> {
         let (repo_alias, repo_entry) = *repo_pair;
         let directory_exists = repo_entry.resolved_path().exists();
         let swatch_style = terminal_style::swatch_style_for_repo_color(repo_entry.repo_color())?;
