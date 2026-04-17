@@ -6,6 +6,9 @@ use crate::reportal_commands::direct_alias_router::{
 };
 use crate::reportal_commands::path_display::{self, SelectedPathDisplayParams};
 use crate::reportal_commands::repo_selection::{self, SelectedRepoParams};
+use crate::reportal_commands::target_selection::{
+    self, SelectedTarget, SelectedTargetParams,
+};
 use crate::reportal_commands::terminal_identity_emit::{
     self, TerminalIdentityEmitParams,
 };
@@ -47,11 +50,24 @@ pub struct JumpCommandParams<'a> {
 pub fn run_jump(jump_params: &JumpCommandParams<'_>) -> Result<(), ReportalError> {
     let loaded_config = ReportalConfig::load_from_disk()?;
 
-    if !jump_params.direct_alias.is_empty() {
+    let resolved_repo_alias: String = if jump_params.direct_alias.is_empty() {
+        let target_params = SelectedTargetParams {
+            loaded_config: &loaded_config,
+            tag_filter: &jump_params.tag_filter,
+            prompt_label: "Jump to repo or workspace",
+        };
+        match target_selection::select_target(&target_params)? {
+            SelectedTarget::Repo(chosen_repo_alias) => chosen_repo_alias,
+            SelectedTarget::Workspace(canonical_workspace_name) => {
+                let router = DirectAliasRouter::for_config(&loaded_config);
+                return router.jump_to_workspace_parent(&canonical_workspace_name);
+            }
+        }
+    } else {
         let router = DirectAliasRouter::for_config(&loaded_config);
         match router.classify(jump_params.direct_alias)? {
             DirectAliasRouterOutcome::RegisteredRepo => {
-                /* fall through to repo jump flow */
+                jump_params.direct_alias.to_owned()
             }
             DirectAliasRouterOutcome::Workspace(canonical_workspace_name) => {
                 return router.jump_to_workspace_parent(&canonical_workspace_name);
@@ -62,11 +78,11 @@ pub fn run_jump(jump_params: &JumpCommandParams<'_>) -> Result<(), ReportalError
                 });
             }
         }
-    }
+    };
 
     let selection_params = SelectedRepoParams {
         loaded_config: &loaded_config,
-        direct_alias: jump_params.direct_alias,
+        direct_alias: &resolved_repo_alias,
         tag_filter: &jump_params.tag_filter,
         prompt_label: "Jump to repo",
     };
