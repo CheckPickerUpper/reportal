@@ -15,12 +15,15 @@ use crate::reportal_config::workspace_entry::WorkspaceEntry;
 pub struct WorkspaceRegistrationBuilder {
     /// Config key (workspace name) for the entry under construction.
     workspace_name: String,
-    /// Alias list collected so far.
+    /// Member repo alias list collected so far.
     repo_aliases: Vec<String>,
     /// Description collected so far.
     workspace_description: String,
     /// Explicit `.code-workspace` file path, or empty for default.
     workspace_file_path: String,
+    /// Short-name aliases that resolve to this workspace in
+    /// commands taking a workspace name argument.
+    workspace_aliases: Vec<String>,
 }
 
 /// Chainable builder methods for assembling a workspace registration.
@@ -37,6 +40,7 @@ impl WorkspaceRegistrationBuilder {
             repo_aliases: Vec::new(),
             workspace_description: String::new(),
             workspace_file_path: String::new(),
+            workspace_aliases: Vec::new(),
         }
     }
 
@@ -68,6 +72,21 @@ impl WorkspaceRegistrationBuilder {
         self
     }
 
+    /// Sets the short-name aliases that resolve to this workspace.
+    ///
+    /// Each alias is checked for emptiness and intra-list duplicates
+    /// at `build()` time. Cross-workspace and cross-namespace (vs.
+    /// repo) collision detection happens one layer up at the config
+    /// level, because the builder does not have the full registry in
+    /// scope and trying to validate there would either require
+    /// plumbing the registry in (defeating the builder's isolation)
+    /// or silently let collisions through.
+    #[must_use]
+    pub fn workspace_aliases(mut self, declared_aliases: Vec<String>) -> Self {
+        self.workspace_aliases = declared_aliases;
+        self
+    }
+
     /// Validates all fields and produces a workspace name + entry pair.
     ///
     /// Rejects an empty workspace name because it would produce an
@@ -80,7 +99,9 @@ impl WorkspaceRegistrationBuilder {
     /// # Errors
     ///
     /// Returns [`ReportalError::ValidationFailure`] when the
-    /// workspace name is empty or the repo alias list is empty.
+    /// workspace name is empty, the repo alias list is empty, or
+    /// any declared workspace alias is empty, duplicated within the
+    /// list, or equal to the owning workspace's canonical name.
     pub fn build(self) -> Result<(String, WorkspaceEntry), ReportalError> {
         if self.workspace_name.trim().is_empty() {
             return Err(ReportalError::ValidationFailure {
@@ -94,13 +115,72 @@ impl WorkspaceRegistrationBuilder {
                 reason: "at least one repo alias is required".to_owned(),
             });
         }
+        validate_alias_list_shape(&self.workspace_aliases, &self.workspace_name)?;
         let validated_entry = WorkspaceEntry {
             repos: self.repo_aliases,
             description: self.workspace_description,
             path: self.workspace_file_path,
+            aliases: self.workspace_aliases,
         };
         Ok((self.workspace_name, validated_entry))
     }
+}
+
+/// Validates the shape of a workspace's declared alias list,
+/// independent of other workspaces and repos.
+///
+/// Only checks intra-list invariants: no empty/whitespace entries
+/// (they would resolve nothing), no duplicates within the list
+/// (they waste config bytes and imply ordering semantics the
+/// resolver does not honor), and no alias equal to the workspace's
+/// own canonical name (declaring `vn` on workspace `vn` is a no-op
+/// that signals user confusion).
+///
+/// Cross-entity collisions (alias of workspace A clashes with
+/// canonical name or alias of workspace B, or any repo) require
+/// the full config registry and belong on the config-level
+/// validation pass that runs on load and `add_workspace`.
+///
+/// # Errors
+///
+/// Returns [`ReportalError::ValidationFailure`] with `field =
+/// "workspace alias"` for each kind of shape violation.
+fn validate_alias_list_shape(
+    declared_aliases: &[String],
+    owning_workspace_name: &str,
+) -> Result<(), ReportalError> {
+    for declared in declared_aliases {
+        if declared.trim().is_empty() {
+            return Err(ReportalError::ValidationFailure {
+                field: "workspace alias".to_owned(),
+                reason: format!(
+                    "workspace '{owning_workspace_name}' declares an empty alias"
+                ),
+            });
+        }
+        if declared == owning_workspace_name {
+            return Err(ReportalError::ValidationFailure {
+                field: "workspace alias".to_owned(),
+                reason: format!(
+                    "workspace '{owning_workspace_name}' declares '{declared}' as an alias but that is already its canonical name"
+                ),
+            });
+        }
+    }
+    for earlier_index in 0..declared_aliases.len() {
+        for later_index in (earlier_index + 1)..declared_aliases.len() {
+            if declared_aliases[earlier_index] == declared_aliases[later_index] {
+                return Err(ReportalError::ValidationFailure {
+                    field: "workspace alias".to_owned(),
+                    reason: format!(
+                        "workspace '{owning_workspace_name}' declares duplicate alias '{}'",
+                        declared_aliases[earlier_index],
+                    ),
+                });
+            }
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -165,6 +245,66 @@ mod tests {
             entry.repo_aliases(),
             declared_order.as_slice(),
             "sidebar ordering is load-bearing and must match the declared input verbatim",
+        );
+    }
+
+    #[test]
+    fn workspace_aliases_populate_into_entry() {
+        let declared_aliases = vec!["vn".to_owned(), "noble".to_owned()];
+        let (_, entry) = WorkspaceRegistrationBuilder::start("venoble".to_owned())
+            .repo_aliases(vec!["app".to_owned()])
+            .workspace_aliases(declared_aliases.clone())
+            .build()
+            .expect("valid builder must succeed");
+        use crate::reportal_config::has_aliases::HasAliases;
+        assert_eq!(entry.aliases(), declared_aliases.as_slice());
+    }
+
+    #[test]
+    fn empty_alias_is_rejected() {
+        let build_outcome = WorkspaceRegistrationBuilder::start("venoble".to_owned())
+            .repo_aliases(vec!["app".to_owned()])
+            .workspace_aliases(vec!["vn".to_owned(), String::new()])
+            .build();
+        assert!(
+            matches!(build_outcome, Err(ReportalError::ValidationFailure { ref field, .. }) if field == "workspace alias"),
+            "expected ValidationFailure for workspace alias on empty entry, got {build_outcome:?}",
+        );
+    }
+
+    #[test]
+    fn whitespace_only_alias_is_rejected() {
+        let build_outcome = WorkspaceRegistrationBuilder::start("venoble".to_owned())
+            .repo_aliases(vec!["app".to_owned()])
+            .workspace_aliases(vec!["   ".to_owned()])
+            .build();
+        assert!(
+            matches!(build_outcome, Err(ReportalError::ValidationFailure { ref field, .. }) if field == "workspace alias"),
+            "expected ValidationFailure on whitespace-only alias, got {build_outcome:?}",
+        );
+    }
+
+    #[test]
+    fn duplicate_alias_in_same_workspace_is_rejected() {
+        let build_outcome = WorkspaceRegistrationBuilder::start("venoble".to_owned())
+            .repo_aliases(vec!["app".to_owned()])
+            .workspace_aliases(vec!["vn".to_owned(), "vn".to_owned()])
+            .build();
+        assert!(
+            matches!(build_outcome, Err(ReportalError::ValidationFailure { ref field, .. }) if field == "workspace alias"),
+            "expected ValidationFailure on duplicate alias, got {build_outcome:?}",
+        );
+    }
+
+    #[test]
+    fn alias_equal_to_own_canonical_name_is_rejected() {
+        let build_outcome = WorkspaceRegistrationBuilder::start("venoble".to_owned())
+            .repo_aliases(vec!["app".to_owned()])
+            .workspace_aliases(vec!["venoble".to_owned()])
+            .build();
+        assert!(
+            matches!(build_outcome, Err(ReportalError::ValidationFailure { ref field, .. }) if field == "workspace alias"),
+            "expected ValidationFailure when alias equals canonical name, got {build_outcome:?}",
         );
     }
 }

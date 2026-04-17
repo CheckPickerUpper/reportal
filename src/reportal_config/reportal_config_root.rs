@@ -3,8 +3,10 @@
 
 use crate::error::ReportalError;
 use crate::reportal_config::ai_tool_entry::AiToolEntry;
+use crate::reportal_config::alias_collision_query::AliasCollisionQuery;
 use crate::reportal_config::command_entry::CommandEntry;
 use crate::reportal_config::global_settings::{PathDisplayFormat, PathVisibility, ReportalSettings};
+use crate::reportal_config::has_aliases::{HasAliases, resolve_canonical_key};
 use crate::reportal_config::repo_entry::RepoEntry;
 use crate::reportal_config::tag_filter::TagFilter;
 use crate::reportal_config::workspace_entry::WorkspaceEntry;
@@ -59,17 +61,17 @@ impl ReportalConfig {
     /// Loads, parses, and validates the config from disk.
     ///
     /// After successful TOML parsing, runs the workspace reference
-    /// check so any workspace that points at a repo no longer
-    /// registered is rejected at startup rather than silently
-    /// producing broken `.code-workspace` files on a later regen.
+    /// check and the alias-collision pass so no dangling member or
+    /// ambiguous short name reaches command dispatch.
     ///
     /// # Errors
     ///
     /// Returns `ConfigNotFound` if the file does not exist,
     /// `ConfigIoFailure` if the file cannot be read,
-    /// `ConfigParseFailure` if the TOML is malformed, or
+    /// `ConfigParseFailure` if the TOML is malformed,
     /// `WorkspaceHasDanglingRepo` if a workspace references an
-    /// unknown repo alias.
+    /// unknown repo alias, or `WorkspaceAliasConflict` if any
+    /// workspace's name or alias collides with another entry.
     pub fn load_from_disk() -> Result<Self, ReportalError> {
         let file_path = Self::config_file_path()?;
         if !file_path.exists() {
@@ -88,26 +90,140 @@ impl ReportalConfig {
             }
         })?;
         parsed_config.validate_workspace_references()?;
+        parsed_config.validate_alias_collisions()?;
         Ok(parsed_config)
+    }
+
+    /// Validates that every workspace alias is globally unambiguous
+    /// across both the workspace and repo namespaces.
+    ///
+    /// The resolver in `resolve_canonical_key` returns the first
+    /// match it finds, so a config where two entries declare the
+    /// same alias would produce silently order-dependent behavior.
+    /// Rejecting the config at load time surfaces the ambiguity
+    /// immediately instead of letting a command resolve `vn` to the
+    /// wrong target.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ReportalError::WorkspaceAliasConflict`] at the
+    /// first collision encountered.
+    pub fn validate_alias_collisions(&self) -> Result<(), ReportalError> {
+        for (workspace_name, workspace_entry) in &self.workspaces {
+            self.check_workspace_canonical_name_repo_collision(workspace_name)?;
+            for declared_alias in workspace_entry.aliases() {
+                self.check_workspace_alias_collisions(AliasCollisionQuery::new(
+                    workspace_name,
+                    declared_alias,
+                ))?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Rejects a workspace whose canonical name collides with a
+    /// repo's canonical key or declared alias.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ReportalError::WorkspaceAliasConflict`] on collision.
+    fn check_workspace_canonical_name_repo_collision(
+        &self,
+        workspace_name: &str,
+    ) -> Result<(), ReportalError> {
+        if self.repos.contains_key(workspace_name) {
+            return Err(ReportalError::WorkspaceAliasConflict {
+                workspace_name: workspace_name.to_owned(),
+                conflicting_value: workspace_name.to_owned(),
+                conflicting_entity_description: format!(
+                    "repo '{workspace_name}' as its canonical key"
+                ),
+            });
+        }
+        for (repo_key, repo_entry) in &self.repos {
+            if repo_entry.aliases().iter().any(|declared| declared == workspace_name) {
+                return Err(ReportalError::WorkspaceAliasConflict {
+                    workspace_name: workspace_name.to_owned(),
+                    conflicting_value: workspace_name.to_owned(),
+                    conflicting_entity_description: format!("repo '{repo_key}' as an alias"),
+                });
+            }
+        }
+        Ok(())
+    }
+
+    /// Rejects a workspace alias that collides with another
+    /// workspace's canonical name, another workspace's alias, any
+    /// repo's canonical key, or any repo's declared alias.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ReportalError::WorkspaceAliasConflict`] on collision.
+    fn check_workspace_alias_collisions(
+        &self,
+        query: AliasCollisionQuery<'_>,
+    ) -> Result<(), ReportalError> {
+        let owning_workspace_name = query.owning_workspace_name();
+        let candidate_alias = query.candidate_alias();
+        for (other_workspace_name, other_workspace) in &self.workspaces {
+            if other_workspace_name == owning_workspace_name {
+                continue;
+            }
+            if other_workspace_name == candidate_alias {
+                return Err(ReportalError::WorkspaceAliasConflict {
+                    workspace_name: owning_workspace_name.to_owned(),
+                    conflicting_value: candidate_alias.to_owned(),
+                    conflicting_entity_description: format!(
+                        "workspace '{other_workspace_name}' as its canonical name"
+                    ),
+                });
+            }
+            if other_workspace
+                .aliases()
+                .iter()
+                .any(|declared| declared == candidate_alias)
+            {
+                return Err(ReportalError::WorkspaceAliasConflict {
+                    workspace_name: owning_workspace_name.to_owned(),
+                    conflicting_value: candidate_alias.to_owned(),
+                    conflicting_entity_description: format!(
+                        "workspace '{other_workspace_name}' as an alias"
+                    ),
+                });
+            }
+        }
+        if self.repos.contains_key(candidate_alias) {
+            return Err(ReportalError::WorkspaceAliasConflict {
+                workspace_name: owning_workspace_name.to_owned(),
+                conflicting_value: candidate_alias.to_owned(),
+                conflicting_entity_description: format!(
+                    "repo '{candidate_alias}' as its canonical key"
+                ),
+            });
+        }
+        for (repo_key, repo_entry) in &self.repos {
+            if repo_entry
+                .aliases()
+                .iter()
+                .any(|declared| declared == candidate_alias)
+            {
+                return Err(ReportalError::WorkspaceAliasConflict {
+                    workspace_name: owning_workspace_name.to_owned(),
+                    conflicting_value: candidate_alias.to_owned(),
+                    conflicting_entity_description: format!("repo '{repo_key}' as an alias"),
+                });
+            }
+        }
+        Ok(())
     }
 
     /// Validates that every workspace's repo alias list references
     /// only registered repos.
     ///
-    /// Runs on every config load so a hand-edited TOML that drops a
-    /// repo without cleaning up workspace membership is rejected at
-    /// startup. Prevents the failure mode where `.code-workspace`
-    /// files would later be regenerated pointing at a non-existent
-    /// repo path. Uses the canonical repo registry keys only, not
-    /// the repo `aliases` field, because workspace membership is
-    /// stored against the canonical key.
-    ///
     /// # Errors
     ///
     /// Returns [`ReportalError::WorkspaceHasDanglingRepo`] at the
-    /// first dangling reference encountered, identifying both the
-    /// workspace and the missing alias so the user can fix either
-    /// side of the broken reference.
+    /// first dangling reference encountered.
     pub fn validate_workspace_references(&self) -> Result<(), ReportalError> {
         let all_pairs = self.workspaces.iter().flat_map(|(workspace_name, workspace)| {
             workspace
@@ -180,29 +296,47 @@ impl ReportalConfig {
         self.repos.iter().collect()
     }
 
-    /// Looks up a repo by its primary key or any of its alternative aliases.
-    /// Checks the primary key first, then walks all repos checking their
-    /// `aliases` field. Returns `RepoNotFound` if no match is found.
-    pub fn get_repo(&self, alias: &str) -> Result<&RepoEntry, ReportalError> {
-        if let Some(found_repo) = self.repos.get(alias) {
-            return Ok(found_repo);
-        }
-        let alias_match = self.repos.values()
-            .find(|repo_entry| repo_entry.aliases().iter().any(|alt| alt == alias));
-        alias_match.map_or_else(
-            || Err(ReportalError::RepoNotFound {
-                alias: alias.to_owned(),
-            }),
-            Ok,
-        )
+    /// Looks up a repo by its canonical key or any of its declared
+    /// aliases.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ReportalError::RepoNotFound`] if neither the
+    /// canonical key nor any repo's alias list matches.
+    pub fn get_repo(&self, alias_or_canonical: &str) -> Result<&RepoEntry, ReportalError> {
+        let canonical_key = resolve_canonical_key(&self.repos, alias_or_canonical).ok_or_else(
+            || ReportalError::RepoNotFound {
+                alias: alias_or_canonical.to_owned(),
+            },
+        )?;
+        self.repos
+            .get(canonical_key)
+            .ok_or_else(|| ReportalError::RepoNotFound {
+                alias: alias_or_canonical.to_owned(),
+            })
     }
 
-    /// Returns a mutable reference to a repo by its primary key.
-    /// Returns `RepoNotFound` if the alias is not a primary key.
-    pub fn get_repo_mut(&mut self, alias: &str) -> Result<&mut RepoEntry, ReportalError> {
-        self.repos.get_mut(alias).ok_or_else(|| ReportalError::RepoNotFound {
-            alias: alias.to_owned(),
-        })
+    /// Returns a mutable reference to a repo, accepting either the
+    /// canonical key or any of its declared aliases.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ReportalError::RepoNotFound`] if neither the
+    /// canonical key nor any repo's alias list matches.
+    pub fn get_repo_mut(
+        &mut self,
+        alias_or_canonical: &str,
+    ) -> Result<&mut RepoEntry, ReportalError> {
+        let canonical_key = resolve_canonical_key(&self.repos, alias_or_canonical)
+            .ok_or_else(|| ReportalError::RepoNotFound {
+                alias: alias_or_canonical.to_owned(),
+            })?
+            .to_owned();
+        self.repos
+            .get_mut(&canonical_key)
+            .ok_or_else(|| ReportalError::RepoNotFound {
+                alias: alias_or_canonical.to_owned(),
+            })
     }
 
     /// Registers a new repo from a validated builder result.
@@ -227,52 +361,92 @@ impl ReportalConfig {
     }
 
     /// Returns all registered workspaces with their names, for iteration.
-    ///
-    /// The list reflects the `BTreeMap` iteration order so display
-    /// and tree rendering are deterministic across runs.
     #[must_use]
     pub fn workspaces_with_names(&self) -> Vec<(&String, &WorkspaceEntry)> {
         self.workspaces.iter().collect()
     }
 
-    /// Looks up a workspace by name.
+    /// Resolves a user-supplied workspace name-or-alias to its
+    /// canonical config key.
+    ///
+    /// Commands that derive file paths from the name (like
+    /// `~/.reportal/workspaces/<name>.code-workspace`) must pass the
+    /// canonical key, not the user's alias, otherwise `rep workspace
+    /// show vn` would build `vn.code-workspace` instead of
+    /// `venoble.code-workspace`.
     ///
     /// # Errors
     ///
-    /// Returns [`ReportalError::WorkspaceNotFound`] if the name has
-    /// no matching workspace entry.
-    pub fn get_workspace(&self, workspace_name: &str) -> Result<&WorkspaceEntry, ReportalError> {
-        self.workspaces.get(workspace_name).ok_or_else(|| ReportalError::WorkspaceNotFound {
-            workspace_name: workspace_name.to_owned(),
-        })
+    /// Returns [`ReportalError::WorkspaceNotFound`] if the query
+    /// matches neither a canonical key nor any workspace's alias list.
+    pub fn resolve_workspace_canonical_name(
+        &self,
+        alias_or_canonical: &str,
+    ) -> Result<String, ReportalError> {
+        resolve_canonical_key(&self.workspaces, alias_or_canonical)
+            .map(str::to_owned)
+            .ok_or_else(|| ReportalError::WorkspaceNotFound {
+                workspace_name: alias_or_canonical.to_owned(),
+            })
     }
 
-    /// Returns a mutable reference to a workspace by name.
+    /// Looks up a workspace by canonical key or any declared alias.
     ///
     /// # Errors
     ///
-    /// Returns [`ReportalError::WorkspaceNotFound`] if the name has
-    /// no matching workspace entry.
+    /// Returns [`ReportalError::WorkspaceNotFound`] if neither
+    /// matches.
+    pub fn get_workspace(
+        &self,
+        alias_or_canonical: &str,
+    ) -> Result<&WorkspaceEntry, ReportalError> {
+        let canonical_key = resolve_canonical_key(&self.workspaces, alias_or_canonical)
+            .ok_or_else(|| ReportalError::WorkspaceNotFound {
+                workspace_name: alias_or_canonical.to_owned(),
+            })?;
+        self.workspaces
+            .get(canonical_key)
+            .ok_or_else(|| ReportalError::WorkspaceNotFound {
+                workspace_name: alias_or_canonical.to_owned(),
+            })
+    }
+
+    /// Returns a mutable reference to a workspace, accepting either
+    /// the canonical key or any declared alias.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ReportalError::WorkspaceNotFound`] if neither
+    /// matches.
     pub fn get_workspace_mut(
         &mut self,
-        workspace_name: &str,
+        alias_or_canonical: &str,
     ) -> Result<&mut WorkspaceEntry, ReportalError> {
-        self.workspaces.get_mut(workspace_name).ok_or_else(|| ReportalError::WorkspaceNotFound {
-            workspace_name: workspace_name.to_owned(),
-        })
+        let canonical_key = resolve_canonical_key(&self.workspaces, alias_or_canonical)
+            .ok_or_else(|| ReportalError::WorkspaceNotFound {
+                workspace_name: alias_or_canonical.to_owned(),
+            })?
+            .to_owned();
+        self.workspaces
+            .get_mut(&canonical_key)
+            .ok_or_else(|| ReportalError::WorkspaceNotFound {
+                workspace_name: alias_or_canonical.to_owned(),
+            })
     }
 
     /// Registers a new workspace from a validated builder result.
     ///
-    /// Runs the dangling-reference check before accepting the new
-    /// entry so an insert that would leave the config invalid is
-    /// rejected at mutation time, not at the next load.
+    /// Runs dangling-reference and alias-collision checks before
+    /// accepting the new entry so an insert that would leave the
+    /// config invalid is rejected at mutation time, not at the next
+    /// load.
     ///
     /// # Errors
     ///
-    /// Returns [`ReportalError::WorkspaceAlreadyExists`] if the
-    /// name is taken, or [`ReportalError::WorkspaceHasDanglingRepo`]
-    /// if any of the new entry's repo aliases is not registered.
+    /// Returns [`ReportalError::WorkspaceAlreadyExists`],
+    /// [`ReportalError::WorkspaceHasDanglingRepo`], or
+    /// [`ReportalError::WorkspaceAliasConflict`] depending on which
+    /// invariant the new entry violates.
     pub fn add_workspace(
         &mut self,
         validated_registration: (String, WorkspaceEntry),
@@ -290,6 +464,13 @@ impl ReportalConfig {
                     missing_alias: member_alias.to_owned(),
                 });
             }
+        }
+        self.check_workspace_canonical_name_repo_collision(&workspace_name)?;
+        for declared_alias in workspace_entry.aliases() {
+            self.check_workspace_alias_collisions(AliasCollisionQuery::new(
+                &workspace_name,
+                declared_alias,
+            ))?;
         }
         self.workspaces.insert(workspace_name, workspace_entry);
         Ok(())
@@ -311,13 +492,6 @@ impl ReportalConfig {
     }
 
     /// Returns every workspace that contains the given repo alias.
-    ///
-    /// This is the reverse index that makes repo path changes
-    /// correct: when `rep edit` changes a repo's path, every
-    /// workspace containing that repo must regenerate its
-    /// `.code-workspace` file so the folder entries stay aligned
-    /// with reality. Without this lookup, path changes silently
-    /// strand workspace files pointing at the old location.
     #[must_use]
     pub fn workspaces_containing_repo(
         &self,
@@ -341,8 +515,9 @@ impl ReportalConfig {
         })
     }
 
-    /// Returns all registered AI tools with their names.
-    pub fn ai_tools_list(&self) -> Vec<(&String, &AiToolEntry)> {
+    /// Returns all registered AI CLI executables with their names,
+    /// for iteration.
+    pub fn ai_cli_registry(&self) -> Vec<(&String, &AiToolEntry)> {
         self.ai_tools.iter().collect()
     }
 
@@ -370,5 +545,186 @@ impl ReportalConfig {
                 ("aider".to_owned(), AiToolEntry::with_executable("aider".to_owned())),
             ]),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::reportal_config::workspace_registration_builder::WorkspaceRegistrationBuilder;
+
+    fn make_repo(aliases: Vec<String>) -> RepoEntry {
+        RepoEntry {
+            path: "C:/fake".to_owned(),
+            description: String::new(),
+            tags: Vec::new(),
+            remote: String::new(),
+            aliases,
+            title: Default::default(),
+            color: Default::default(),
+            commands: BTreeMap::new(),
+        }
+    }
+
+    fn make_workspace(member_repo_aliases: Vec<String>, declared_aliases: Vec<String>) -> WorkspaceEntry {
+        let (_, entry) = WorkspaceRegistrationBuilder::start("placeholder".to_owned())
+            .repo_aliases(member_repo_aliases)
+            .workspace_aliases(declared_aliases)
+            .build()
+            .expect("valid builder must succeed");
+        entry
+    }
+
+    fn config_with_repo_and_workspace(
+        repo_canonical: &str,
+        repo_aliases: Vec<String>,
+        workspace_canonical: &str,
+        workspace_aliases: Vec<String>,
+    ) -> ReportalConfig {
+        let mut config = ReportalConfig::create_default();
+        config.repos.insert(repo_canonical.to_owned(), make_repo(repo_aliases));
+        config.workspaces.insert(
+            workspace_canonical.to_owned(),
+            make_workspace(vec![repo_canonical.to_owned()], workspace_aliases),
+        );
+        config
+    }
+
+    #[test]
+    fn resolve_workspace_canonical_name_matches_alias() {
+        let config = config_with_repo_and_workspace(
+            "app",
+            vec![],
+            "venoble",
+            vec!["vn".to_owned(), "noble".to_owned()],
+        );
+        assert_eq!(
+            config.resolve_workspace_canonical_name("vn").expect("must resolve"),
+            "venoble",
+        );
+        assert_eq!(
+            config.resolve_workspace_canonical_name("noble").expect("must resolve"),
+            "venoble",
+        );
+        assert_eq!(
+            config.resolve_workspace_canonical_name("venoble").expect("must resolve"),
+            "venoble",
+        );
+    }
+
+    #[test]
+    fn resolve_workspace_canonical_name_unknown_fails() {
+        let config = config_with_repo_and_workspace("app", vec![], "venoble", vec![]);
+        let outcome = config.resolve_workspace_canonical_name("ghost");
+        assert!(matches!(outcome, Err(ReportalError::WorkspaceNotFound { .. })));
+    }
+
+    #[test]
+    fn get_workspace_resolves_via_alias() {
+        let config = config_with_repo_and_workspace(
+            "app",
+            vec![],
+            "venoble",
+            vec!["vn".to_owned()],
+        );
+        let resolved = config.get_workspace("vn").expect("alias must resolve");
+        assert_eq!(resolved.repo_aliases(), &["app"]);
+    }
+
+    #[test]
+    fn get_workspace_mut_resolves_via_alias() {
+        let mut config = config_with_repo_and_workspace(
+            "app",
+            vec![],
+            "venoble",
+            vec!["vn".to_owned()],
+        );
+        let resolved_mut = config.get_workspace_mut("vn").expect("alias must resolve");
+        resolved_mut.set_repo_aliases(vec!["app".to_owned(), "worker".to_owned()]);
+        let re_read = config.get_workspace("venoble").expect("canonical must resolve");
+        assert_eq!(re_read.repo_aliases(), &["app", "worker"]);
+    }
+
+    #[test]
+    fn get_repo_mut_now_resolves_via_alias() {
+        let mut config = ReportalConfig::create_default();
+        config.repos.insert(
+            "venoble-app".to_owned(),
+            make_repo(vec!["vna".to_owned()]),
+        );
+        let resolved_mut = config.get_repo_mut("vna").expect("alias must resolve for mut");
+        resolved_mut.set_description("mutated".to_owned());
+        assert_eq!(
+            config.get_repo("venoble-app").expect("canonical must resolve").description(),
+            "mutated",
+        );
+    }
+
+    #[test]
+    fn alias_collision_workspace_alias_equals_peer_workspace_canonical_name() {
+        let mut config = ReportalConfig::create_default();
+        config.repos.insert("app".to_owned(), make_repo(vec![]));
+        config.workspaces.insert(
+            "venoble".to_owned(),
+            make_workspace(vec!["app".to_owned()], vec!["backend".to_owned()]),
+        );
+        config.workspaces.insert(
+            "backend".to_owned(),
+            make_workspace(vec!["app".to_owned()], vec![]),
+        );
+        let outcome = config.validate_alias_collisions();
+        assert!(matches!(outcome, Err(ReportalError::WorkspaceAliasConflict { .. })));
+    }
+
+    #[test]
+    fn alias_collision_workspace_alias_equals_repo_canonical_key() {
+        let mut config = ReportalConfig::create_default();
+        config.repos.insert("app".to_owned(), make_repo(vec![]));
+        config.repos.insert("vn".to_owned(), make_repo(vec![]));
+        config.workspaces.insert(
+            "venoble".to_owned(),
+            make_workspace(vec!["app".to_owned()], vec!["vn".to_owned()]),
+        );
+        let outcome = config.validate_alias_collisions();
+        assert!(matches!(outcome, Err(ReportalError::WorkspaceAliasConflict { .. })));
+    }
+
+    #[test]
+    fn alias_collision_workspace_alias_equals_repo_alias() {
+        let mut config = ReportalConfig::create_default();
+        config.repos.insert(
+            "venoble-app".to_owned(),
+            make_repo(vec!["vna".to_owned()]),
+        );
+        config.workspaces.insert(
+            "venoble".to_owned(),
+            make_workspace(vec!["venoble-app".to_owned()], vec!["vna".to_owned()]),
+        );
+        let outcome = config.validate_alias_collisions();
+        assert!(matches!(outcome, Err(ReportalError::WorkspaceAliasConflict { .. })));
+    }
+
+    #[test]
+    fn alias_collision_workspace_name_equals_repo_canonical_key() {
+        let mut config = ReportalConfig::create_default();
+        config.repos.insert("venoble".to_owned(), make_repo(vec![]));
+        config.repos.insert("app".to_owned(), make_repo(vec![]));
+        config.workspaces.insert(
+            "venoble".to_owned(),
+            make_workspace(vec!["app".to_owned()], vec![]),
+        );
+        let outcome = config.validate_alias_collisions();
+        assert!(matches!(outcome, Err(ReportalError::WorkspaceAliasConflict { .. })));
+    }
+
+    #[test]
+    fn clean_config_passes_alias_collision_validation() {
+        let config = config_with_repo_and_workspace(
+            "app",
+            vec!["a".to_owned()],
+            "venoble",
+            vec!["vn".to_owned()],
+        );
+        assert!(config.validate_alias_collisions().is_ok());
     }
 }

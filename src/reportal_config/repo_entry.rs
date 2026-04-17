@@ -1,6 +1,7 @@
 //! A single registered repository with its metadata and accessors.
 
 use crate::reportal_config::command_entry::CommandEntry;
+use crate::reportal_config::has_aliases::HasAliases;
 use crate::reportal_config::repo_color::RepoColor;
 use crate::reportal_config::tab_title::TabTitle;
 use serde::{Deserialize, Serialize};
@@ -66,11 +67,6 @@ impl RepoEntry {
         &self.tags
     }
 
-    /// Alternative names that can be used to jump to this repo directly.
-    pub fn aliases(&self) -> &[String] {
-        &self.aliases
-    }
-
     /// Git remote URL for cloning on other machines (may be empty).
     pub fn remote(&self) -> &str {
         &self.remote
@@ -123,5 +119,11 @@ impl RepoEntry {
     /// Replaces the terminal background color preference.
     pub fn set_repo_color(&mut self, new_color: RepoColor) {
         self.color = new_color;
+    }
+}
+
+impl HasAliases for RepoEntry {
+    fn aliases(&self) -> &[String] {
+        &self.aliases
     }
 }
