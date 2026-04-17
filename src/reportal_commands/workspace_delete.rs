@@ -7,24 +7,25 @@ use owo_colors::OwoColorize;
 
 /// Unregisters the named workspace from config.
 ///
-/// Does NOT delete the on-disk `.code-workspace` file. Deletion
-/// would break an open editor session holding the file and is a
-/// destructive action the user should perform deliberately through
+/// Accepts either the canonical workspace key or any declared
+/// alias. Does NOT delete the on-disk `.code-workspace` file —
+/// that is a destructive action the user should perform through
 /// the filesystem, not as a side effect of a config mutation.
 ///
 /// # Errors
 ///
 /// Returns [`ReportalError::WorkspaceNotFound`] if no workspace
-/// with that name is registered, or the config I/O errors that the
+/// matches the name or alias, or the config I/O errors that the
 /// load and save paths surface.
-pub fn run_workspace_delete(workspace_name: &str) -> Result<(), ReportalError> {
+pub fn run_workspace_delete(alias_or_canonical: &str) -> Result<(), ReportalError> {
     let mut loaded_config = ReportalConfig::load_from_disk()?;
-    loaded_config.remove_workspace(workspace_name)?;
+    let canonical_name = loaded_config.resolve_workspace_canonical_name(alias_or_canonical)?;
+    loaded_config.remove_workspace(&canonical_name)?;
     loaded_config.save_to_disk()?;
 
     terminal_style::print_success(&format!(
         "Removed workspace {} from config (the `.code-workspace` file on disk was not deleted)",
-        workspace_name.style(terminal_style::ALIAS_STYLE),
+        canonical_name.style(terminal_style::ALIAS_STYLE),
     ));
     Ok(())
 }

@@ -1,7 +1,7 @@
 //! Shared repo fuzzy-selection helper used across jump, open, ai, edit, and web.
 
 use crate::error::ReportalError;
-use crate::reportal_config::{RepoEntry, ReportalConfig, TagFilter};
+use crate::reportal_config::{HasAliases, RepoEntry, ReportalConfig, TagFilter};
 use crate::terminal_style;
 use dialoguer::FuzzySelect;
 use owo_colors::OwoColorize;

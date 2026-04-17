@@ -148,6 +148,30 @@ pub enum ReportalError {
         missing_alias: String,
     },
 
+    /// A workspace alias or canonical name collides with another
+    /// entry in the config, either in the workspace namespace or in
+    /// the repo namespace.
+    ///
+    /// Detected during the post-parse validation pass on config load
+    /// and before insertion in `add_workspace`. Without this check,
+    /// the alias resolver would silently return whichever entity
+    /// appeared first in `BTreeMap` iteration, making
+    /// `rep workspace open vn` behave differently from
+    /// `rep jump vn` in ways the user cannot predict.
+    #[error(
+        "Workspace alias conflict: '{conflicting_value}' is declared by workspace '{workspace_name}' but also by {conflicting_entity_description}"
+    )]
+    WorkspaceAliasConflict {
+        /// The workspace whose alias or canonical name is ambiguous.
+        workspace_name: String,
+        /// The alias or canonical name that appears in two places.
+        conflicting_value: String,
+        /// Human-readable description of the other entity that
+        /// already claims the value (e.g. `repo 'venoble-app' as an
+        /// alias`, `workspace 'venture' as its canonical name`).
+        conflicting_entity_description: String,
+    },
+
     /// Failed to read or write a `.code-workspace` file on disk.
     #[error("`.code-workspace` file I/O error for '{file_path}': {reason}")]
     CodeWorkspaceIoFailure {

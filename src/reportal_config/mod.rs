@@ -4,8 +4,10 @@
 //! all registered repositories, AI tools, and global settings.
 
 mod ai_tool_entry;
+mod alias_collision_query;
 mod command_entry;
 mod global_settings;
+mod has_aliases;
 mod hex_color;
 mod repo_color;
 mod repo_entry;
@@ -19,6 +21,7 @@ mod workspace_registration_builder;
 
 pub use command_entry::CommandEntry;
 pub use global_settings::PathVisibility;
+pub use has_aliases::HasAliases;
 pub use hex_color::HexColor;
 pub use repo_color::RepoColor;
 pub use repo_entry::RepoEntry;
