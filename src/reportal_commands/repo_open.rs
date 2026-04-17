@@ -1,12 +1,16 @@
 //! Fuzzy-selects a repo and opens it in the configured editor.
 
 use crate::error::ReportalError;
-use crate::reportal_config::{PathVisibility, ReportalConfig, TagFilter};
-use crate::terminal_style;
+use crate::reportal_commands::direct_alias_router::{
+    DirectAliasRouter, DirectAliasRouterOutcome,
+};
 use crate::reportal_commands::repo_selection::{self, SelectedRepoParams};
 use crate::reportal_commands::terminal_identity_emit::{
     self, TerminalIdentityEmitParams,
 };
+use crate::reportal_commands::run_workspace_open;
+use crate::reportal_config::{PathVisibility, ReportalConfig, TagFilter};
+use crate::terminal_style;
 use owo_colors::OwoColorize;
 use std::process::Command;
 
@@ -22,15 +26,44 @@ pub struct OpenCommandParams<'a> {
     pub title_override: &'a str,
 }
 
-/// Opens a repo in the configured editor (default: cursor).
+/// Opens a repo — or a workspace — in the configured editor.
 ///
-/// If `direct_alias` is provided, opens that repo directly without
-/// prompting. Otherwise, presents a fuzzy finder for interactive selection.
-/// The editor is launched by `cd`-ing into the repo directory first,
-/// then running `<editor> .` so the editor opens the folder correctly.
-/// Also emits OSC escape sequences for tab title and background color.
+/// If `direct_alias` is provided, repo resolution is tried first;
+/// when no repo matches and the alias resolves to a registered
+/// workspace, the workspace-open flow runs instead and launches
+/// the editor against the `.code-workspace` file. Unknown aliases
+/// surface as `RepoNotFound` so the error names the user-facing
+/// concept the shell wrapper advertises.
+///
+/// Without a direct alias, the fuzzy finder stays repo-only — use
+/// `rep workspace list` / `row` for workspace selection.
+///
+/// # Errors
+///
+/// Returns [`ReportalError::RepoNotFound`] when the direct alias
+/// resolves to neither a repo nor a workspace,
+/// [`ReportalError::EditorLaunchFailure`] if the editor process
+/// cannot be spawned, or any config / file I/O errors the
+/// underlying paths surface.
 pub fn run_open(open_params: &OpenCommandParams<'_>) -> Result<(), ReportalError> {
     let loaded_config = ReportalConfig::load_from_disk()?;
+
+    if !open_params.direct_alias.is_empty() {
+        let router = DirectAliasRouter::for_config(&loaded_config);
+        match router.classify(open_params.direct_alias)? {
+            DirectAliasRouterOutcome::RegisteredRepo => {
+                /* fall through to repo open flow */
+            }
+            DirectAliasRouterOutcome::Workspace(canonical_workspace_name) => {
+                return run_workspace_open(&canonical_workspace_name);
+            }
+            DirectAliasRouterOutcome::Unknown => {
+                return Err(ReportalError::RepoNotFound {
+                    alias: open_params.direct_alias.to_owned(),
+                });
+            }
+        }
+    }
 
     let selection_params = SelectedRepoParams {
         loaded_config: &loaded_config,
