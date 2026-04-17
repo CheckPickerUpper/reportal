@@ -89,6 +89,10 @@ pub enum ReportalError {
     #[error("No default AI tool set. Use --tool <name> or set default_ai_tool in config")]
     NoDefaultAiTool,
 
+    /// No workspaces are registered in config.
+    #[error("No workspaces registered. Use 'rep workspace create' to add one.")]
+    NoWorkspacesConfigured,
+
     /// A repo has no remote URL configured and none could be detected from git.
     #[error("No remote URL for repo '{alias}'. Set the 'remote' field in config or add a git remote.")]
     NoRemoteUrl {
