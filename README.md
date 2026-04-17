@@ -233,7 +233,11 @@ A workspace is a named group of repos that open together as one VSCode/Cursor wi
 
 ```toml
 [workspaces.backend]
-repos = ["api", "worker", "db-migrations"]   # ordered — controls sidebar order
+repos = [
+    "api",                                    # registered-repo reference
+    "worker",
+    { path = "~/dev/db-migrations" },         # inline filesystem path (no repo registry entry needed)
+]
 description = "Jakuta backend services"
 path = ""                                     # empty = ~/.reportal/workspaces/backend.code-workspace
 aliases = ["be", "back"]                      # short names accepted by rep workspace <sub>
@@ -241,12 +245,12 @@ aliases = ["be", "back"]                      # short names accepted by rep work
 
 | Field | Required | Default | What it controls |
 |-------|----------|---------|-----------------|
-| `repos` | yes | — | Ordered list of repo aliases that belong to this workspace. Order matches the editor sidebar. Each alias must be a registered repo — dangling references are rejected on config load |
+| `repos` | yes | — | Ordered list of members. Each entry is either a **bare string** (alias of a registered repo — gets the path-change reverse index) or an **inline table** `{ path = "..." }` (raw filesystem path — bypasses the repo registry entirely). Order matches the editor sidebar. Bare-string members must resolve to a registered repo; inline-path members are not validated against the repo registry |
 | `description` | no | `""` | Human-readable description shown in `rep workspace list` |
 | `path` | no | `""` | Filesystem path for the `.code-workspace` file. Empty falls back to `~/.reportal/workspaces/<name>.code-workspace` |
 | `aliases` | no | `[]` | Short names that resolve to this workspace in `rep workspace` subcommands. Must not collide with any repo name/alias or another workspace's name/alias — enforced at config load |
 
-**Regeneration is automatic.** When you change a repo's path via `rep edit`, every workspace that contains it regenerates its `.code-workspace` file so the folder entries reflect the new location. User-authored fields inside the file (`settings`, `extensions`, `launch`, `tasks`, plus any JSONC comments) round-trip byte-stable across regeneration — RePortal only touches the `folders` array.
+**Regeneration is automatic for registered-repo members.** When you change a repo's path via `rep edit`, every workspace whose `repos` field references it as a bare-string alias regenerates its `.code-workspace` file. Inline-path members (`{ path = "..." }`) are NOT tracked by the reverse index — moving an inline-path folder requires editing the `path` value in `~/.reportal/config.toml` yourself. User-authored fields inside the file (`settings`, `extensions`, `launch`, `tasks`, plus any JSONC comments) round-trip byte-stable across regeneration — RePortal only touches the `folders` array.
 
 **Removing a repo that's still a workspace member is refused** with a message listing the blocking workspaces. Remove the repo from each workspace first (or delete those workspaces), then retry. This keeps destructive membership changes explicit.
 

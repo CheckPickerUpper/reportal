@@ -20,7 +20,7 @@ pub struct WorkspaceSection<'config> {
     /// Ordered list of member repos that survived filtering, in
     /// the same order their aliases appear in
     /// `WorkspaceEntry::repo_aliases`.
-    pub(super) member_repos: Vec<(&'config String, &'config RepoEntry)>,
+    pub(super) member_repos: Vec<(&'config str, &'config RepoEntry)>,
 }
 
 /// Accessors for a workspace section.
@@ -41,7 +41,7 @@ impl<'config> WorkspaceSection<'config> {
     /// The ordered list of member repos that survived the active
     /// filters for this listing.
     #[must_use]
-    pub fn member_repos(&self) -> &[(&'config String, &'config RepoEntry)] {
+    pub fn member_repos(&self) -> &[(&'config str, &'config RepoEntry)] {
         &self.member_repos
     }
 }

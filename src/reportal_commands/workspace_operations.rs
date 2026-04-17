@@ -11,7 +11,9 @@
 
 use crate::code_workspace::CodeWorkspaceFile;
 use crate::error::ReportalError;
-use crate::reportal_config::{ReportalConfig, WorkspaceEntry};
+use crate::reportal_config::{
+    ReportalConfig, WorkspaceEntry, WorkspaceMember,
+};
 use std::path::PathBuf;
 
 /// Regenerates `.code-workspace` files from a borrowed config.
@@ -89,11 +91,19 @@ impl<'config_lifetime> WorkspaceRegenerator<'config_lifetime> {
         &self,
         target_workspace: &WorkspaceEntry,
     ) -> Result<Vec<PathBuf>, ReportalError> {
-        let member_aliases = target_workspace.repo_aliases();
-        let mut resolved_paths = Vec::with_capacity(member_aliases.len());
-        for member_alias in member_aliases {
-            let member_repo = self.config_registry.get_repo(member_alias)?;
-            resolved_paths.push(member_repo.resolved_path());
+        let declared_members = target_workspace.members();
+        let mut resolved_paths = Vec::with_capacity(declared_members.len());
+        for member in declared_members {
+            match member {
+                WorkspaceMember::RegisteredRepo(repo_alias) => {
+                    let member_repo = self.config_registry.get_repo(repo_alias)?;
+                    resolved_paths.push(member_repo.resolved_path());
+                }
+                WorkspaceMember::InlinePath { path } => {
+                    let expanded = shellexpand::tilde(path);
+                    resolved_paths.push(PathBuf::from(expanded.as_ref()));
+                }
+            }
         }
         Ok(resolved_paths)
     }
