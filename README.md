@@ -236,6 +236,7 @@ A workspace is a named group of repos that open together as one VSCode/Cursor wi
 repos = ["api", "worker", "db-migrations"]   # ordered — controls sidebar order
 description = "Jakuta backend services"
 path = ""                                     # empty = ~/.reportal/workspaces/backend.code-workspace
+aliases = ["be", "back"]                      # short names accepted by rep workspace <sub>
 ```
 
 | Field | Required | Default | What it controls |
@@ -243,6 +244,7 @@ path = ""                                     # empty = ~/.reportal/workspaces/b
 | `repos` | yes | — | Ordered list of repo aliases that belong to this workspace. Order matches the editor sidebar. Each alias must be a registered repo — dangling references are rejected on config load |
 | `description` | no | `""` | Human-readable description shown in `rep workspace list` |
 | `path` | no | `""` | Filesystem path for the `.code-workspace` file. Empty falls back to `~/.reportal/workspaces/<name>.code-workspace` |
+| `aliases` | no | `[]` | Short names that resolve to this workspace in `rep workspace` subcommands. Must not collide with any repo name/alias or another workspace's name/alias — enforced at config load |
 
 **Regeneration is automatic.** When you change a repo's path via `rep edit`, every workspace that contains it regenerates its `.code-workspace` file so the folder entries reflect the new location. User-authored fields inside the file (`settings`, `extensions`, `launch`, `tasks`, plus any JSONC comments) round-trip byte-stable across regeneration — RePortal only touches the `folders` array.
 

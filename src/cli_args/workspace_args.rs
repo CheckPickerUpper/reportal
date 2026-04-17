@@ -133,8 +133,8 @@ impl WorkspaceArgsMemberEditParts {
 }
 
 /// Payload for `rep workspace create`, which declares a new
-/// workspace with an initial member list, description, and
-/// optional custom file path.
+/// workspace with an initial member list, description, optional
+/// custom file path, and optional short-name aliases.
 #[derive(Args)]
 pub struct WorkspaceArgsCreate {
     /// Name for the new workspace.
@@ -153,6 +153,10 @@ pub struct WorkspaceArgsCreate {
     /// `~/.reportal/workspaces/<name>.code-workspace`.
     #[arg(long, default_value = "")]
     file_path: String,
+    /// Comma-separated short-name aliases that resolve to this
+    /// workspace when passed to `rep workspace` subcommands.
+    #[arg(long, value_delimiter = ',')]
+    aliases: Vec<String>,
 }
 
 /// Consuming accessor for the create-action payload.
@@ -166,6 +170,7 @@ impl WorkspaceArgsCreate {
             repo_aliases: self.repos,
             description: self.description,
             custom_file_path: self.file_path,
+            workspace_aliases: self.aliases,
         }
     }
 }
@@ -173,7 +178,7 @@ impl WorkspaceArgsCreate {
 /// Owned named-field result of `WorkspaceArgsCreate::into_parts`.
 ///
 /// Returned instead of a bare tuple so call sites never confuse
-/// the four string-typed fields.
+/// the string-typed fields.
 pub struct WorkspaceArgsCreateParts {
     /// Name for the new workspace.
     workspace_name: String,
@@ -184,6 +189,9 @@ pub struct WorkspaceArgsCreateParts {
     /// Explicit filesystem path for the generated
     /// `.code-workspace` file, empty for the default location.
     custom_file_path: String,
+    /// Short-name aliases that resolve to this workspace in
+    /// `rep workspace` subcommands.
+    workspace_aliases: Vec<String>,
 }
 
 /// Accessors for the create-action parts.
@@ -213,6 +221,13 @@ impl WorkspaceArgsCreateParts {
     #[must_use]
     pub fn custom_file_path(&self) -> &str {
         &self.custom_file_path
+    }
+
+    /// The short-name aliases that resolve to this workspace in
+    /// `rep workspace` subcommands.
+    #[must_use]
+    pub fn workspace_aliases(&self) -> &[String] {
+        &self.workspace_aliases
     }
 }
 
