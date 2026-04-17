@@ -325,6 +325,8 @@ PROMPT_COMMAND='rep color 2>/dev/null'
 - [x] VSCode/Cursor `.code-workspace` integration — `rep workspace` subcommands, owned config, auto-regenerate on repo path changes, JSONC round-trip preservation
 - [ ] `config` — manage AI tools and global settings (`rep config ai-tools`, `rep config settings`)
 - [x] Workspace-tree grouping in `rep list` (workspaces as the tree root, `--workspace` as a first-class filter composable with `--tag`)
+- [x] Workspace aliases — short names that resolve to a workspace in `rep workspace` subcommands, with cross-namespace collision validation at config load
+- [x] Inline-path workspace members — mix registered-repo references with raw filesystem paths in the same workspace so folders can belong to a workspace without being registered as top-level repos
 - [ ] Interactive ratatui TUI absorbing `list` / `dash` with live git-status column
 - [ ] `dashboard` — rich overview with branches, dirty state, last commit
 - [ ] `clone --all` — clone missing repos from config (machine sync)
