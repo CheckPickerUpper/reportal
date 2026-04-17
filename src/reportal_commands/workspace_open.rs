@@ -2,6 +2,7 @@
 
 use crate::error::ReportalError;
 use crate::reportal_commands::workspace_operations::WorkspaceRegenerator;
+use crate::reportal_commands::workspace_selection;
 use crate::reportal_config::ReportalConfig;
 use crate::terminal_style;
 use owo_colors::OwoColorize;
@@ -11,20 +12,29 @@ use std::process::Command;
 /// the configured default editor against it.
 ///
 /// Accepts either the canonical workspace key or any declared
-/// alias; resolves to canonical first so the regenerator's default
-/// file location uses the canonical name rather than the user's
-/// short input.
+/// alias; an empty string presents a workspace fuzzy finder. Every
+/// path resolves to a canonical name first so the regenerator's
+/// default file location uses the canonical name rather than the
+/// user's short input.
 ///
 /// # Errors
 ///
-/// Returns [`ReportalError::WorkspaceNotFound`] if the name or
-/// alias is unknown, [`ReportalError::RepoNotFound`] if any member
-/// alias does not resolve, [`ReportalError::EditorLaunchFailure`]
-/// if the editor process cannot be spawned, or the config / file
-/// I/O errors the regeneration path surfaces.
+/// Returns [`ReportalError::WorkspaceNotFound`] if a non-empty
+/// name or alias is unknown,
+/// [`ReportalError::NoWorkspacesConfigured`] when the fuzzy
+/// finder has nothing to show,
+/// [`ReportalError::SelectionCancelled`] if the user escapes the
+/// prompt, [`ReportalError::RepoNotFound`] if any member alias
+/// does not resolve, [`ReportalError::EditorLaunchFailure`] if
+/// the editor process cannot be spawned, or the config / file I/O
+/// errors the regeneration path surfaces.
 pub fn run_workspace_open(alias_or_canonical: &str) -> Result<(), ReportalError> {
     let loaded_config = ReportalConfig::load_from_disk()?;
-    let canonical_name = loaded_config.resolve_workspace_canonical_name(alias_or_canonical)?;
+    let canonical_name = if alias_or_canonical.is_empty() {
+        workspace_selection::select_workspace(&loaded_config)?
+    } else {
+        loaded_config.resolve_workspace_canonical_name(alias_or_canonical)?
+    };
 
     let regenerator = WorkspaceRegenerator::for_config(&loaded_config);
     let workspace_file_path = regenerator.regenerate_workspace_file(&canonical_name)?;

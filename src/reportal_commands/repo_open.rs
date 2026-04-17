@@ -5,10 +5,13 @@ use crate::reportal_commands::direct_alias_router::{
     DirectAliasRouter, DirectAliasRouterOutcome,
 };
 use crate::reportal_commands::repo_selection::{self, SelectedRepoParams};
+use crate::reportal_commands::run_workspace_open;
+use crate::reportal_commands::target_selection::{
+    self, SelectedTarget, SelectedTargetParams,
+};
 use crate::reportal_commands::terminal_identity_emit::{
     self, TerminalIdentityEmitParams,
 };
-use crate::reportal_commands::run_workspace_open;
 use crate::reportal_config::{PathVisibility, ReportalConfig, TagFilter};
 use crate::terminal_style;
 use owo_colors::OwoColorize;
@@ -48,11 +51,23 @@ pub struct OpenCommandParams<'a> {
 pub fn run_open(open_params: &OpenCommandParams<'_>) -> Result<(), ReportalError> {
     let loaded_config = ReportalConfig::load_from_disk()?;
 
-    if !open_params.direct_alias.is_empty() {
+    let resolved_repo_alias: String = if open_params.direct_alias.is_empty() {
+        let target_params = SelectedTargetParams {
+            loaded_config: &loaded_config,
+            tag_filter: &open_params.tag_filter,
+            prompt_label: "Open repo or workspace",
+        };
+        match target_selection::select_target(&target_params)? {
+            SelectedTarget::Repo(chosen_repo_alias) => chosen_repo_alias,
+            SelectedTarget::Workspace(canonical_workspace_name) => {
+                return run_workspace_open(&canonical_workspace_name);
+            }
+        }
+    } else {
         let router = DirectAliasRouter::for_config(&loaded_config);
         match router.classify(open_params.direct_alias)? {
             DirectAliasRouterOutcome::RegisteredRepo => {
-                /* fall through to repo open flow */
+                open_params.direct_alias.to_owned()
             }
             DirectAliasRouterOutcome::Workspace(canonical_workspace_name) => {
                 return run_workspace_open(&canonical_workspace_name);
@@ -63,11 +78,11 @@ pub fn run_open(open_params: &OpenCommandParams<'_>) -> Result<(), ReportalError
                 });
             }
         }
-    }
+    };
 
     let selection_params = SelectedRepoParams {
         loaded_config: &loaded_config,
-        direct_alias: open_params.direct_alias,
+        direct_alias: &resolved_repo_alias,
         tag_filter: &open_params.tag_filter,
         prompt_label: "Open in editor",
     };

@@ -330,6 +330,7 @@ PROMPT_COMMAND='rep color 2>/dev/null'
 - [x] Workspace aliases — short names that resolve to a workspace in `rep workspace` subcommands, with cross-namespace collision validation at config load
 - [x] Inline-path workspace members — mix registered-repo references with raw filesystem paths in the same workspace so folders can belong to a workspace without being registered as top-level repos
 - [x] Unified `rj` / `ro` — fall through to workspace aliases when no repo matches, so `rj venoble` cd's to the workspace's common-ancestor folder and `ro venoble` opens the workspace in the editor; `rjw` / `row` added as workspace-only variants
+- [x] Unified fuzzy finder in `rj` / `ro` — workspaces render alongside repos with a `[workspace]` suffix, and `rjw` / `row` with no args fuzzy-select workspaces only
 - [ ] Interactive ratatui TUI absorbing `list` / `dash` with live git-status column
 - [ ] `dashboard` — rich overview with branches, dirty state, last commit
 - [ ] `clone --all` — clone missing repos from config (machine sync)

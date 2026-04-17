@@ -46,11 +46,11 @@ pub fn dispatch_workspace_subcommand(
         WorkspaceArgsSubcommand::RemoveRepo(member_edit) => {
             run_workspace_remove_repo(&member_edit.into_parts())
         }
-        WorkspaceArgsSubcommand::Open(name_only) => {
-            run_workspace_open(&name_only.into_workspace_name())
+        WorkspaceArgsSubcommand::Open(optional_name) => {
+            run_workspace_open(&optional_name.into_optional_workspace_name())
         }
-        WorkspaceArgsSubcommand::Jump(name_only) => {
-            run_workspace_jump(&name_only.into_workspace_name())
+        WorkspaceArgsSubcommand::Jump(optional_name) => {
+            run_workspace_jump(&optional_name.into_optional_workspace_name())
         }
     }
 }
