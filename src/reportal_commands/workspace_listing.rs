@@ -5,7 +5,7 @@
 //! a glance which workspaces exist and what each one groups together.
 
 use crate::error::ReportalError;
-use crate::reportal_config::ReportalConfig;
+use crate::reportal_config::{HasAliases, ReportalConfig};
 use crate::terminal_style;
 use owo_colors::OwoColorize;
 
@@ -54,6 +54,14 @@ pub fn run_workspace_list() -> Result<(), ReportalError> {
                 "     {} {}\n",
                 "Desc:".style(terminal_style::LABEL_STYLE),
                 workspace_entry.description(),
+            ));
+        }
+
+        if !workspace_entry.aliases().is_empty() {
+            terminal_style::write_stdout(&format!(
+                "     {} {}\n",
+                "Aliases:".style(terminal_style::LABEL_STYLE),
+                workspace_entry.aliases().join(", ").style(terminal_style::ALIAS_STYLE),
             ));
         }
 

@@ -3,7 +3,7 @@
 
 use crate::error::ReportalError;
 use crate::reportal_commands::workspace_operations::WorkspaceRegenerator;
-use crate::reportal_config::ReportalConfig;
+use crate::reportal_config::{HasAliases, ReportalConfig};
 use crate::terminal_style;
 use owo_colors::OwoColorize;
 
@@ -11,28 +11,32 @@ use owo_colors::OwoColorize;
 /// their resolved absolute paths, and the `.code-workspace` file
 /// location that `rep workspace open` would launch.
 ///
+/// Accepts either the canonical workspace key or any declared
+/// alias: the first step resolves to the canonical name so every
+/// downstream call (regenerator, header display) uses the same key
+/// and derived values like the default file path stay consistent.
+///
 /// Regenerates the `.code-workspace` file before printing so the
 /// shown file is guaranteed to match the current config state.
-/// Without this, `show` could report stale folder entries when a
-/// member repo's path changed since the last regeneration.
 ///
 /// # Errors
 ///
 /// Returns [`ReportalError::WorkspaceNotFound`] if the name has no
-/// matching entry, [`ReportalError::RepoNotFound`] if any member
-/// alias does not resolve, or the config / file I/O errors that
-/// the load and regeneration paths surface.
-pub fn run_workspace_show(workspace_name: &str) -> Result<(), ReportalError> {
+/// matching entry or alias, [`ReportalError::RepoNotFound`] if any
+/// member alias does not resolve, or the config / file I/O errors
+/// that the load and regeneration paths surface.
+pub fn run_workspace_show(alias_or_canonical: &str) -> Result<(), ReportalError> {
     let loaded_config = ReportalConfig::load_from_disk()?;
-    let target_workspace = loaded_config.get_workspace(workspace_name)?;
+    let canonical_name = loaded_config.resolve_workspace_canonical_name(alias_or_canonical)?;
+    let target_workspace = loaded_config.get_workspace(&canonical_name)?;
 
     let regenerator = WorkspaceRegenerator::for_config(&loaded_config);
-    let workspace_file_path = regenerator.regenerate_workspace_file(workspace_name)?;
+    let workspace_file_path = regenerator.regenerate_workspace_file(&canonical_name)?;
 
     terminal_style::write_stdout("\n");
     terminal_style::write_stdout(&format!(
         "  {}\n",
-        workspace_name.to_uppercase().style(terminal_style::ALIAS_STYLE),
+        canonical_name.to_uppercase().style(terminal_style::ALIAS_STYLE),
     ));
 
     if !target_workspace.description().is_empty() {
@@ -40,6 +44,14 @@ pub fn run_workspace_show(workspace_name: &str) -> Result<(), ReportalError> {
             "     {} {}\n",
             "Desc:".style(terminal_style::LABEL_STYLE),
             target_workspace.description(),
+        ));
+    }
+
+    if !target_workspace.aliases().is_empty() {
+        terminal_style::write_stdout(&format!(
+            "     {} {}\n",
+            "Aliases:".style(terminal_style::LABEL_STYLE),
+            target_workspace.aliases().join(", ").style(terminal_style::ALIAS_STYLE),
         ));
     }
 

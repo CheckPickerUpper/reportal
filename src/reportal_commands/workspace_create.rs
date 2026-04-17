@@ -35,6 +35,7 @@ pub fn run_workspace_create(
     .repo_aliases(create_parts.repo_aliases().to_vec())
     .workspace_description(create_parts.description().to_owned())
     .workspace_file_path(create_parts.custom_file_path().to_owned())
+    .workspace_aliases(create_parts.workspace_aliases().to_vec())
     .build()?;
 
     loaded_config.add_workspace(validated_registration)?;

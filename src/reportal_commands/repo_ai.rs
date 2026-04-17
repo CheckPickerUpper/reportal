@@ -28,8 +28,8 @@ pub struct AiCommandParams<'a> {
 pub fn run_ai(ai_params: &AiCommandParams<'_>) -> Result<(), ReportalError> {
     let loaded_config = ReportalConfig::load_from_disk()?;
 
-    let ai_tools = loaded_config.ai_tools_list();
-    if ai_tools.is_empty() { return Err(ReportalError::NoAiToolsConfigured) }
+    let ai_cli_entries = loaded_config.ai_cli_registry();
+    if ai_cli_entries.is_empty() { return Err(ReportalError::NoAiToolsConfigured) }
 
     let tool_name = if ai_params.tool_override.is_empty() {
         let default_tool = loaded_config.default_ai_tool();

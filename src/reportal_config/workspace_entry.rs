@@ -1,6 +1,7 @@
 //! Workspace entry: a named group of repos that open together as a
 //! VSCode/Cursor `.code-workspace` file.
 
+use crate::reportal_config::has_aliases::HasAliases;
 use serde::{Deserialize, Serialize};
 
 /// A single registered VSCode/Cursor workspace definition.
@@ -25,6 +26,16 @@ pub struct WorkspaceEntry {
     /// `~/.reportal/workspaces/<name>.code-workspace`.
     #[serde(default)]
     pub(super) path: String,
+    /// Alternative short names that resolve to this workspace's
+    /// canonical key in commands that target a workspace by name.
+    ///
+    /// Each alias must be unique across every workspace's canonical
+    /// name and every other workspace's alias list, and must not
+    /// collide with any repo's canonical key or repo-level alias.
+    /// Validation runs on config load so an ambiguous alias is
+    /// rejected before any command resolves it.
+    #[serde(default)]
+    pub(super) aliases: Vec<String>,
 }
 
 /// Accessors for a workspace entry.
@@ -72,5 +83,10 @@ impl WorkspaceEntry {
     pub fn set_repo_aliases(&mut self, new_repo_aliases: Vec<String>) {
         self.repos = new_repo_aliases;
     }
+}
 
+impl HasAliases for WorkspaceEntry {
+    fn aliases(&self) -> &[String] {
+        &self.aliases
+    }
 }

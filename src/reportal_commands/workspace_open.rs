@@ -10,25 +10,24 @@ use std::process::Command;
 /// Regenerates the workspace's `.code-workspace` file and launches
 /// the configured default editor against it.
 ///
-/// The regeneration step runs unconditionally so the file the
-/// editor loads reflects the current member repo paths, which is
-/// required for the invariant that opening a workspace always
-/// produces a window grouping the live paths rather than whatever
-/// was written the last time `create` or a membership edit ran.
+/// Accepts either the canonical workspace key or any declared
+/// alias; resolves to canonical first so the regenerator's default
+/// file location uses the canonical name rather than the user's
+/// short input.
 ///
 /// # Errors
 ///
-/// Returns [`ReportalError::WorkspaceNotFound`] if the name is
-/// unknown, [`ReportalError::RepoNotFound`] if any member alias
-/// does not resolve, [`ReportalError::EditorLaunchFailure`] if the
-/// editor process cannot be spawned, or the config / file I/O
-/// errors the regeneration path surfaces.
-pub fn run_workspace_open(workspace_name: &str) -> Result<(), ReportalError> {
+/// Returns [`ReportalError::WorkspaceNotFound`] if the name or
+/// alias is unknown, [`ReportalError::RepoNotFound`] if any member
+/// alias does not resolve, [`ReportalError::EditorLaunchFailure`]
+/// if the editor process cannot be spawned, or the config / file
+/// I/O errors the regeneration path surfaces.
+pub fn run_workspace_open(alias_or_canonical: &str) -> Result<(), ReportalError> {
     let loaded_config = ReportalConfig::load_from_disk()?;
-    loaded_config.get_workspace(workspace_name)?;
+    let canonical_name = loaded_config.resolve_workspace_canonical_name(alias_or_canonical)?;
 
     let regenerator = WorkspaceRegenerator::for_config(&loaded_config);
-    let workspace_file_path = regenerator.regenerate_workspace_file(workspace_name)?;
+    let workspace_file_path = regenerator.regenerate_workspace_file(&canonical_name)?;
 
     let editor_command = loaded_config.default_editor();
 
@@ -49,7 +48,7 @@ pub fn run_workspace_open(workspace_name: &str) -> Result<(), ReportalError> {
 
     terminal_style::print_success(&format!(
         "Opened workspace {} in {}",
-        workspace_name.style(terminal_style::ALIAS_STYLE),
+        canonical_name.style(terminal_style::ALIAS_STYLE),
         editor_command.style(terminal_style::ALIAS_STYLE),
     ));
     Ok(())
