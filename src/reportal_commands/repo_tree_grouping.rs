@@ -39,7 +39,7 @@ pub struct RepoTreeGrouping<'config> {
     /// specific workspace is requested this section is empty
     /// because the query is scoped to one workspace and
     /// non-members are off-topic.
-    unassigned_repos: Vec<(&'config String, &'config RepoEntry)>,
+    unassigned_repos: Vec<(&'config str, &'config RepoEntry)>,
     /// Count of distinct repo aliases visible anywhere in the
     /// tree, used by the summary line at the bottom of `rep list`.
     distinct_repo_count: usize,
@@ -71,11 +71,11 @@ impl<'config> RepoTreeGrouping<'config> {
         let mut distinct_aliases: BTreeSet<&str> = BTreeSet::new();
         for section in &workspace_sections {
             for (member_alias, _member_entry) in section.member_repos() {
-                distinct_aliases.insert(member_alias.as_str());
+                distinct_aliases.insert(*member_alias);
             }
         }
         for (orphan_alias, _orphan_entry) in &unassigned_repos {
-            distinct_aliases.insert(orphan_alias.as_str());
+            distinct_aliases.insert(*orphan_alias);
         }
         let distinct_repo_count = distinct_aliases.len();
         Ok(Self {
@@ -95,7 +95,7 @@ impl<'config> RepoTreeGrouping<'config> {
     /// The repos that belong to zero workspaces. Empty when the
     /// workspace filter is scoped to a specific workspace.
     #[must_use]
-    pub fn unassigned_repos(&self) -> &[(&'config String, &'config RepoEntry)] {
+    pub fn unassigned_repos(&self) -> &[(&'config str, &'config RepoEntry)] {
         &self.unassigned_repos
     }
 
@@ -204,10 +204,10 @@ impl<'config> RepoTreeGroupingParams<'config> {
     fn resolve_surviving_members(
         &self,
         workspace_entry: &'config crate::reportal_config::WorkspaceEntry,
-    ) -> Result<Vec<(&'config String, &'config RepoEntry)>, ReportalError> {
+    ) -> Result<Vec<(&'config str, &'config RepoEntry)>, ReportalError> {
         let tag_restriction_target = self.tag_restriction_target();
         let tag_restriction_active = !tag_restriction_target.is_empty();
-        let mut surviving_members: Vec<(&'config String, &'config RepoEntry)> = Vec::new();
+        let mut surviving_members: Vec<(&'config str, &'config RepoEntry)> = Vec::new();
         for member_alias in workspace_entry.repo_aliases() {
             let member_repo = self.loaded_config.get_repo(member_alias)?;
             if tag_restriction_active
@@ -229,12 +229,12 @@ impl<'config> RepoTreeGroupingParams<'config> {
     /// scoped to a specific workspace because the unassigned
     /// section is suppressed in that case — the query is about
     /// one workspace, so non-members are off-topic.
-    fn collect_unassigned_repos(&self) -> Vec<(&'config String, &'config RepoEntry)> {
+    fn collect_unassigned_repos(&self) -> Vec<(&'config str, &'config RepoEntry)> {
         let workspace_restriction_target = self.workspace_restriction_target();
         let workspace_restriction_active = !workspace_restriction_target.is_empty();
         let tag_restriction_target = self.tag_restriction_target();
         let tag_restriction_active = !tag_restriction_target.is_empty();
-        let mut unassigned_repos: Vec<(&'config String, &'config RepoEntry)> = Vec::new();
+        let mut unassigned_repos: Vec<(&'config str, &'config RepoEntry)> = Vec::new();
         if workspace_restriction_active {
             return unassigned_repos;
         }
@@ -250,7 +250,7 @@ impl<'config> RepoTreeGroupingParams<'config> {
             let containing_workspaces =
                 self.loaded_config.workspaces_containing_repo(repo_alias);
             if containing_workspaces.is_empty() {
-                unassigned_repos.push((repo_alias, repo_entry));
+                unassigned_repos.push((repo_alias.as_str(), repo_entry));
             }
         }
         unassigned_repos
@@ -478,7 +478,7 @@ mod tests {
         let observed_member_order: Vec<&str> = tree_grouping.workspace_sections()[0]
             .member_repos()
             .iter()
-            .map(|(repo_alias, _repo_entry)| repo_alias.as_str())
+            .map(|(repo_alias, _repo_entry)| *repo_alias)
             .collect();
         assert_eq!(
             observed_member_order,

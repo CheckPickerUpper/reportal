@@ -225,18 +225,14 @@ impl ReportalConfig {
     /// Returns [`ReportalError::WorkspaceHasDanglingRepo`] at the
     /// first dangling reference encountered.
     pub fn validate_workspace_references(&self) -> Result<(), ReportalError> {
-        let all_pairs = self.workspaces.iter().flat_map(|(workspace_name, workspace)| {
-            workspace
-                .repo_aliases()
-                .iter()
-                .map(move |member_alias| (workspace_name, member_alias))
-        });
-        for (workspace_name, member_alias) in all_pairs {
-            if !self.repos.contains_key(member_alias) {
-                return Err(ReportalError::WorkspaceHasDanglingRepo {
-                    workspace_name: workspace_name.to_owned(),
-                    missing_alias: member_alias.to_owned(),
-                });
+        for (workspace_name, workspace) in &self.workspaces {
+            for member_alias in workspace.repo_aliases() {
+                if !self.repos.contains_key(member_alias) {
+                    return Err(ReportalError::WorkspaceHasDanglingRepo {
+                        workspace_name: workspace_name.to_owned(),
+                        missing_alias: member_alias.to_owned(),
+                    });
+                }
             }
         }
         Ok(())
@@ -551,6 +547,7 @@ impl ReportalConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::reportal_config::workspace_member::WorkspaceMember;
     use crate::reportal_config::workspace_registration_builder::WorkspaceRegistrationBuilder;
 
     fn make_repo(aliases: Vec<String>) -> RepoEntry {
@@ -566,13 +563,15 @@ mod tests {
         }
     }
 
-    fn make_workspace(member_repo_aliases: Vec<String>, declared_aliases: Vec<String>) -> WorkspaceEntry {
+    fn make_workspace(
+        member_repo_aliases: Vec<String>,
+        declared_aliases: Vec<String>,
+    ) -> Result<WorkspaceEntry, ReportalError> {
         let (_, entry) = WorkspaceRegistrationBuilder::start("placeholder".to_owned())
             .repo_aliases(member_repo_aliases)
             .workspace_aliases(declared_aliases)
-            .build()
-            .expect("valid builder must succeed");
-        entry
+            .build()?;
+        Ok(entry)
     }
 
     fn config_with_repo_and_workspace(
@@ -580,117 +579,116 @@ mod tests {
         repo_aliases: Vec<String>,
         workspace_canonical: &str,
         workspace_aliases: Vec<String>,
-    ) -> ReportalConfig {
+    ) -> Result<ReportalConfig, ReportalError> {
         let mut config = ReportalConfig::create_default();
         config.repos.insert(repo_canonical.to_owned(), make_repo(repo_aliases));
-        config.workspaces.insert(
-            workspace_canonical.to_owned(),
-            make_workspace(vec![repo_canonical.to_owned()], workspace_aliases),
-        );
-        config
+        let workspace_entry =
+            make_workspace(vec![repo_canonical.to_owned()], workspace_aliases)?;
+        config.workspaces.insert(workspace_canonical.to_owned(), workspace_entry);
+        Ok(config)
     }
 
     #[test]
-    fn resolve_workspace_canonical_name_matches_alias() {
+    fn resolve_workspace_canonical_name_matches_alias() -> Result<(), ReportalError> {
         let config = config_with_repo_and_workspace(
             "app",
             vec![],
             "venoble",
             vec!["vn".to_owned(), "noble".to_owned()],
-        );
-        assert_eq!(
-            config.resolve_workspace_canonical_name("vn").expect("must resolve"),
-            "venoble",
-        );
-        assert_eq!(
-            config.resolve_workspace_canonical_name("noble").expect("must resolve"),
-            "venoble",
-        );
-        assert_eq!(
-            config.resolve_workspace_canonical_name("venoble").expect("must resolve"),
-            "venoble",
-        );
+        )?;
+        assert_eq!(config.resolve_workspace_canonical_name("vn")?, "venoble");
+        assert_eq!(config.resolve_workspace_canonical_name("noble")?, "venoble");
+        assert_eq!(config.resolve_workspace_canonical_name("venoble")?, "venoble");
+        Ok(())
     }
 
     #[test]
-    fn resolve_workspace_canonical_name_unknown_fails() {
-        let config = config_with_repo_and_workspace("app", vec![], "venoble", vec![]);
+    fn resolve_workspace_canonical_name_unknown_fails() -> Result<(), ReportalError> {
+        let config = config_with_repo_and_workspace("app", vec![], "venoble", vec![])?;
         let outcome = config.resolve_workspace_canonical_name("ghost");
         assert!(matches!(outcome, Err(ReportalError::WorkspaceNotFound { .. })));
+        Ok(())
     }
 
     #[test]
-    fn get_workspace_resolves_via_alias() {
+    fn get_workspace_resolves_via_alias() -> Result<(), ReportalError> {
         let config = config_with_repo_and_workspace(
             "app",
             vec![],
             "venoble",
             vec!["vn".to_owned()],
-        );
-        let resolved = config.get_workspace("vn").expect("alias must resolve");
-        assert_eq!(resolved.repo_aliases(), &["app"]);
+        )?;
+        let resolved = config.get_workspace("vn")?;
+        assert_eq!(resolved.repo_aliases(), vec!["app"]);
+        Ok(())
     }
 
     #[test]
-    fn get_workspace_mut_resolves_via_alias() {
+    fn get_workspace_mut_resolves_via_alias() -> Result<(), ReportalError> {
         let mut config = config_with_repo_and_workspace(
             "app",
             vec![],
             "venoble",
             vec!["vn".to_owned()],
-        );
-        let resolved_mut = config.get_workspace_mut("vn").expect("alias must resolve");
-        resolved_mut.set_repo_aliases(vec!["app".to_owned(), "worker".to_owned()]);
-        let re_read = config.get_workspace("venoble").expect("canonical must resolve");
-        assert_eq!(re_read.repo_aliases(), &["app", "worker"]);
+        )?;
+        let resolved_mut = config.get_workspace_mut("vn")?;
+        resolved_mut.set_members(vec![
+            WorkspaceMember::RegisteredRepo("app".to_owned()),
+            WorkspaceMember::RegisteredRepo("worker".to_owned()),
+        ]);
+        let re_read = config.get_workspace("venoble")?;
+        assert_eq!(re_read.repo_aliases(), vec!["app", "worker"]);
+        Ok(())
     }
 
     #[test]
-    fn get_repo_mut_now_resolves_via_alias() {
+    fn get_repo_mut_now_resolves_via_alias() -> Result<(), ReportalError> {
         let mut config = ReportalConfig::create_default();
         config.repos.insert(
             "venoble-app".to_owned(),
             make_repo(vec!["vna".to_owned()]),
         );
-        let resolved_mut = config.get_repo_mut("vna").expect("alias must resolve for mut");
+        let resolved_mut = config.get_repo_mut("vna")?;
         resolved_mut.set_description("mutated".to_owned());
-        assert_eq!(
-            config.get_repo("venoble-app").expect("canonical must resolve").description(),
-            "mutated",
-        );
+        assert_eq!(config.get_repo("venoble-app")?.description(), "mutated");
+        Ok(())
     }
 
     #[test]
-    fn alias_collision_workspace_alias_equals_peer_workspace_canonical_name() {
+    fn alias_collision_workspace_alias_equals_peer_workspace_canonical_name(
+    ) -> Result<(), ReportalError> {
         let mut config = ReportalConfig::create_default();
         config.repos.insert("app".to_owned(), make_repo(vec![]));
         config.workspaces.insert(
             "venoble".to_owned(),
-            make_workspace(vec!["app".to_owned()], vec!["backend".to_owned()]),
+            make_workspace(vec!["app".to_owned()], vec!["backend".to_owned()])?,
         );
         config.workspaces.insert(
             "backend".to_owned(),
-            make_workspace(vec!["app".to_owned()], vec![]),
+            make_workspace(vec!["app".to_owned()], vec![])?,
         );
         let outcome = config.validate_alias_collisions();
         assert!(matches!(outcome, Err(ReportalError::WorkspaceAliasConflict { .. })));
+        Ok(())
     }
 
     #[test]
-    fn alias_collision_workspace_alias_equals_repo_canonical_key() {
+    fn alias_collision_workspace_alias_equals_repo_canonical_key(
+    ) -> Result<(), ReportalError> {
         let mut config = ReportalConfig::create_default();
         config.repos.insert("app".to_owned(), make_repo(vec![]));
         config.repos.insert("vn".to_owned(), make_repo(vec![]));
         config.workspaces.insert(
             "venoble".to_owned(),
-            make_workspace(vec!["app".to_owned()], vec!["vn".to_owned()]),
+            make_workspace(vec!["app".to_owned()], vec!["vn".to_owned()])?,
         );
         let outcome = config.validate_alias_collisions();
         assert!(matches!(outcome, Err(ReportalError::WorkspaceAliasConflict { .. })));
+        Ok(())
     }
 
     #[test]
-    fn alias_collision_workspace_alias_equals_repo_alias() {
+    fn alias_collision_workspace_alias_equals_repo_alias() -> Result<(), ReportalError> {
         let mut config = ReportalConfig::create_default();
         config.repos.insert(
             "venoble-app".to_owned(),
@@ -698,33 +696,67 @@ mod tests {
         );
         config.workspaces.insert(
             "venoble".to_owned(),
-            make_workspace(vec!["venoble-app".to_owned()], vec!["vna".to_owned()]),
+            make_workspace(vec!["venoble-app".to_owned()], vec!["vna".to_owned()])?,
         );
         let outcome = config.validate_alias_collisions();
         assert!(matches!(outcome, Err(ReportalError::WorkspaceAliasConflict { .. })));
+        Ok(())
     }
 
     #[test]
-    fn alias_collision_workspace_name_equals_repo_canonical_key() {
+    fn alias_collision_workspace_name_equals_repo_canonical_key(
+    ) -> Result<(), ReportalError> {
         let mut config = ReportalConfig::create_default();
         config.repos.insert("venoble".to_owned(), make_repo(vec![]));
         config.repos.insert("app".to_owned(), make_repo(vec![]));
         config.workspaces.insert(
             "venoble".to_owned(),
-            make_workspace(vec!["app".to_owned()], vec![]),
+            make_workspace(vec!["app".to_owned()], vec![])?,
         );
         let outcome = config.validate_alias_collisions();
         assert!(matches!(outcome, Err(ReportalError::WorkspaceAliasConflict { .. })));
+        Ok(())
+    }
+
+    fn make_inline_only_workspace() -> WorkspaceEntry {
+        WorkspaceEntry {
+            repos: vec![WorkspaceMember::InlinePath {
+                path: "~/dev/inline-only".to_owned(),
+            }],
+            description: String::new(),
+            path: String::new(),
+            aliases: Vec::new(),
+        }
     }
 
     #[test]
-    fn clean_config_passes_alias_collision_validation() {
+    fn inline_path_member_skips_dangling_repo_check() {
+        let mut config = ReportalConfig::create_default();
+        config.workspaces.insert("inline-only".to_owned(), make_inline_only_workspace());
+        assert!(config.validate_workspace_references().is_ok());
+    }
+
+    #[test]
+    fn inline_path_member_does_not_block_repo_removal() {
+        let mut config = ReportalConfig::create_default();
+        config.repos.insert("standalone".to_owned(), make_repo(vec![]));
+        config.workspaces.insert("inline-only".to_owned(), make_inline_only_workspace());
+        let containing = config.workspaces_containing_repo("standalone");
+        assert!(
+            containing.is_empty(),
+            "inline-path-only workspace must not appear in the reverse index for an unrelated repo",
+        );
+    }
+
+    #[test]
+    fn clean_config_passes_alias_collision_validation() -> Result<(), ReportalError> {
         let config = config_with_repo_and_workspace(
             "app",
             vec!["a".to_owned()],
             "venoble",
             vec!["vn".to_owned()],
-        );
+        )?;
         assert!(config.validate_alias_collisions().is_ok());
+        Ok(())
     }
 }
