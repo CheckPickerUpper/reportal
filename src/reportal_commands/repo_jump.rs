@@ -1,12 +1,15 @@
 //! Fuzzy-selects a repo and prints its path for shell `cd` integration.
 
 use crate::error::ReportalError;
-use crate::reportal_config::{ReportalConfig, TagFilter};
+use crate::reportal_commands::direct_alias_router::{
+    DirectAliasRouter, DirectAliasRouterOutcome,
+};
 use crate::reportal_commands::path_display::{self, SelectedPathDisplayParams};
 use crate::reportal_commands::repo_selection::{self, SelectedRepoParams};
 use crate::reportal_commands::terminal_identity_emit::{
     self, TerminalIdentityEmitParams,
 };
+use crate::reportal_config::{ReportalConfig, TagFilter};
 use crate::terminal_style;
 
 /// All parameters needed to run the jump command.
@@ -22,12 +25,44 @@ pub struct JumpCommandParams<'a> {
 /// Prints the selected repo's resolved path to stdout; the shell
 /// wrapper function (`rj`) reads this and runs `cd`.
 ///
-/// If a direct alias is given, skips the fuzzy finder entirely.
-/// The raw path always goes to stdout for the shell function;
-/// an optional styled confirmation goes to stderr based on config.
-/// Also emits OSC escape sequences for tab title and background color.
+/// If a direct alias is given, repo resolution is tried first. When
+/// that fails and the alias matches a registered workspace, falls
+/// through to the workspace's `.code-workspace` file parent directory
+/// so `rj venoble` for a workspace-only setup cd's to the common
+/// ancestor folder instead of erroring out. Unknown aliases still
+/// surface as `RepoNotFound` because that is the user-facing name
+/// the shell wrapper promises.
+///
+/// The raw path always goes to stdout for the shell function; an
+/// optional styled confirmation goes to stderr based on config. OSC
+/// tab/color escape sequences are emitted only for repo jumps —
+/// workspace jumps skip them because a workspace has no single
+/// per-repo identity to apply.
+///
+/// # Errors
+///
+/// Returns [`ReportalError::RepoNotFound`] when the direct alias
+/// resolves to neither a repo nor a workspace, or any error the
+/// repo-selection or workspace-regenerator paths surface.
 pub fn run_jump(jump_params: &JumpCommandParams<'_>) -> Result<(), ReportalError> {
     let loaded_config = ReportalConfig::load_from_disk()?;
+
+    if !jump_params.direct_alias.is_empty() {
+        let router = DirectAliasRouter::for_config(&loaded_config);
+        match router.classify(jump_params.direct_alias)? {
+            DirectAliasRouterOutcome::RegisteredRepo => {
+                /* fall through to repo jump flow */
+            }
+            DirectAliasRouterOutcome::Workspace(canonical_workspace_name) => {
+                return router.jump_to_workspace_parent(&canonical_workspace_name);
+            }
+            DirectAliasRouterOutcome::Unknown => {
+                return Err(ReportalError::RepoNotFound {
+                    alias: jump_params.direct_alias.to_owned(),
+                });
+            }
+        }
+    }
 
     let selection_params = SelectedRepoParams {
         loaded_config: &loaded_config,

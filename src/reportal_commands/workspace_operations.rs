@@ -124,7 +124,7 @@ impl<'config_lifetime> WorkspaceRegenerator<'config_lifetime> {
     /// not match a registered workspace, or
     /// [`ReportalError::ConfigIoFailure`] if the home directory is
     /// needed for the default location and cannot be resolved.
-    fn resolve_workspace_file_path(
+    pub fn resolve_workspace_file_path(
         &self,
         workspace_name: &str,
     ) -> Result<PathBuf, ReportalError> {
