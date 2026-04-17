@@ -2,6 +2,7 @@
 
 use crate::error::ReportalError;
 use crate::reportal_config::workspace_entry::WorkspaceEntry;
+use crate::reportal_config::workspace_member::WorkspaceMember;
 
 /// Chainable builder that assembles a `WorkspaceEntry` from separate
 /// field inputs and validates name/membership invariants on `build()`.
@@ -117,7 +118,11 @@ impl WorkspaceRegistrationBuilder {
         }
         validate_alias_list_shape(&self.workspace_aliases, &self.workspace_name)?;
         let validated_entry = WorkspaceEntry {
-            repos: self.repo_aliases,
+            repos: self
+                .repo_aliases
+                .into_iter()
+                .map(WorkspaceMember::RegisteredRepo)
+                .collect(),
             description: self.workspace_description,
             path: self.workspace_file_path,
             aliases: self.workspace_aliases,

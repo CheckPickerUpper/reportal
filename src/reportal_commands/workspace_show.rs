@@ -3,7 +3,7 @@
 
 use crate::error::ReportalError;
 use crate::reportal_commands::workspace_operations::WorkspaceRegenerator;
-use crate::reportal_config::{HasAliases, ReportalConfig};
+use crate::reportal_config::{HasAliases, ReportalConfig, WorkspaceMember};
 use crate::terminal_style;
 use owo_colors::OwoColorize;
 
@@ -65,15 +65,31 @@ pub fn run_workspace_show(alias_or_canonical: &str) -> Result<(), ReportalError>
         "     {}\n",
         "Members:".style(terminal_style::LABEL_STYLE),
     ));
-    for member_alias in target_workspace.repo_aliases() {
-        let member_repo = loaded_config.get_repo(member_alias)?;
-        let resolved_member_path = member_repo.resolved_path();
-        terminal_style::write_stdout(&format!(
-            "       {} {} {}\n",
-            "-".style(terminal_style::LABEL_STYLE),
-            member_alias.style(terminal_style::ALIAS_STYLE),
-            resolved_member_path.display().to_string().style(terminal_style::PATH_STYLE),
-        ));
+    for member in target_workspace.members() {
+        match member {
+            WorkspaceMember::RegisteredRepo(member_alias) => {
+                let member_repo = loaded_config.get_repo(member_alias)?;
+                let resolved_member_path = member_repo.resolved_path();
+                terminal_style::write_stdout(&format!(
+                    "       {} {} {}\n",
+                    "-".style(terminal_style::LABEL_STYLE),
+                    member_alias.style(terminal_style::ALIAS_STYLE),
+                    resolved_member_path
+                        .display()
+                        .to_string()
+                        .style(terminal_style::PATH_STYLE),
+                ));
+            }
+            WorkspaceMember::InlinePath { path } => {
+                let expanded = shellexpand::tilde(path);
+                terminal_style::write_stdout(&format!(
+                    "       {} {} {}\n",
+                    "-".style(terminal_style::LABEL_STYLE),
+                    "(inline)".style(terminal_style::LABEL_STYLE),
+                    expanded.as_ref().style(terminal_style::PATH_STYLE),
+                ));
+            }
+        }
     }
 
     terminal_style::write_stdout("\n");

@@ -2,21 +2,31 @@
 //! VSCode/Cursor `.code-workspace` file.
 
 use crate::reportal_config::has_aliases::HasAliases;
+use crate::reportal_config::workspace_member::{
+    WorkspaceMember, WorkspaceMemberAliasLookup,
+};
 use serde::{Deserialize, Serialize};
 
 /// A single registered VSCode/Cursor workspace definition.
 ///
-/// Declares which repos open together as one editor window. Reportal
-/// owns this definition as the single source of truth; the actual
-/// `.code-workspace` file on disk is a derived artifact generated from
-/// this entry and the member repos' current paths.
+/// Declares which folders open together as one editor window.
+/// Reportal owns this definition as the single source of truth; the
+/// actual `.code-workspace` file on disk is a derived artifact
+/// generated from each member's resolved path (repo registry lookup
+/// for alias members, direct tilde-expansion for inline-path
+/// members).
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct WorkspaceEntry {
-    /// Ordered list of repo aliases that belong to this workspace.
+    /// Ordered list of members — each is either a registered-repo
+    /// reference or an inline filesystem path.
     ///
-    /// Each alias must resolve to a registered repo in `[repos.*]`.
-    /// Validation runs on config load and rejects dangling references.
-    pub(super) repos: Vec<String>,
+    /// The TOML field is still called `repos` for backwards
+    /// compatibility with configs written before inline paths were
+    /// supported. Bare strings in the array continue to parse as
+    /// `WorkspaceMember::RegisteredRepo` via the untagged serde
+    /// representation on `WorkspaceMember`, so v0.14.1 configs load
+    /// unchanged.
+    pub(super) repos: Vec<WorkspaceMember>,
     /// Human-readable description of what this workspace is for.
     #[serde(default)]
     pub(super) description: String,
@@ -38,17 +48,34 @@ pub struct WorkspaceEntry {
     pub(super) aliases: Vec<String>,
 }
 
-/// Accessors for a workspace entry.
+/// Accessors and mutators for a workspace entry.
 impl WorkspaceEntry {
-    /// Ordered list of repo aliases that belong to this workspace.
+    /// Ordered list of every member in this workspace.
     ///
-    /// Order is preserved from the config so the generated
-    /// `.code-workspace` file's `folders` array matches what the user
-    /// declared, which controls the visual ordering in the editor's
-    /// sidebar.
+    /// Callers that need to resolve each member to an absolute path
+    /// pattern-match on [`WorkspaceMember`] variants; callers that
+    /// only care about registered-repo references use
+    /// [`Self::repo_aliases`].
     #[must_use]
-    pub fn repo_aliases(&self) -> &[String] {
+    pub fn members(&self) -> &[WorkspaceMember] {
         &self.repos
+    }
+
+    /// The alias strings of every member that is a registered-repo
+    /// reference, in declared order.
+    ///
+    /// Inline-path members are skipped because they do not
+    /// participate in the repo-rename reverse-index or the
+    /// `validate_workspace_references` dangling-member check.
+    #[must_use]
+    pub fn repo_aliases(&self) -> Vec<&str> {
+        self.repos
+            .iter()
+            .filter_map(|member| match member.registered_repo_alias() {
+                WorkspaceMemberAliasLookup::Matches(alias) => Some(alias),
+                WorkspaceMemberAliasLookup::NotARepoReference => None,
+            })
+            .collect()
     }
 
     /// Human-readable description of this workspace's purpose.
@@ -65,23 +92,32 @@ impl WorkspaceEntry {
         &self.path
     }
 
-    /// Whether the given repo alias is a member of this workspace.
+    /// Whether the given repo alias is a registered-repo member of
+    /// this workspace.
     ///
-    /// Used by the reverse-index lookup that finds every workspace
-    /// containing a repo — required so repo path changes can trigger
-    /// regeneration of every affected `.code-workspace` file.
+    /// Used by the reverse-index lookup `workspaces_containing_repo`
+    /// and the `rep remove` guard. Inline-path members never match
+    /// because they carry no repo alias by construction.
     #[must_use]
     pub fn contains_repo(&self, repo_alias: &str) -> bool {
-        self.repos.iter().any(|alias| alias == repo_alias)
+        self.repos.iter().any(|member| {
+            matches!(
+                member.registered_repo_alias(),
+                WorkspaceMemberAliasLookup::Matches(alias) if alias == repo_alias
+            )
+        })
     }
 
-    /// Replaces the ordered repo alias list with a new membership set.
+    /// Replaces the ordered member list with a new one.
     ///
-    /// Callers must ensure the new aliases all resolve to registered
-    /// repos; the config-level validation will reject dangling
-    /// references on the next save/load cycle.
-    pub fn set_repo_aliases(&mut self, new_repo_aliases: Vec<String>) {
-        self.repos = new_repo_aliases;
+    /// Callers that want to mutate registered-repo membership
+    /// without touching inline-path members should compose a new
+    /// list from [`Self::members`] and pass it here. The
+    /// `rep workspace add-repo` / `remove-repo` commands do exactly
+    /// that so inline-path members are preserved across alias-only
+    /// edits.
+    pub fn set_members(&mut self, new_members: Vec<WorkspaceMember>) {
+        self.repos = new_members;
     }
 }
 
