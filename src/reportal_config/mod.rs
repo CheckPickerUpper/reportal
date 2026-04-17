@@ -17,6 +17,7 @@ mod tab_title;
 mod tag_filter;
 mod workspace_entry;
 mod workspace_filter;
+mod workspace_member;
 mod workspace_registration_builder;
 
 pub use command_entry::CommandEntry;
@@ -31,4 +32,5 @@ pub use tab_title::TabTitle;
 pub use tag_filter::TagFilter;
 pub use workspace_entry::WorkspaceEntry;
 pub use workspace_filter::WorkspaceFilter;
+pub use workspace_member::{WorkspaceMember, WorkspaceMemberAliasLookup};
 pub use workspace_registration_builder::WorkspaceRegistrationBuilder;
