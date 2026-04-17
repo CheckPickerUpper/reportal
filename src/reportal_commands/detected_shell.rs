@@ -197,6 +197,8 @@ impl DetectedShell {
 $env:REPORTAL_LOADED = "1"
 function global:rj {{ Set-Location (rep jump @args); rep color }}
 function global:ro {{ rep open @args; rep color }}
+function global:rjw {{ Set-Location (rep workspace jump @args); rep color }}
+function global:row {{ rep workspace open @args; rep color }}
 function global:rw {{ rep web @args }}
 function global:rr {{ rep run @args }}
 $script:_reportal_original_prompt = $function:global:prompt
@@ -217,6 +219,8 @@ function global:prompt {{ $p = & $script:_reportal_original_prompt; $t = rep col
 export REPORTAL_LOADED=1
 rj() {{ cd "$(rep jump "$@")"; rep color; }}
 ro() {{ rep open "$@"; rep color; }}
+rjw() {{ cd "$(rep workspace jump "$@")"; rep color; }}
+row() {{ rep workspace open "$@"; rep color; }}
 rw() {{ rep web "$@"; }}
 rr() {{ rep run "$@"; }}
 _reportal_hook() {{ local _t; _t=$(rep color --mode prompt-hook 2>{null_device}); [ -n "$_t" ] && printf '\033]2;%s\007' "$_t"; }}
@@ -271,15 +275,21 @@ PROMPT_COMMAND="${{PROMPT_COMMAND:+$PROMPT_COMMAND;}}_reportal_hook"
     fn is_reportal_function_line(trimmed: &str) -> bool {
         trimmed.starts_with("function rj")
             || trimmed.starts_with("function ro")
+            || trimmed.starts_with("function rjw")
+            || trimmed.starts_with("function row")
             || trimmed.starts_with("function rw")
             || trimmed.starts_with("function rr")
             || trimmed.starts_with("function repup")
             || trimmed.starts_with("function global:rj")
             || trimmed.starts_with("function global:ro")
+            || trimmed.starts_with("function global:rjw")
+            || trimmed.starts_with("function global:row")
             || trimmed.starts_with("function global:rw")
             || trimmed.starts_with("function global:rr")
             || trimmed.starts_with("rj()")
             || trimmed.starts_with("ro()")
+            || trimmed.starts_with("rjw()")
+            || trimmed.starts_with("row()")
             || trimmed.starts_with("rw()")
             || trimmed.starts_with("rr()")
             || trimmed.starts_with("repup()")

@@ -8,8 +8,8 @@
 use crate::cli_args::{WorkspaceArgs, WorkspaceArgsSubcommand};
 use crate::error::ReportalError;
 use crate::reportal_commands::{
-    run_workspace_add_repo, run_workspace_create, run_workspace_delete, run_workspace_list,
-    run_workspace_open, run_workspace_remove_repo, run_workspace_show,
+    run_workspace_add_repo, run_workspace_create, run_workspace_delete, run_workspace_jump,
+    run_workspace_list, run_workspace_open, run_workspace_remove_repo, run_workspace_show,
 };
 
 /// Dispatches a parsed `rep workspace` invocation to the matching
@@ -48,6 +48,9 @@ pub fn dispatch_workspace_subcommand(
         }
         WorkspaceArgsSubcommand::Open(name_only) => {
             run_workspace_open(&name_only.into_workspace_name())
+        }
+        WorkspaceArgsSubcommand::Jump(name_only) => {
+            run_workspace_jump(&name_only.into_workspace_name())
         }
     }
 }

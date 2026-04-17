@@ -1,6 +1,7 @@
 //! Subcommand implementations for the `RePortal` CLI.
 mod color_command_mode;
 mod detected_shell;
+mod direct_alias_router;
 mod doctor;
 mod git_commands;
 mod initialization;
@@ -28,6 +29,7 @@ mod repo_web;
 mod workspace_create;
 mod workspace_delete;
 mod workspace_dispatch;
+mod workspace_jump;
 mod workspace_listing;
 mod workspace_members;
 mod workspace_open;
@@ -53,6 +55,7 @@ pub use repo_web::{run_web, WebCommandParams};
 pub use workspace_create::run_workspace_create;
 pub use workspace_delete::run_workspace_delete;
 pub use workspace_dispatch::dispatch_workspace_subcommand;
+pub use workspace_jump::run_workspace_jump;
 pub use workspace_listing::run_workspace_list;
 pub use workspace_members::{run_workspace_add_repo, run_workspace_remove_repo};
 pub use workspace_open::run_workspace_open;
