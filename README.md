@@ -147,9 +147,11 @@ On **Bash/Zsh**, `rep init` writes a standalone script to `~/.reportal/integrati
 | Shortcut | What it does |
 |----------|-------------|
 | `rj` | Fuzzy-select a repo and `cd` into it |
-| `rj my-api` | Jump directly to a repo by alias |
+| `rj my-api` | Jump directly to a repo by alias; falls through to a workspace alias if no repo matches (cd's to the workspace's common-ancestor folder) |
 | `ro` | Fuzzy-select a repo and open it in your editor |
-| `ro my-api` | Open a repo directly by alias |
+| `ro my-api` | Open a repo directly by alias; falls through to a workspace alias if no repo matches (opens the `.code-workspace` file) |
+| `rjw my-ws` | Workspace-only jump — resolves the alias strictly against `[workspaces.*]` and cd's to the workspace file's parent dir |
+| `row my-ws` | Workspace-only open — launches the editor on the `.code-workspace` file |
 | `rw` | Fuzzy-select a repo and open it in the browser |
 | `rw my-api` | Open a repo's remote directly by alias |
 | `rr` | Fuzzy-select a repo and run a configured command in it |
@@ -327,6 +329,7 @@ PROMPT_COMMAND='rep color 2>/dev/null'
 - [x] Workspace-tree grouping in `rep list` (workspaces as the tree root, `--workspace` as a first-class filter composable with `--tag`)
 - [x] Workspace aliases — short names that resolve to a workspace in `rep workspace` subcommands, with cross-namespace collision validation at config load
 - [x] Inline-path workspace members — mix registered-repo references with raw filesystem paths in the same workspace so folders can belong to a workspace without being registered as top-level repos
+- [x] Unified `rj` / `ro` — fall through to workspace aliases when no repo matches, so `rj venoble` cd's to the workspace's common-ancestor folder and `ro venoble` opens the workspace in the editor; `rjw` / `row` added as workspace-only variants
 - [ ] Interactive ratatui TUI absorbing `list` / `dash` with live git-status column
 - [ ] `dashboard` — rich overview with branches, dirty state, last commit
 - [ ] `clone --all` — clone missing repos from config (machine sync)

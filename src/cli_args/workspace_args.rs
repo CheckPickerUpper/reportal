@@ -260,4 +260,7 @@ pub enum WorkspaceArgsSubcommand {
     /// Open a workspace in the configured default editor by
     /// running `<editor> <workspace-file-path>`.
     Open(WorkspaceArgsNameOnly),
+    /// Print the workspace's `.code-workspace` file parent
+    /// directory so the `rjw` shell wrapper can cd there.
+    Jump(WorkspaceArgsNameOnly),
 }
