@@ -58,7 +58,14 @@ impl ReportalConfig {
         Ok(Self::config_directory()?.join("config.toml"))
     }
 
-    /// Loads, parses, and validates the config from disk.
+    /// Loads, parses, and validates the config from disk, creating
+    /// a default config if none exists yet.
+    ///
+    /// The bootstrap-on-read behavior removes the "you must run
+    /// `rep init` first" failure mode from every subcommand: a
+    /// fresh install or a wiped home directory transparently gets
+    /// a minimal working config on the first invocation, matching
+    /// how tools like `zoxide` and `starship` behave.
     ///
     /// After successful TOML parsing, runs the workspace reference
     /// check and the alias-collision pass so no dangling member or
@@ -66,18 +73,18 @@ impl ReportalConfig {
     ///
     /// # Errors
     ///
-    /// Returns `ConfigNotFound` if the file does not exist,
-    /// `ConfigIoFailure` if the file cannot be read,
-    /// `ConfigParseFailure` if the TOML is malformed,
-    /// `WorkspaceHasDanglingRepo` if a workspace references an
-    /// unknown repo alias, or `WorkspaceAliasConflict` if any
-    /// workspace's name or alias collides with another entry.
-    pub fn load_from_disk() -> Result<Self, ReportalError> {
+    /// Returns `ConfigIoFailure` if the file cannot be read or the
+    /// default config cannot be written, `ConfigParseFailure` if
+    /// the TOML is malformed, `WorkspaceHasDanglingRepo` if a
+    /// workspace references an unknown repo alias, or
+    /// `WorkspaceAliasConflict` if any workspace's name or alias
+    /// collides with another entry.
+    pub fn load_or_initialize() -> Result<Self, ReportalError> {
         let file_path = Self::config_file_path()?;
         if !file_path.exists() {
-            return Err(ReportalError::ConfigNotFound {
-                config_path: file_path.display().to_string(),
-            });
+            let default_config = Self::create_default();
+            default_config.save_to_disk()?;
+            return Ok(default_config);
         }
         let toml_content = std::fs::read_to_string(&file_path).map_err(|io_error| {
             ReportalError::ConfigIoFailure {
