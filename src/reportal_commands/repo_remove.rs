@@ -23,7 +23,7 @@ use crate::terminal_style;
 /// member of any workspace, or the config I/O errors that the load
 /// and save paths surface.
 pub fn run_remove(repo_alias: &str) -> Result<(), ReportalError> {
-    let mut loaded_config = ReportalConfig::load_from_disk()?;
+    let mut loaded_config = ReportalConfig::load_or_initialize()?;
 
     let containing_workspaces = loaded_config.workspaces_containing_repo(repo_alias);
     if !containing_workspaces.is_empty() {
