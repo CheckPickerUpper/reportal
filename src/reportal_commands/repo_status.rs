@@ -203,7 +203,7 @@ fn format_upstream_delta(upstream_delta: &UpstreamDelta) -> String {
 /// from every repo matching the tag filter and prints a summary table.
 /// Reports dirty and missing repo counts in a footer on stderr.
 pub fn run_status(tag_filter: &TagFilter) -> Result<(), ReportalError> {
-    let loaded_config = ReportalConfig::load_from_disk()?;
+    let loaded_config = ReportalConfig::load_or_initialize()?;
     let matching_repos = loaded_config.repos_matching_tag_filter(tag_filter);
 
     if matching_repos.is_empty() {

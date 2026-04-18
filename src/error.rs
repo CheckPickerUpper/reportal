@@ -1,13 +1,6 @@
 //! All error conditions that `RePortal` can encounter during operation.
 #[derive(Debug, thiserror::Error)]
 pub enum ReportalError {
-    /// Config file does not exist at the expected location.
-    #[error("Config not found at {config_path}\nRun 'reportal init' to create one.")]
-    ConfigNotFound {
-        /// Absolute path where the config was expected.
-        config_path: String,
-    },
-
     /// Config file exists but contains invalid TOML or schema.
     #[error("Failed to parse config: {reason}")]
     ConfigParseFailure {

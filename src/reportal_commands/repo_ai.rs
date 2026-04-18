@@ -26,7 +26,7 @@ pub struct AiCommandParams<'a> {
 /// (--tool flag or config default), applies tab theming, then spawns the
 /// AI CLI with stdin/stdout/stderr inherited for interactive passthrough.
 pub fn run_ai(ai_params: &AiCommandParams<'_>) -> Result<(), ReportalError> {
-    let loaded_config = ReportalConfig::load_from_disk()?;
+    let loaded_config = ReportalConfig::load_or_initialize()?;
 
     let ai_cli_entries = loaded_config.ai_cli_registry();
     if ai_cli_entries.is_empty() { return Err(ReportalError::NoAiToolsConfigured) }

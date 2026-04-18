@@ -1,13 +1,12 @@
 //! Subcommand implementations for the `RePortal` CLI.
 mod color_command_mode;
-mod detected_shell;
 mod direct_alias_router;
 mod doctor;
 mod git_commands;
 mod initialization;
-mod integration_freshness;
 mod path_display;
 mod prompts;
+mod shell_integration;
 mod repo_add;
 mod repo_ai;
 mod repo_color;
@@ -40,7 +39,6 @@ mod workspace_show;
 
 pub use color_command_mode::ColorCommandMode;
 pub use doctor::run_doctor;
-pub use integration_freshness::ensure_integration_file_current;
 pub use initialization::run_init;
 pub use repo_add::run_add;
 pub use repo_ai::{run_ai, AiCommandParams};

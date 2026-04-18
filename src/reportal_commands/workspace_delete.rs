@@ -18,7 +18,7 @@ use owo_colors::OwoColorize;
 /// matches the name or alias, or the config I/O errors that the
 /// load and save paths surface.
 pub fn run_workspace_delete(alias_or_canonical: &str) -> Result<(), ReportalError> {
-    let mut loaded_config = ReportalConfig::load_from_disk()?;
+    let mut loaded_config = ReportalConfig::load_or_initialize()?;
     let canonical_name = loaded_config.resolve_workspace_canonical_name(alias_or_canonical)?;
     loaded_config.remove_workspace(&canonical_name)?;
     loaded_config.save_to_disk()?;

@@ -29,7 +29,7 @@ use crate::reportal_config::ReportalConfig;
 /// workspace file location needs the home directory and it cannot
 /// be resolved.
 pub fn run_workspace_jump(alias_or_canonical: &str) -> Result<(), ReportalError> {
-    let loaded_config = ReportalConfig::load_from_disk()?;
+    let loaded_config = ReportalConfig::load_or_initialize()?;
     let canonical_workspace_name = if alias_or_canonical.is_empty() {
         workspace_selection::select_workspace(&loaded_config)?
     } else {

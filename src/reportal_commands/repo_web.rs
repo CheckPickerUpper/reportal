@@ -83,7 +83,7 @@ fn detect_git_remote(repo_path: &std::path::Path) -> RemoteResolution {
 /// Converts SSH remotes to HTTPS URLs for browser compatibility.
 /// Emits tab title and color before opening the browser.
 pub fn run_web(web_params: &WebCommandParams<'_>) -> Result<(), ReportalError> {
-    let loaded_config = ReportalConfig::load_from_disk()?;
+    let loaded_config = ReportalConfig::load_or_initialize()?;
 
     let selection_params = SelectedRepoParams {
         loaded_config: &loaded_config,

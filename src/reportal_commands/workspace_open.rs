@@ -29,7 +29,7 @@ use std::process::Command;
 /// the editor process cannot be spawned, or the config / file I/O
 /// errors the regeneration path surfaces.
 pub fn run_workspace_open(alias_or_canonical: &str) -> Result<(), ReportalError> {
-    let loaded_config = ReportalConfig::load_from_disk()?;
+    let loaded_config = ReportalConfig::load_or_initialize()?;
     let canonical_name = if alias_or_canonical.is_empty() {
         workspace_selection::select_workspace(&loaded_config)?
     } else {

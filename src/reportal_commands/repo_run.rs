@@ -137,7 +137,7 @@ fn resolve_command(resolve_params: &ResolveCommandParams<'_>) -> Result<Resolved
 /// with the same name. The command is spawned via the system shell with
 /// inherited stdio for interactive passthrough.
 pub fn run_run(run_params: &RunCommandParams<'_>) -> Result<(), ReportalError> {
-    let loaded_config = ReportalConfig::load_from_disk()?;
+    let loaded_config = ReportalConfig::load_or_initialize()?;
 
     let selection_params = SelectedRepoParams {
         loaded_config: &loaded_config,

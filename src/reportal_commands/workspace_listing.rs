@@ -18,14 +18,13 @@ use owo_colors::OwoColorize;
 ///
 /// # Errors
 ///
-/// Returns [`ReportalError::ConfigNotFound`] /
-/// [`ReportalError::ConfigParseFailure`] /
+/// Returns [`ReportalError::ConfigParseFailure`] /
 /// [`ReportalError::ConfigIoFailure`] if the config cannot be
 /// loaded, or [`ReportalError::WorkspaceHasDanglingRepo`] if the
 /// on-load validation pass finds a workspace pointing at a
 /// non-registered repo.
 pub fn run_workspace_list() -> Result<(), ReportalError> {
-    let loaded_config = ReportalConfig::load_from_disk()?;
+    let loaded_config = ReportalConfig::load_or_initialize()?;
     let registered_workspaces = loaded_config.workspaces_with_names();
 
     if registered_workspaces.is_empty() {
