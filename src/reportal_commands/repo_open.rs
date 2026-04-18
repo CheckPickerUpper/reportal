@@ -49,7 +49,7 @@ pub struct OpenCommandParams<'a> {
 /// cannot be spawned, or any config / file I/O errors the
 /// underlying paths surface.
 pub fn run_open(open_params: &OpenCommandParams<'_>) -> Result<(), ReportalError> {
-    let loaded_config = ReportalConfig::load_from_disk()?;
+    let loaded_config = ReportalConfig::load_or_initialize()?;
 
     let resolved_repo_alias: String = if open_params.direct_alias.is_empty() {
         let target_params = SelectedTargetParams {

@@ -5,6 +5,7 @@
 mod ai_args;
 mod color_args;
 mod edit_args;
+mod init_args;
 mod jump_args;
 mod list_args;
 mod open_args;
@@ -22,6 +23,7 @@ mod workspace_filter_args;
 pub use ai_args::AiArgs;
 pub use color_args::ColorArgs;
 pub use edit_args::EditArgs;
+pub use init_args::{InitArgs, InitShell};
 pub use jump_args::JumpArgs;
 pub use list_args::{ListArgs, ListArgsFilterParts};
 pub use open_args::OpenArgs;

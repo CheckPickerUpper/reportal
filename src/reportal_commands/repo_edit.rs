@@ -31,7 +31,7 @@ pub struct EditCommandParams<'a> {
 /// Returns whatever the underlying selection, prompt, config I/O,
 /// validation, or workspace regeneration call surfaces.
 pub fn run_edit(command_params: &EditCommandParams<'_>) -> Result<(), ReportalError> {
-    let mut loaded_config = ReportalConfig::load_from_disk()?;
+    let mut loaded_config = ReportalConfig::load_or_initialize()?;
 
     let selected_alias = {
         let selection_params = SelectedRepoParams {

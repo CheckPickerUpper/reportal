@@ -27,7 +27,7 @@ use crate::reportal_config::ReportalConfig;
 /// output would mask typos), or config I/O errors from the
 /// underlying load path.
 pub fn run_list(filter_parts: &ListArgsFilterParts) -> Result<(), ReportalError> {
-    let loaded_config = ReportalConfig::load_from_disk()?;
+    let loaded_config = ReportalConfig::load_or_initialize()?;
     let tree_grouping = RepoTreeGrouping::build(&RepoTreeGroupingParams {
         loaded_config: &loaded_config,
         tag_filter: filter_parts.tag_filter(),

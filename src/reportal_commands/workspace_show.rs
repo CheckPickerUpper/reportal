@@ -26,7 +26,7 @@ use owo_colors::OwoColorize;
 /// member alias does not resolve, or the config / file I/O errors
 /// that the load and regeneration paths surface.
 pub fn run_workspace_show(alias_or_canonical: &str) -> Result<(), ReportalError> {
-    let loaded_config = ReportalConfig::load_from_disk()?;
+    let loaded_config = ReportalConfig::load_or_initialize()?;
     let canonical_name = loaded_config.resolve_workspace_canonical_name(alias_or_canonical)?;
     let target_workspace = loaded_config.get_workspace(&canonical_name)?;
 

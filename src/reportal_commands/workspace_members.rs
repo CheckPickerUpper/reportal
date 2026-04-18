@@ -28,7 +28,7 @@ use owo_colors::OwoColorize;
 pub fn run_workspace_add_repo(
     member_edit: &WorkspaceArgsMemberEditParts,
 ) -> Result<(), ReportalError> {
-    let mut loaded_config = ReportalConfig::load_from_disk()?;
+    let mut loaded_config = ReportalConfig::load_or_initialize()?;
     loaded_config.get_repo(member_edit.repo_alias())?;
     let canonical_workspace_name =
         loaded_config.resolve_workspace_canonical_name(member_edit.workspace_name())?;
@@ -82,7 +82,7 @@ pub fn run_workspace_add_repo(
 pub fn run_workspace_remove_repo(
     member_edit: &WorkspaceArgsMemberEditParts,
 ) -> Result<(), ReportalError> {
-    let mut loaded_config = ReportalConfig::load_from_disk()?;
+    let mut loaded_config = ReportalConfig::load_or_initialize()?;
     let canonical_workspace_name =
         loaded_config.resolve_workspace_canonical_name(member_edit.workspace_name())?;
     let target_workspace = loaded_config.get_workspace_mut(&canonical_workspace_name)?;
