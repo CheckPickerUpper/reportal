@@ -48,7 +48,7 @@ pub struct JumpCommandParams<'a> {
 /// resolves to neither a repo nor a workspace, or any error the
 /// repo-selection or workspace-regenerator paths surface.
 pub fn run_jump(jump_params: &JumpCommandParams<'_>) -> Result<(), ReportalError> {
-    let loaded_config = ReportalConfig::load_from_disk()?;
+    let loaded_config = ReportalConfig::load_or_initialize()?;
 
     let resolved_repo_alias: String = if jump_params.direct_alias.is_empty() {
         let target_params = SelectedTargetParams {
