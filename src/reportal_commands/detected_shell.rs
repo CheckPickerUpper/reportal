@@ -228,7 +228,7 @@ PROMPT_COMMAND="${{PROMPT_COMMAND:+$PROMPT_COMMAND;}}_reportal_hook"
 "#,
             version = env!("CARGO_PKG_VERSION"),
             null_device = null_device.display(),
-        );
+        )
     }
 
     /// Attempts to get the `PowerShell` profile path by running pwsh.
