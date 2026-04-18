@@ -2,7 +2,7 @@
 
 use clap::{Parser, Subcommand};
 use super::{
-    AiArgs, ColorArgs, EditArgs, JumpArgs, ListArgs,
+    AiArgs, ColorArgs, EditArgs, InitArgs, JumpArgs, ListArgs,
     OpenArgs, RemoveArgs, RunArgs, StatusArgs, SyncArgs, WebArgs, WorkspaceArgs,
 };
 
@@ -26,8 +26,22 @@ impl ReportalCli {
 /// All available subcommands for the `RePortal` CLI.
 #[derive(Subcommand)]
 pub enum ReportalCliSubcommand {
-    /// Set up config and shell integration (safe to re-run on updates)
-    Init,
+    /// Print shell integration code for the given shell to stdout.
+    ///
+    /// Wire it into your rc file with a single eval line, the same
+    /// pattern used by starship, zoxide, direnv, and mise. The binary
+    /// never writes integration files to disk and never prompts.
+    ///
+    /// Zsh / Bash:
+    ///
+    ///     eval "$(rep init zsh)"
+    ///     eval "$(rep init bash)"
+    ///
+    /// `PowerShell`:
+    ///
+    ///     Invoke-Expression (& rep init powershell | Out-String)
+    #[command(verbatim_doc_comment)]
+    Init(InitArgs),
     /// List all registered repos with status and metadata
     #[command(alias = "l")]
     List(ListArgs),

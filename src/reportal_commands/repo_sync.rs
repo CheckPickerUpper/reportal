@@ -133,7 +133,7 @@ fn print_sync_result(sync_result: &RepoSyncResult) {
 /// Skips repos with uncommitted changes (with a warning).
 /// Prints a per-repo summary showing what happened.
 pub fn run_sync(tag_filter: &TagFilter) -> Result<(), ReportalError> {
-    let loaded_config = ReportalConfig::load_from_disk()?;
+    let loaded_config = ReportalConfig::load_or_initialize()?;
     let matching_repos = loaded_config.repos_matching_tag_filter(tag_filter);
 
     if matching_repos.is_empty() {

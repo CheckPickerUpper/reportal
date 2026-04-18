@@ -27,7 +27,7 @@ use owo_colors::OwoColorize;
 pub fn run_workspace_create(
     create_parts: &WorkspaceArgsCreateParts,
 ) -> Result<(), ReportalError> {
-    let mut loaded_config = ReportalConfig::load_from_disk()?;
+    let mut loaded_config = ReportalConfig::load_or_initialize()?;
 
     let validated_registration = WorkspaceRegistrationBuilder::start(
         create_parts.workspace_name().to_owned(),

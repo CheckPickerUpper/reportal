@@ -83,7 +83,7 @@ fn resolve_from_working_directory(loaded_config: &ReportalConfig) -> Result<Opti
 /// to stdout so shell integrations can set it via the native API
 /// (e.g. `$Host.UI.RawUI.WindowTitle` in `PowerShell`).
 pub fn run_color(color_params: &ColorCommandParams<'_>) -> Result<(), ReportalError> {
-    let loaded_config = ReportalConfig::load_from_disk()?;
+    let loaded_config = ReportalConfig::load_or_initialize()?;
 
     let resolved = if color_params.repo_alias.is_empty() {
         resolve_from_working_directory(&loaded_config)?

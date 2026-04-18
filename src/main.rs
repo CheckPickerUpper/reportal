@@ -21,12 +21,13 @@ use reportal_commands::{
 };
 
 fn main() {
-    reportal_commands::ensure_integration_file_current();
-
     let parsed_cli = ReportalCli::parse();
 
     let command_result = match parsed_cli.into_subcommand() {
-        ReportalCliSubcommand::Init => reportal_commands::run_init(),
+        ReportalCliSubcommand::Init(init_args) => {
+            reportal_commands::run_init(init_args.shell());
+            Ok(())
+        }
         ReportalCliSubcommand::List(list_args) => {
             reportal_commands::run_list(&list_args.into_filter_parts())
         }

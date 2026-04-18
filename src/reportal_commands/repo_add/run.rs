@@ -100,7 +100,7 @@ fn add_remote_repo(loaded_config: &mut ReportalConfig, git_url: &str) -> Result<
 /// For local paths: detects remote and alias, prompts for metadata, registers.
 /// For git URLs: asks where to clone, clones, then prompts for metadata.
 pub fn run_add(raw_input: &str) -> Result<(), ReportalError> {
-    let mut loaded_config = ReportalConfig::load_from_disk()?;
+    let mut loaded_config = ReportalConfig::load_or_initialize()?;
 
     match classify_add_source(raw_input) {
         AddSource::LocalPath(local_path) => add_local_repo(&mut loaded_config, &local_path),

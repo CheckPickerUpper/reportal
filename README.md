@@ -74,10 +74,29 @@ cargo install --path .
 
 ## Quick start
 
-```bash
-# Set up config + shell shortcuts (rj, ro)
-rep init
+Wire the shell integration into your rc file — same pattern as `starship`, `zoxide`, `direnv`, and `mise`:
 
+**Zsh** (`~/.zshrc`):
+
+```zsh
+eval "$(rep init zsh)"
+```
+
+**Bash** (`~/.bashrc`):
+
+```bash
+eval "$(rep init bash)"
+```
+
+**PowerShell** (`$PROFILE`):
+
+```powershell
+Invoke-Expression (& rep init powershell | Out-String)
+```
+
+That's it — no disk writes, no profile editing, no prompts. The integration code is regenerated every shell session, so a `cargo install reportal` upgrade takes effect on the next terminal you open. The first time you run any `rep` subcommand, a default `~/.reportal/config.toml` is created for you.
+
+```bash
 # Register a local repo
 rep add ~/dev/my-project
 
@@ -98,7 +117,7 @@ ro
 
 | Command | Alias | What it does |
 |---------|-------|-------------|
-| `rep init` | | Creates config and installs shell integration (safe to re-run on updates) |
+| `rep init <shell>` | | Print shell integration code to stdout (zsh, bash, powershell) for `eval`-based loading |
 | `rep list` | `rep l` | Shows repos grouped by workspace, with unassigned repos in a trailing section |
 | `rep list --tag work` | | Filters repos by tag (composes with `--workspace`) |
 | `rep list --workspace backend` | | Scopes the listing to one workspace (suppresses the unassigned section) |
@@ -140,9 +159,7 @@ ro
 
 ## Shell integration
 
-On **PowerShell**, `rep init` installs a proper PowerShell module to `Documents/PowerShell/Modules/RePortal/`. Functions load via module auto-import — they work even if your `$PROFILE` has errors. Existing profile-based installs are migrated automatically.
-
-On **Bash/Zsh**, `rep init` writes a standalone script to `~/.reportal/integration.sh` and adds a source line to your shell profile. The profile line never changes between versions; updating the binary is all you need.
+`rep init <shell>` prints shell code to stdout; you load it with one `eval` line in your rc file. Nothing is ever written to disk, nothing is regenerated on upgrade, and nothing prompts the user — the same idiomatic pattern used by `starship`, `zoxide`, `direnv`, and `mise`. It works identically in TTY shells, CI runners, sandboxes, and WSL.
 
 | Shortcut | What it does |
 |----------|-------------|
@@ -157,7 +174,7 @@ On **Bash/Zsh**, `rep init` writes a standalone script to `~/.reportal/integrati
 | `rr` | Fuzzy-select a repo and run a configured command in it |
 | `rr my-api` | Skip repo selection, fuzzy-select a command |
 
-Supports PowerShell, Bash, Zsh. Detected and installed during `rep init`. Re-run `rep init` after major updates to regenerate integration files.
+Supports Zsh, Bash, and PowerShell. No re-init needed on upgrade — the `eval` in your rc file fetches fresh code from the newly-installed binary on every shell startup.
 
 ## Config
 
@@ -227,7 +244,7 @@ args = []
 | `command` | yes | — | The executable to run |
 | `args` | no | `[]` | Extra arguments passed on every launch |
 
-New configs created via `rep init` ship with claude, codex, and aider pre-registered.
+The default config created on first `rep` invocation ships with claude, codex, and aider pre-registered.
 
 ### Workspaces
 
@@ -331,6 +348,7 @@ PROMPT_COMMAND='rep color 2>/dev/null'
 - [x] Inline-path workspace members — mix registered-repo references with raw filesystem paths in the same workspace so folders can belong to a workspace without being registered as top-level repos
 - [x] Unified `rj` / `ro` — fall through to workspace aliases when no repo matches, so `rj venoble` cd's to the workspace's common-ancestor folder and `ro venoble` opens the workspace in the editor; `rjw` / `row` added as workspace-only variants
 - [x] Unified fuzzy finder in `rj` / `ro` — workspaces render alongside repos with a `[workspace]` suffix, and `rjw` / `row` with no args fuzzy-select workspaces only
+- [x] Idiomatic `rep init <shell>` — prints shell code to stdout for `eval`-based loading (starship/zoxide/direnv pattern), with lazy config bootstrap on first command
 - [ ] Interactive ratatui TUI absorbing `list` / `dash` with live git-status column
 - [ ] `dashboard` — rich overview with branches, dirty state, last commit
 - [ ] `clone --all` — clone missing repos from config (machine sync)
