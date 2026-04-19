@@ -70,6 +70,17 @@ pub fn default_path_display_format() -> PathDisplayFormat {
     PathDisplayFormat::Absolute
 }
 
+/// Returns the default workspace root when none is configured.
+///
+/// Empty string means the runtime resolver falls back to the
+/// computed default `<default_clone_root>/workspaces`, or
+/// `~/dev/workspaces` when no clone root is set. Storing empty
+/// here instead of a concrete path keeps the serialized config
+/// stable across machines with different home directories.
+pub fn default_workspace_root_value() -> String {
+    String::new()
+}
+
 /// Global settings that apply across all repos, stored in config.toml.
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ReportalSettings {
@@ -79,6 +90,16 @@ pub struct ReportalSettings {
     /// Root directory for cloning new repos into.
     #[serde(default)]
     pub(crate) default_clone_root: String,
+    /// Root directory under which workspace directories are
+    /// materialized (one directory per registered workspace,
+    /// containing a `.code-workspace` file and one symlink /
+    /// junction per member repo).
+    ///
+    /// Empty falls back to `<default_clone_root>/workspaces` at
+    /// resolution time, or `~/dev/workspaces` when no clone root
+    /// is set. Supports `~` expansion like `default_clone_root`.
+    #[serde(default = "default_workspace_root_value")]
+    pub(crate) default_workspace_root: String,
     /// Whether to print the path after selecting a repo in jump/open.
     #[serde(default = "default_path_visibility")]
     pub(crate) path_on_select: PathVisibility,
@@ -96,6 +117,7 @@ impl Default for ReportalSettings {
         Self {
             default_editor: default_editor_command(),
             default_clone_root: String::new(),
+            default_workspace_root: default_workspace_root_value(),
             path_on_select: default_path_visibility(),
             path_display_format: default_path_display_format(),
             default_ai_tool: String::new(),

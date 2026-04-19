@@ -103,41 +103,43 @@ impl<'config> DirectAliasRouter<'config> {
         }
     }
 
-    /// Prints the workspace's `.code-workspace` file parent
-    /// directory to stdout so the `rj` shell wrapper cd's there.
+    /// Prints the workspace's materialized directory path to
+    /// stdout so the `rj` / `rjw` shell wrappers cd there.
     ///
-    /// The parent directory is the common ancestor the user
-    /// declared when they chose the workspace file location, which
-    /// is the predictable cd target for a multi-folder workspace —
-    /// no single member directory is correct when the workspace
-    /// contains three sibling repos.
+    /// Auto-rebuilds the workspace directory on the fly when it
+    /// does not exist yet — covers both first-use after a pre-v0.15.2
+    /// upgrade (where only a loose `.code-workspace` file exists
+    /// under `~/.reportal/workspaces/`) and the case where the user
+    /// manually deleted the directory. Rebuild is transparent: no
+    /// user interaction, just ensures `cd` lands in a usable place.
     ///
     /// # Errors
     ///
     /// Returns [`ReportalError::WorkspaceNotFound`] if the workspace
-    /// disappears between alias resolution and file-path resolution,
-    /// or [`ReportalError::ConfigIoFailure`] if the default
-    /// `~/.reportal/workspaces/` location needs the home directory
-    /// and it cannot be resolved.
+    /// disappears between alias resolution and directory resolution,
+    /// [`ReportalError::RepoNotFound`] if a member alias does not
+    /// resolve during auto-rebuild, or
+    /// [`ReportalError::ConfigIoFailure`] /
+    /// [`ReportalError::CodeWorkspaceIoFailure`] if the default
+    /// location needs the home directory or the rebuild fails.
     pub fn jump_to_workspace_parent(
         &self,
         canonical_workspace_name: &str,
     ) -> Result<(), ReportalError> {
         let regenerator = WorkspaceRegenerator::for_config(self.loaded_config);
-        let workspace_file_path =
-            regenerator.resolve_workspace_file_path(canonical_workspace_name)?;
-        let target_directory = match workspace_file_path.parent() {
-            Some(parent_directory) => parent_directory.to_path_buf(),
-            None => std::path::PathBuf::from("."),
-        };
+        let workspace_directory =
+            regenerator.resolve_workspace_directory(canonical_workspace_name)?;
+        if !workspace_directory.exists() {
+            regenerator.regenerate_workspace_file(canonical_workspace_name)?;
+        }
         let formatted_path = self
             .loaded_config
             .path_display_format()
-            .format_path(&target_directory);
+            .format_path(&workspace_directory);
         terminal_style::write_stdout(&formatted_path);
         path_display::print_selected_path_if_visible(&SelectedPathDisplayParams {
             loaded_config: self.loaded_config,
-            resolved_path: &target_directory,
+            resolved_path: &workspace_directory,
         });
         Ok(())
     }

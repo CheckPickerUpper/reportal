@@ -1,22 +1,29 @@
-//! Regeneration of `.code-workspace` files from the current config.
+//! Regeneration of workspace directories + `.code-workspace` files
+//! from the current config.
 //!
 //! `WorkspaceRegenerator` is the single chokepoint through which
-//! every `rep workspace` subcommand writes a `.code-workspace` file,
-//! so the resolution of member repo aliases to absolute paths and
-//! the decision of where the file lives on disk cannot drift between
-//! callers. The struct holds a borrowed reference to
-//! `ReportalConfig` so each helper method carries the registry
-//! context via `&self` and takes at most one additional argument,
-//! which is the shape required by the project's param-count rules.
+//! every `rep workspace` subcommand materializes a workspace on
+//! disk, so the resolution of member repo aliases to absolute
+//! paths, the decision of where the workspace directory lives on
+//! disk, and the symlink / junction creation all stay in one place
+//! and cannot drift between callers.
+//!
+//! Since v0.15.2 the workspace is a real directory on disk that
+//! contains the `.code-workspace` file plus one symlink / junction
+//! per member repo, not a loose `.code-workspace` file under
+//! `~/.reportal/workspaces/`. The regenerator creates and maintains
+//! that directory structure via the `workspace_layout` module.
 
-use crate::code_workspace::CodeWorkspaceFile;
 use crate::error::ReportalError;
-use crate::reportal_config::{
-    ReportalConfig, WorkspaceEntry, WorkspaceMember,
+use crate::reportal_commands::workspace_layout::{
+    materialize_workspace_layout, workspace_file_path_inside_dir, WorkspaceLayoutParams,
+    WorkspaceLinkSpec,
 };
+use crate::reportal_config::{ReportalConfig, WorkspaceEntry, WorkspaceMember};
 use std::path::PathBuf;
 
-/// Regenerates `.code-workspace` files from a borrowed config.
+/// Regenerates workspace directories and their `.code-workspace`
+/// files from a borrowed config.
 ///
 /// Constructed once per command invocation with
 /// `WorkspaceRegenerator::for_config(&config)` and then asked to
@@ -29,8 +36,8 @@ pub struct WorkspaceRegenerator<'config_lifetime> {
     config_registry: &'config_lifetime ReportalConfig,
 }
 
-/// Regeneration methods that walk workspace membership and write
-/// the resulting `.code-workspace` file to disk.
+/// Regeneration methods that walk workspace membership and produce
+/// the materialized workspace directory on disk.
 impl<'config_lifetime> WorkspaceRegenerator<'config_lifetime> {
     /// Builds a regenerator that reads workspace and repo data from
     /// the given config reference.
@@ -39,126 +46,143 @@ impl<'config_lifetime> WorkspaceRegenerator<'config_lifetime> {
         Self { config_registry }
     }
 
-    /// Regenerates the on-disk `.code-workspace` file for the named
-    /// workspace and returns the resolved file path.
+    /// Rebuilds the workspace directory, its member symlinks /
+    /// junctions, and its `.code-workspace` file, and returns the
+    /// path of the workspace file.
     ///
-    /// Loads the existing file if present so the parse-merge-write
-    /// path preserves user-authored top-level fields (settings,
-    /// extensions, launch, tasks, comments) byte-for-byte, replaces
-    /// only the `folders` array with entries built from the current
-    /// absolute paths of the member repos in declared order, and
-    /// writes the mutated document back. Creates the parent
-    /// directory if the default location under
-    /// `~/.reportal/workspaces/` does not yet exist.
+    /// Idempotent: running against an existing workspace directory
+    /// updates links whose targets have moved, leaves correct links
+    /// alone, and preserves user-authored fields inside the
+    /// `.code-workspace` file (only the `folders` array is replaced).
     ///
     /// # Errors
     ///
     /// Returns [`ReportalError::WorkspaceNotFound`] if the workspace
-    /// name is not registered, [`ReportalError::RepoNotFound`] if any
-    /// member alias does not resolve to a registered repo,
-    /// [`ReportalError::ConfigIoFailure`] if the home directory
-    /// cannot be resolved for the default path, or
+    /// name is not registered, [`ReportalError::RepoNotFound`] if
+    /// any member alias does not resolve, or
     /// [`ReportalError::CodeWorkspaceIoFailure`] /
-    /// [`ReportalError::CodeWorkspaceParseFailure`] if reading,
-    /// parsing, or writing the file fails.
+    /// [`ReportalError::ValidationFailure`] for directory, link, or
+    /// `.code-workspace` I/O failures surfaced by
+    /// [`materialize_workspace_layout`].
     pub fn regenerate_workspace_file(
         &self,
         workspace_name: &str,
     ) -> Result<PathBuf, ReportalError> {
         let target_workspace = self.config_registry.get_workspace(workspace_name)?;
-        let member_absolute_paths = self.resolve_member_repo_paths(target_workspace)?;
-        let workspace_file_path = self.resolve_workspace_file_path(workspace_name)?;
-        let mut code_workspace_document =
-            CodeWorkspaceFile::load_or_empty(&workspace_file_path)?;
-        code_workspace_document.set_folder_paths(&member_absolute_paths);
-        code_workspace_document.write_to_disk(&workspace_file_path)?;
-        Ok(workspace_file_path)
+        let member_links = self.build_member_link_specs(target_workspace)?;
+        let workspace_directory = self.resolve_workspace_directory(workspace_name)?;
+        materialize_workspace_layout(&WorkspaceLayoutParams {
+            workspace_directory: &workspace_directory,
+            workspace_name,
+            member_links: &member_links,
+        })
     }
 
-    /// Resolves every member repo alias in the given workspace to
-    /// its absolute filesystem path, preserving the declared order.
+    /// Resolves the absolute path of the workspace's on-disk
+    /// directory (the one that contains the `.code-workspace` file
+    /// and member symlinks / junctions).
     ///
-    /// The ordering is load-bearing because it determines the
-    /// folder order in the editor sidebar, so callers that later
-    /// write these paths into the `folders` array get the same
-    /// visual ordering the user declared in config.
+    /// Honors an explicit `path` field on the entry if set. Pre-v0.15.2
+    /// entries that still store a `.code-workspace` file path in
+    /// that field are interpreted as legacy and mapped to the
+    /// default layout under `<default_workspace_root>/<name>/`, so
+    /// `rjw` on an un-migrated workspace still lands in the right
+    /// place. Empty `path` falls back to that same default.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ReportalError::WorkspaceNotFound`] if the name is
+    /// unknown, or [`ReportalError::ConfigIoFailure`] if the home
+    /// directory is needed for the default and cannot be resolved.
+    pub fn resolve_workspace_directory(
+        &self,
+        workspace_name: &str,
+    ) -> Result<PathBuf, ReportalError> {
+        let target_workspace = self.config_registry.get_workspace(workspace_name)?;
+        let raw_path = target_workspace.raw_workspace_file_path().trim();
+        if raw_path.is_empty() || target_workspace.is_legacy_file_path() {
+            let default_root = self.config_registry.resolve_default_workspace_root()?;
+            return Ok(default_root.join(workspace_name));
+        }
+        let expanded_path = shellexpand::tilde(raw_path);
+        Ok(PathBuf::from(expanded_path.as_ref()))
+    }
+
+    /// Resolves the absolute path of the `.code-workspace` file
+    /// the `rep workspace open` / `row` commands should launch.
+    ///
+    /// The file lives inside the workspace directory as
+    /// `<workspace-dir>/<name>.code-workspace`.
+    ///
+    /// # Errors
+    ///
+    /// Returns the same error set as
+    /// [`Self::resolve_workspace_directory`].
+    pub fn resolve_workspace_file_path(
+        &self,
+        workspace_name: &str,
+    ) -> Result<PathBuf, ReportalError> {
+        let directory = self.resolve_workspace_directory(workspace_name)?;
+        Ok(workspace_file_path_inside_dir(&directory, workspace_name))
+    }
+
+    /// Resolves every workspace member to the link-spec shape the
+    /// layout materializer consumes: a short link name (the repo
+    /// alias, or the inline path's file-stem) and the absolute
+    /// target path.
+    ///
+    /// Inline-path members fall back to the path's final component
+    /// for the link name, preserving the pre-v0.15.2 behavior where
+    /// inline members had no stable identifier beyond their path.
+    /// The declared order is preserved so the `.code-workspace`
+    /// `folders[]` order and the on-disk directory listing match
+    /// what the user wrote.
     ///
     /// # Errors
     ///
     /// Returns [`ReportalError::RepoNotFound`] at the first alias
     /// that does not resolve against the repo registry.
-    fn resolve_member_repo_paths(
+    fn build_member_link_specs(
         &self,
         target_workspace: &WorkspaceEntry,
-    ) -> Result<Vec<PathBuf>, ReportalError> {
+    ) -> Result<Vec<WorkspaceLinkSpec>, ReportalError> {
         let declared_members = target_workspace.members();
-        let mut resolved_paths = Vec::with_capacity(declared_members.len());
+        let mut resolved_specs = Vec::with_capacity(declared_members.len());
         for member in declared_members {
             match member {
                 WorkspaceMember::RegisteredRepo(repo_alias) => {
                     let member_repo = self.config_registry.get_repo(repo_alias)?;
-                    resolved_paths.push(member_repo.resolved_path());
+                    resolved_specs.push(WorkspaceLinkSpec {
+                        link_name: repo_alias.clone(),
+                        target_absolute_path: member_repo.resolved_path(),
+                    });
                 }
                 WorkspaceMember::InlinePath { path } => {
                     let expanded = shellexpand::tilde(path);
-                    resolved_paths.push(PathBuf::from(expanded.as_ref()));
+                    let target_path = PathBuf::from(expanded.as_ref());
+                    let link_name = inline_path_link_name(&target_path);
+                    resolved_specs.push(WorkspaceLinkSpec {
+                        link_name,
+                        target_absolute_path: target_path,
+                    });
                 }
             }
         }
-        Ok(resolved_paths)
-    }
-
-    /// Resolves the on-disk location of the `.code-workspace` file
-    /// for the named workspace.
-    ///
-    /// Honors an explicit `path` field if the workspace entry sets
-    /// one, expanding a leading `~` against the user home directory.
-    /// Falls back to the default location
-    /// `~/.reportal/workspaces/<name>.code-workspace` when the field
-    /// is empty so workspaces created without a custom path land in
-    /// a predictable directory reportal fully owns.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`ReportalError::WorkspaceNotFound`] if the name does
-    /// not match a registered workspace, or
-    /// [`ReportalError::ConfigIoFailure`] if the home directory is
-    /// needed for the default location and cannot be resolved.
-    pub fn resolve_workspace_file_path(
-        &self,
-        workspace_name: &str,
-    ) -> Result<PathBuf, ReportalError> {
-        let target_workspace = self.config_registry.get_workspace(workspace_name)?;
-        let raw_path = target_workspace.raw_workspace_file_path();
-        if raw_path.is_empty() {
-            return default_workspace_file_location(workspace_name);
-        }
-        let expanded_path = shellexpand::tilde(raw_path);
-        Ok(PathBuf::from(expanded_path.as_ref()))
+        Ok(resolved_specs)
     }
 }
 
-/// Computes the default on-disk location for a workspace file when
-/// the workspace entry does not declare a custom path.
+/// Derives a short, stable link name for an inline-path workspace
+/// member from the path's final component.
 ///
-/// The path is `~/.reportal/workspaces/<name>.code-workspace`, which
-/// places every default-located workspace in a single directory
-/// under reportal's config root so discovery, cleanup, and manual
-/// inspection are all straightforward.
-///
-/// # Errors
-///
-/// Returns [`ReportalError::ConfigIoFailure`] if the home directory
-/// cannot be resolved, because without a home directory there is no
-/// well-defined default location and silently falling back to a
-/// relative path would produce an unpredictable file on disk.
-fn default_workspace_file_location(workspace_name: &str) -> Result<PathBuf, ReportalError> {
-    let home_directory =
-        dirs::home_dir().ok_or_else(|| ReportalError::ConfigIoFailure {
-            reason: "Could not determine home directory".to_owned(),
-        })?;
-    Ok(home_directory
-        .join(".reportal")
-        .join("workspaces")
-        .join(format!("{workspace_name}.code-workspace")))
+/// Falls back to `"inline"` if the path has no usable final
+/// component (e.g. a bare `/`), which is unlikely in practice but
+/// keeps the materializer from ever emitting an empty link name.
+fn inline_path_link_name(target_path: &std::path::Path) -> String {
+    target_path
+        .file_name()
+        .map_or_else(
+            || "inline".to_owned(),
+            |os_str| os_str.to_string_lossy().into_owned(),
+        )
 }
