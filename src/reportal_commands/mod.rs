@@ -31,10 +31,12 @@ mod workspace_create;
 mod workspace_delete;
 mod workspace_dispatch;
 mod workspace_jump;
+mod workspace_layout;
 mod workspace_listing;
 mod workspace_members;
 mod workspace_open;
 mod workspace_operations;
+mod workspace_rebuild;
 mod workspace_show;
 
 pub use color_command_mode::ColorCommandMode;
@@ -60,4 +62,5 @@ pub use workspace_jump::run_workspace_jump;
 pub use workspace_listing::run_workspace_list;
 pub use workspace_members::{run_workspace_add_repo, run_workspace_remove_repo};
 pub use workspace_open::run_workspace_open;
+pub use workspace_rebuild::run_workspace_rebuild;
 pub use workspace_show::run_workspace_show;

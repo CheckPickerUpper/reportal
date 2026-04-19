@@ -150,12 +150,14 @@ ro
 | `rep run my-api` | `rep r my-api` | Skip repo selection, fuzzy-select a command to run |
 | `rep run --cmd test` | | Skip command selection, fuzzy-select a repo to run "test" in |
 | `rep run my-api --cmd test` | | Run "test" directly in my-api (no fuzzy menus) |
-| `rep workspace list` | `rep ws ls` | List all registered VSCode/Cursor workspaces with their member repos |
-| `rep workspace show <name>` | | Show a workspace's description, file path, and resolved member paths |
-| `rep workspace create <name> --repos a,b,c` | | Register a new workspace and write its `.code-workspace` file |
-| `rep workspace delete <name>` | `rep ws rm` | Unregister a workspace (leaves the `.code-workspace` file on disk) |
-| `rep workspace add-repo <name> <alias>` | | Add a repo to a workspace and regenerate its file |
-| `rep workspace remove-repo <name> <alias>` | | Remove a repo from a workspace and regenerate its file |
+| `rep workspace list` | `rep ws ls` | List all registered VSCode/Cursor workspaces with their directory path |
+| `rep workspace show <name>` | | Show a workspace's description, directory path, and resolved member links |
+| `rep workspace create <name> --repos a,b,c` | | Register a workspace and materialize its directory (symlinks + `.code-workspace`) |
+| `rep workspace delete <name>` | `rep ws rm` | Unregister a workspace (leaves the directory on disk) |
+| `rep workspace delete <name> --purge` | | Unregister AND remove the workspace directory (member repos untouched) |
+| `rep workspace rebuild <name>` | | Recreate the workspace directory's symlinks and `.code-workspace` file from config |
+| `rep workspace add-repo <name> <alias>` | | Add a repo to a workspace and rebuild its directory |
+| `rep workspace remove-repo <name> <alias>` | | Remove a repo from a workspace and rebuild its directory |
 | `rep workspace open <name>` | | Open a workspace in your default editor |
 | `rep doctor` | | Diagnose config, shell integration, and repo path issues |
 
@@ -166,11 +168,11 @@ ro
 | Shortcut | What it does |
 |----------|-------------|
 | `rj` | Fuzzy-select a repo and `cd` into it |
-| `rj my-api` | Jump directly to a repo by alias; falls through to a workspace alias if no repo matches (cd's to the workspace's common-ancestor folder) |
+| `rj my-api` | Jump directly to a repo by alias; falls through to a workspace alias if no repo matches (cd's into the workspace directory, where member repos appear as subdirs via symlink/junction) |
 | `ro` | Fuzzy-select a repo and open it in your editor |
 | `ro my-api` | Open a repo directly by alias; falls through to a workspace alias if no repo matches (opens the `.code-workspace` file) |
-| `rjw my-ws` | Workspace-only jump — resolves the alias strictly against `[workspaces.*]` and cd's to the workspace file's parent dir |
-| `row my-ws` | Workspace-only open — launches the editor on the `.code-workspace` file |
+| `rjw my-ws` | Workspace-only jump — resolves the alias strictly against `[workspaces.*]` and cd's into the workspace directory |
+| `row my-ws` | Workspace-only open — launches the editor on the `.code-workspace` file inside the workspace directory |
 | `rw` | Fuzzy-select a repo and open it in the browser |
 | `rw my-api` | Open a repo's remote directly by alias |
 | `rr` | Fuzzy-select a repo and run a configured command in it |
@@ -186,6 +188,7 @@ Lives at `~/.reportal/config.toml`:
 [settings]
 default_editor = "cursor"
 default_clone_root = "~/dev"
+default_workspace_root = "~/dev/workspaces"  # where rep materializes workspace dirs
 path_on_select = "show"           # "show" or "hide" — print path after jump/open
 path_display_format = "absolute"  # "absolute" or "relative"
 
@@ -207,6 +210,7 @@ tags = ["personal", "frontend"]
 |---------|--------|---------|-----------------|
 | `default_editor` | Any command | `cursor` | Editor for `rep open` |
 | `default_clone_root` | Any path | `~/dev` | Where `rep add <url>` clones to |
+| `default_workspace_root` | Any path | `<default_clone_root>/workspaces` (falls back to `~/dev/workspaces`) | Parent directory for materialized workspace directories |
 | `path_on_select` | `show`, `hide` | `show` | Print path after picking a repo in jump/open |
 | `path_display_format` | `absolute`, `relative` | `absolute` | Full path or relative to current directory |
 | `default_ai_tool` | Any tool name | `claude` | Which AI CLI `rep ai` launches by default |
@@ -250,9 +254,22 @@ The default config created on first `rep` invocation ships with claude, codex, a
 
 ### Workspaces
 
-A workspace is a named group of repos that open together as one VSCode/Cursor window. RePortal owns the `[workspaces.<name>]` table as the single source of truth, and the `.code-workspace` file on disk is a derived artifact generated from the member repos' current paths.
+A workspace is a named group of repos that open together as one VSCode/Cursor window, **and** a real directory on disk containing one symlink (Unix) or directory junction (Windows) per member. RePortal owns the `[workspaces.<name>]` table as the single source of truth; the on-disk directory (symlinks + `.code-workspace` file) is a derived artifact generated from the member repos' current paths.
+
+```
+~/dev/workspaces/backend/
+    backend.code-workspace    # folders[] uses relative "./api", "./worker", ...
+    api      → ~/dev/services/api           (symlink on Unix, junction on Windows)
+    worker   → ~/dev/services/worker
+    db-migrations → ~/dev/db-migrations
+```
+
+`rjw backend` cd's into `~/dev/workspaces/backend/`, so `ls`, `claude`, `cargo test`, your IDE — everything sees every member repo as a subdirectory. The symlinks are transparent: `git`, editors, and build tools all resolve them to the real repo.
 
 ```toml
+[settings]
+default_workspace_root = "~/dev/workspaces"   # where workspace directories live
+
 [workspaces.backend]
 repos = [
     "api",                                    # registered-repo reference
@@ -260,18 +277,24 @@ repos = [
     { path = "~/dev/db-migrations" },         # inline filesystem path (no repo registry entry needed)
 ]
 description = "Jakuta backend services"
-path = ""                                     # empty = ~/.reportal/workspaces/backend.code-workspace
+path = ""                                     # empty = <default_workspace_root>/backend/
 aliases = ["be", "back"]                      # short names accepted by rep workspace <sub>
 ```
 
 | Field | Required | Default | What it controls |
 |-------|----------|---------|-----------------|
-| `repos` | yes | — | Ordered list of members. Each entry is either a **bare string** (alias of a registered repo — gets the path-change reverse index) or an **inline table** `{ path = "..." }` (raw filesystem path — bypasses the repo registry entirely). Order matches the editor sidebar. Bare-string members must resolve to a registered repo; inline-path members are not validated against the repo registry |
+| `repos` | yes | — | Ordered list of members. Each entry is either a **bare string** (alias of a registered repo — gets the path-change reverse index) or an **inline table** `{ path = "..." }` (raw filesystem path — bypasses the repo registry entirely). Order matches the editor sidebar and the on-disk link listing. Bare-string members must resolve to a registered repo; inline-path members are not validated against the repo registry |
 | `description` | no | `""` | Human-readable description shown in `rep workspace list` |
-| `path` | no | `""` | Filesystem path for the `.code-workspace` file. Empty falls back to `~/.reportal/workspaces/<name>.code-workspace` |
+| `path` | no | `""` | Filesystem path for the workspace directory (the one containing the symlinks and the `.code-workspace` file). Empty falls back to `<default_workspace_root>/<name>/`. Pre-v0.15.2 configs may still store a `.code-workspace` file path here — those are auto-migrated on first `rep workspace jump` / `rebuild` |
 | `aliases` | no | `[]` | Short names that resolve to this workspace in `rep workspace` subcommands. Must not collide with any repo name/alias or another workspace's name/alias — enforced at config load |
 
-**Regeneration is automatic for registered-repo members.** When you change a repo's path via `rep edit`, every workspace whose `repos` field references it as a bare-string alias regenerates its `.code-workspace` file. Inline-path members (`{ path = "..." }`) are NOT tracked by the reverse index — moving an inline-path folder requires editing the `path` value in `~/.reportal/config.toml` yourself. User-authored fields inside the file (`settings`, `extensions`, `launch`, `tasks`, plus any JSONC comments) round-trip byte-stable across regeneration — RePortal only touches the `folders` array.
+**Platform-specific linking is transparent.** On Unix the member entries are symlinks (`ln -s`); on Windows they are directory junctions (via the `junction` crate, no elevation required). `cd`, `ls`, and every build tool follow both transparently — the user doesn't need to know which form is used.
+
+**Regeneration is automatic for registered-repo members.** When you change a repo's path via `rep edit`, every workspace whose `repos` field references it as a bare-string alias rebuilds its directory — stale symlinks get redirected at the new target, and the `.code-workspace` file is refreshed. Inline-path members (`{ path = "..." }`) are NOT tracked by the reverse index — moving an inline-path folder requires editing the `path` value in `~/.reportal/config.toml` yourself. User-authored fields inside the `.code-workspace` file (`settings`, `extensions`, `launch`, `tasks`, plus any JSONC comments) round-trip byte-stable across regeneration — RePortal only touches the `folders` array.
+
+**If the workspace directory is missing or stale**, run `rep workspace rebuild <name>` to regenerate the symlinks and `.code-workspace` file from config. The command is idempotent and does not move or modify the member repos themselves — only the links inside the workspace directory.
+
+**`rep workspace delete <name>` only removes the config entry by default.** Pass `--purge` to also delete the on-disk workspace directory (symlinks + `.code-workspace` file). Member repos are never touched; a purge just removes the thin directory of links.
 
 **Removing a repo that's still a workspace member is refused** with a message listing the blocking workspaces. Remove the repo from each workspace first (or delete those workspaces), then retry. This keeps destructive membership changes explicit.
 
@@ -351,6 +374,7 @@ PROMPT_COMMAND='rep color 2>/dev/null'
 - [x] Unified `rj` / `ro` — fall through to workspace aliases when no repo matches, so `rj venoble` cd's to the workspace's common-ancestor folder and `ro venoble` opens the workspace in the editor; `rjw` / `row` added as workspace-only variants
 - [x] Unified fuzzy finder in `rj` / `ro` — workspaces render alongside repos with a `[workspace]` suffix, and `rjw` / `row` with no args fuzzy-select workspaces only
 - [x] Idiomatic `rep init <shell>` — prints shell code to stdout for `eval`-based loading (starship/zoxide/direnv pattern), with lazy config bootstrap on first command
+- [x] Workspaces as real directories — each workspace is materialized under `~/dev/workspaces/<name>/` with one symlink (Unix) or junction (Windows) per member repo plus the `.code-workspace` file inside; `rjw` cd's there so terminal and editor both see members as subdirs, and `rep workspace rebuild` / `delete --purge` manage the on-disk layout
 - [ ] Interactive ratatui TUI absorbing `list` / `dash` with live git-status column
 - [ ] `dashboard` — rich overview with branches, dirty state, last commit
 - [ ] `clone --all` — clone missing repos from config (machine sync)

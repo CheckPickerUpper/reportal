@@ -284,6 +284,31 @@ impl ReportalConfig {
         &self.settings.default_editor
     }
 
+    /// Resolves the default workspace root to an absolute path
+    /// with `~` expanded, honoring the fallback chain:
+    /// explicit `default_workspace_root` setting →
+    /// `<default_clone_root>/workspaces` → `~/dev/workspaces`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ReportalError::ConfigIoFailure`] if the home
+    /// directory is needed for the final fallback and cannot be
+    /// resolved.
+    pub fn resolve_default_workspace_root(&self) -> Result<PathBuf, ReportalError> {
+        let explicit_root = self.settings.default_workspace_root.trim();
+        if !explicit_root.is_empty() {
+            let expanded = shellexpand::tilde(explicit_root);
+            return Ok(PathBuf::from(expanded.as_ref()));
+        }
+        let clone_root = self.settings.default_clone_root.trim();
+        if !clone_root.is_empty() {
+            let expanded = shellexpand::tilde(clone_root);
+            return Ok(PathBuf::from(expanded.as_ref()).join("workspaces"));
+        }
+        let home_directory = resolve_home_directory()?;
+        Ok(home_directory.join("dev").join("workspaces"))
+    }
+
     /// Whether to show the path after selecting a repo.
     pub fn path_on_select(&self) -> &PathVisibility {
         &self.settings.path_on_select
@@ -535,6 +560,7 @@ impl ReportalConfig {
             settings: ReportalSettings {
                 default_editor: "cursor".to_owned(),
                 default_clone_root: "~/dev".to_owned(),
+                default_workspace_root: "~/dev/workspaces".to_owned(),
                 path_on_select: PathVisibility::Show,
                 path_display_format: PathDisplayFormat::Absolute,
                 default_ai_tool: "claude".to_owned(),
