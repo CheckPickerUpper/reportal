@@ -266,6 +266,15 @@ jobs:
         run: |
           # Remove the granular manifests
           rm -f artifacts/*-dist-manifest.json
+      - name: Stage custom installers
+        run: |
+          # Ship our own install.sh / install.ps1 (cargo-dist's templated
+          # installers have no post-install hook, so they can't wire up the
+          # shell integration). Reuse the historical asset names so existing
+          # curl/irm URLs in README/docs keep working.
+          cp installer/install.sh  artifacts/reportal-installer.sh
+          cp installer/install.ps1 artifacts/reportal-installer.ps1
+          chmod +x artifacts/reportal-installer.sh
       - name: Create GitHub Release
         env:
           PRERELEASE_FLAG: "${{ fromJson(steps.host.outputs.manifest).announcement_is_prerelease && '--prerelease' || '' }}"

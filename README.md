@@ -64,6 +64,8 @@ curl --proto '=https' --tlsv1.2 -LsSf https://github.com/CheckPickerUpper/report
 powershell -ExecutionPolicy Bypass -c "irm https://github.com/CheckPickerUpper/reportal/releases/latest/download/reportal-installer.ps1 | iex"
 ```
 
+Both installers drop the binaries into a user-local directory and auto-append an idempotent `eval "$(rep init <shell>)"` block (or the PowerShell equivalent) to your shell rc file, so integration is wired up on the next shell start — no manual rc editing required.
+
 ### From source
 
 ```bash
