@@ -40,6 +40,7 @@ mod workspace_show;
 pub use color_command_mode::ColorCommandMode;
 pub use doctor::run_doctor;
 pub use initialization::run_init;
+pub use shell_integration::ensure_shell_integration_installed;
 pub use repo_add::run_add;
 pub use repo_ai::{run_ai, AiCommandParams};
 pub use repo_edit::{run_edit, EditCommandParams};
