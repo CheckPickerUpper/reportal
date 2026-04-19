@@ -30,10 +30,19 @@ pub struct WorkspaceEntry {
     /// Human-readable description of what this workspace is for.
     #[serde(default)]
     pub(super) description: String,
-    /// Filesystem path where the `.code-workspace` file is written.
+    /// Filesystem path of the workspace directory on disk.
     ///
-    /// May contain `~` for home. When empty, the default location is
-    /// `~/.reportal/workspaces/<name>.code-workspace`.
+    /// Semantic change in v0.15.2: this field now stores the
+    /// directory that contains the workspace's symlinks and the
+    /// `<name>.code-workspace` file, not the workspace file itself.
+    /// May contain `~` for home. When empty, the default location
+    /// is `<default_workspace_root>/<name>/` as resolved from the
+    /// `[settings]` table.
+    ///
+    /// Pre-v0.15.2 configs stored the `.code-workspace` file path
+    /// here (detected by a trailing `.code-workspace` component).
+    /// Such entries are auto-migrated on the first `rep workspace
+    /// jump` / `open` / `rebuild` that touches them.
     #[serde(default)]
     pub(super) path: String,
     /// Alternative short names that resolve to this workspace's
@@ -84,12 +93,45 @@ impl WorkspaceEntry {
         &self.description
     }
 
-    /// The raw `.code-workspace` file path as stored in config, before
-    /// tilde expansion. An empty string signals that the default
-    /// location under `~/.reportal/workspaces/` should be used.
+    /// The raw workspace directory path as stored in config, before
+    /// tilde expansion.
+    ///
+    /// Since v0.15.2 this is the directory containing the symlinks
+    /// and the `.code-workspace` file, not the `.code-workspace`
+    /// file path itself. An empty string signals that the default
+    /// location `<default_workspace_root>/<name>/` should be used.
+    /// Pre-v0.15.2 configs may still store a path ending in
+    /// `.code-workspace`; use [`Self::is_legacy_file_path`] to
+    /// detect and migrate such entries.
     #[must_use]
     pub fn raw_workspace_file_path(&self) -> &str {
         &self.path
+    }
+
+    /// Whether the stored `path` looks like a pre-v0.15.2
+    /// `.code-workspace` file path (rather than a workspace
+    /// directory).
+    ///
+    /// True when the stored path ends with the `.code-workspace`
+    /// extension. Callers use this to trigger auto-migration on
+    /// the first command that touches the entry after upgrade.
+    #[must_use]
+    pub fn is_legacy_file_path(&self) -> bool {
+        let trimmed = self.path.trim();
+        !trimmed.is_empty()
+            && std::path::Path::new(trimmed)
+                .extension()
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("code-workspace"))
+    }
+
+    /// Replaces the workspace directory path stored in config.
+    ///
+    /// Used by the auto-migration path to formalize the move from
+    /// a legacy `.code-workspace`-file-path entry to the new
+    /// directory-based layout, and by any future `rep workspace
+    /// move` subcommand.
+    pub fn set_workspace_directory_path(&mut self, new_directory_path: String) {
+        self.path = new_directory_path;
     }
 
     /// Whether the given repo alias is a registered-repo member of

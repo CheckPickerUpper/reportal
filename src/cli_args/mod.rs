@@ -34,5 +34,6 @@ pub use status_args::StatusArgs;
 pub use sync_args::SyncArgs;
 pub use web_args::WebArgs;
 pub use workspace_args::{
-    WorkspaceArgs, WorkspaceArgsCreateParts, WorkspaceArgsMemberEditParts, WorkspaceArgsSubcommand,
+    WorkspaceArgs, WorkspaceArgsCreateParts, WorkspaceArgsDeleteParts, WorkspaceArgsMemberEditParts,
+    WorkspaceArgsSubcommand,
 };

@@ -1,6 +1,6 @@
 [package]
 name = "reportal"
-version = "0.15.1"
+version = "0.15.2"
 edition = "2021"
 description = "A fast, cross-platform CLI for jumping between, opening, and managing your dev repos"
 license = "MIT"
@@ -25,6 +25,9 @@ anyhow = "1"
 shellexpand = "3"
 pathdiff = "0.2"
 open = "5"
+
+[target.'cfg(windows)'.dependencies]
+junction = "1"
 
 [lints.clippy]
 allow_attributes_without_reason = "warn"
