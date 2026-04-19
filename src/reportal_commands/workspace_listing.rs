@@ -5,6 +5,7 @@
 //! a glance which workspaces exist and what each one groups together.
 
 use crate::error::ReportalError;
+use crate::reportal_commands::workspace_operations::WorkspaceRegenerator;
 use crate::reportal_config::{HasAliases, ReportalConfig};
 use crate::terminal_style;
 use owo_colors::OwoColorize;
@@ -41,6 +42,7 @@ pub fn run_workspace_list() -> Result<(), ReportalError> {
     ));
     terminal_style::write_stdout("\n");
 
+    let regenerator = WorkspaceRegenerator::for_config(&loaded_config);
     for (workspace_name, workspace_entry) in &registered_workspaces {
         let uppercase_name = workspace_name.to_uppercase();
         terminal_style::write_stdout(&format!(
@@ -61,6 +63,14 @@ pub fn run_workspace_list() -> Result<(), ReportalError> {
                 "     {} {}\n",
                 "Aliases:".style(terminal_style::LABEL_STYLE),
                 workspace_entry.aliases().join(", ").style(terminal_style::ALIAS_STYLE),
+            ));
+        }
+
+        if let Ok(workspace_directory) = regenerator.resolve_workspace_directory(workspace_name) {
+            terminal_style::write_stdout(&format!(
+                "     {} {}\n",
+                "Dir:".style(terminal_style::LABEL_STYLE),
+                workspace_directory.display().to_string().style(terminal_style::PATH_STYLE),
             ));
         }
 
