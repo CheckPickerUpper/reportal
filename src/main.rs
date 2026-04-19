@@ -22,8 +22,19 @@ use reportal_commands::{
 
 fn main() {
     let parsed_cli = ReportalCli::parse();
+    let subcommand = parsed_cli.into_subcommand();
 
-    let command_result = match parsed_cli.into_subcommand() {
+    // First-run auto-wire: if the shell integration isn't already
+    // sourced, silently append the fenced eval block to the user's rc
+    // file so `cargo install reportal` users don't have to edit their
+    // rc file by hand. Skipped for `rep init` because that subcommand
+    // is consumed via `eval "$(rep init zsh)"`, where any stderr
+    // noise would appear on every shell startup.
+    if !matches!(subcommand, ReportalCliSubcommand::Init(_)) {
+        reportal_commands::ensure_shell_integration_installed();
+    }
+
+    let command_result = match subcommand {
         ReportalCliSubcommand::Init(init_args) => {
             reportal_commands::run_init(init_args.shell());
             Ok(())
