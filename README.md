@@ -76,7 +76,7 @@ cargo install --path .
 
 ## Quick start
 
-Wire the shell integration into your rc file — same pattern as `starship`, `zoxide`, `direnv`, and `mise`:
+Shell integration is auto-wired the first time you run any `rep` subcommand: the binary detects that the integration isn't sourced yet, appends an idempotent fenced `eval` block to your rc file (`~/.zshrc`, `~/.bashrc`, or `$PROFILE`), and prints a single `source your-rc` hint. Subsequent runs are a no-op. If you prefer to wire it yourself — same pattern as `starship`, `zoxide`, `direnv`, and `mise` — add one of these lines manually:
 
 **Zsh** (`~/.zshrc`):
 
@@ -96,7 +96,7 @@ eval "$(rep init bash)"
 Invoke-Expression (& rep init powershell | Out-String)
 ```
 
-That's it — no disk writes, no profile editing, no prompts. The integration code is regenerated every shell session, so a `cargo install reportal` upgrade takes effect on the next terminal you open. The first time you run any `rep` subcommand, a default `~/.reportal/config.toml` is created for you.
+That's it — no disk writes beyond the one-shot rc append, no profile editing after setup, no prompts. The integration code is regenerated every shell session, so a `cargo install reportal` upgrade takes effect on the next terminal you open. The first time you run any `rep` subcommand, a default `~/.reportal/config.toml` is created for you.
 
 ```bash
 # Register a local repo
