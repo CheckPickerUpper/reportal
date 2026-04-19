@@ -66,7 +66,7 @@ impl WorkspaceArgsRepoAlias {
 }
 
 /// Payload for actions that target one workspace by name and
-/// carry no other arguments: `show`, `delete`, `open`.
+/// carry no other arguments: `show`, `open`, `rebuild`.
 #[derive(Args)]
 pub struct WorkspaceArgsNameOnly {
     /// The workspace this action targets.
@@ -80,6 +80,57 @@ impl WorkspaceArgsNameOnly {
     #[must_use]
     pub fn into_workspace_name(self) -> String {
         self.target.into_name()
+    }
+}
+
+/// Payload for `rep workspace delete`, which targets one workspace
+/// by name and optionally purges the on-disk directory.
+#[derive(Args)]
+pub struct WorkspaceArgsDelete {
+    /// The workspace this action targets.
+    #[command(flatten)]
+    target: WorkspaceArgsName,
+    /// Also remove the on-disk workspace directory (symlinks and
+    /// `.code-workspace` file). Member repos are not touched. The
+    /// default behavior is to leave the directory in place so an
+    /// accidental delete cannot destroy an open editor session.
+    #[arg(long, default_value_t = false)]
+    purge: bool,
+}
+
+/// Consuming accessor for the delete-action payload.
+impl WorkspaceArgsDelete {
+    /// Extracts the delete-action fields into a named parts struct,
+    /// consuming the parsed args.
+    #[must_use]
+    pub fn into_parts(self) -> WorkspaceArgsDeleteParts {
+        WorkspaceArgsDeleteParts {
+            workspace_name: self.target.into_name(),
+            purge: self.purge,
+        }
+    }
+}
+
+/// Owned named-field result of `WorkspaceArgsDelete::into_parts`.
+pub struct WorkspaceArgsDeleteParts {
+    /// The workspace to unregister.
+    workspace_name: String,
+    /// Whether to also delete the on-disk workspace directory.
+    purge: bool,
+}
+
+/// Accessors for the delete-action parts.
+impl WorkspaceArgsDeleteParts {
+    /// The workspace name to unregister.
+    #[must_use]
+    pub fn workspace_name(&self) -> &str {
+        &self.workspace_name
+    }
+
+    /// Whether the user opted into removing the on-disk directory.
+    #[must_use]
+    pub fn purge(&self) -> bool {
+        self.purge
     }
 }
 
@@ -148,9 +199,13 @@ pub struct WorkspaceArgsCreate {
     /// Human-readable description shown in `rep workspace list`.
     #[arg(long, default_value = "")]
     description: String,
-    /// Explicit filesystem path for the generated
-    /// `.code-workspace` file. Defaults to
-    /// `~/.reportal/workspaces/<name>.code-workspace`.
+    /// Explicit filesystem path for the workspace directory
+    /// (the one that will contain the symlinks and the
+    /// `.code-workspace` file). Defaults to
+    /// `<default_workspace_root>/<name>/`. A legacy value
+    /// pointing at a `.code-workspace` file is reinterpreted as
+    /// the file's parent directory so pre-v0.15.2 invocations
+    /// continue to work.
     #[arg(long, default_value = "")]
     file_path: String,
     /// Comma-separated short-name aliases that resolve to this
@@ -238,33 +293,40 @@ pub enum WorkspaceArgsSubcommand {
     #[command(alias = "ls")]
     List,
     /// Show a single workspace's details, including the resolved
-    /// absolute paths of its member repos and the location of its
-    /// `.code-workspace` file on disk.
+    /// absolute paths of its member repos and the location of the
+    /// workspace directory / `.code-workspace` file on disk.
     Show(WorkspaceArgsNameOnly),
-    /// Create a new workspace and generate its `.code-workspace`
-    /// file under `~/.reportal/workspaces/` unless a custom path
-    /// is given.
+    /// Create a new workspace and materialize its on-disk
+    /// directory (symlinks + `.code-workspace` file) under
+    /// `<default_workspace_root>/<name>/` unless a custom
+    /// directory path is given via `--file-path`.
     Create(WorkspaceArgsCreate),
-    /// Delete a workspace from the config. Does NOT delete the
-    /// `.code-workspace` file on disk — that is the user's to
-    /// manage so an accidental `rep workspace delete` cannot
-    /// destroy an open editor session.
+    /// Delete a workspace from the config. By default leaves the
+    /// on-disk workspace directory in place. Pass `--purge` to
+    /// also remove the directory (symlinks and `.code-workspace`
+    /// file); member repos are never touched.
     #[command(alias = "rm")]
-    Delete(WorkspaceArgsNameOnly),
+    Delete(WorkspaceArgsDelete),
     /// Add a repo alias to an existing workspace and regenerate
-    /// its `.code-workspace` file.
+    /// its workspace directory (links + `.code-workspace` file).
     AddRepo(WorkspaceArgsMemberEdit),
     /// Remove a repo alias from an existing workspace and
-    /// regenerate its `.code-workspace` file.
+    /// regenerate its workspace directory.
     RemoveRepo(WorkspaceArgsMemberEdit),
     /// Open a workspace in the configured default editor by
     /// running `<editor> <workspace-file-path>`. Without a
     /// workspace name, presents a fuzzy finder.
     Open(WorkspaceArgsOptionalNameOnly),
-    /// Print the workspace's `.code-workspace` file parent
-    /// directory so the `rjw` shell wrapper can cd there.
-    /// Without a workspace name, presents a fuzzy finder.
+    /// Print the workspace's materialized directory path so the
+    /// `rjw` shell wrapper can cd there. Without a workspace name,
+    /// presents a fuzzy finder.
     Jump(WorkspaceArgsOptionalNameOnly),
+    /// Rebuild the workspace's on-disk directory: recreate the
+    /// member symlinks / junctions and regenerate the
+    /// `.code-workspace` file from the current config. Idempotent;
+    /// useful after renaming / moving a member repo or if the
+    /// workspace directory was deleted by hand.
+    Rebuild(WorkspaceArgsNameOnly),
 }
 
 /// Payload for actions that target a workspace by name but fall

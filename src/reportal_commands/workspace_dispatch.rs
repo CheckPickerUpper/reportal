@@ -9,7 +9,8 @@ use crate::cli_args::{WorkspaceArgs, WorkspaceArgsSubcommand};
 use crate::error::ReportalError;
 use crate::reportal_commands::{
     run_workspace_add_repo, run_workspace_create, run_workspace_delete, run_workspace_jump,
-    run_workspace_list, run_workspace_open, run_workspace_remove_repo, run_workspace_show,
+    run_workspace_list, run_workspace_open, run_workspace_rebuild, run_workspace_remove_repo,
+    run_workspace_show,
 };
 
 /// Dispatches a parsed `rep workspace` invocation to the matching
@@ -37,8 +38,8 @@ pub fn dispatch_workspace_subcommand(
         WorkspaceArgsSubcommand::Create(create_args) => {
             run_workspace_create(&create_args.into_parts())
         }
-        WorkspaceArgsSubcommand::Delete(name_only) => {
-            run_workspace_delete(&name_only.into_workspace_name())
+        WorkspaceArgsSubcommand::Delete(delete_args) => {
+            run_workspace_delete(&delete_args.into_parts())
         }
         WorkspaceArgsSubcommand::AddRepo(member_edit) => {
             run_workspace_add_repo(&member_edit.into_parts())
@@ -51,6 +52,9 @@ pub fn dispatch_workspace_subcommand(
         }
         WorkspaceArgsSubcommand::Jump(optional_name) => {
             run_workspace_jump(&optional_name.into_optional_workspace_name())
+        }
+        WorkspaceArgsSubcommand::Rebuild(name_only) => {
+            run_workspace_rebuild(&name_only.into_workspace_name())
         }
     }
 }
