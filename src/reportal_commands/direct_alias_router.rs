@@ -8,7 +8,7 @@
 //! member's identity propagate into tab-title emission".
 
 use crate::error::ReportalError;
-use crate::reportal_commands::path_display::{self, SelectedPathDisplayParams};
+use crate::reportal_commands::path_display::{self, SelectedPathDisplayParameters};
 use crate::reportal_commands::workspace_operations::WorkspaceRegenerator;
 use crate::reportal_config::ReportalConfig;
 use crate::terminal_style;
@@ -137,7 +137,7 @@ impl<'config> DirectAliasRouter<'config> {
             .path_display_format()
             .format_path(&workspace_directory);
         terminal_style::write_stdout(&formatted_path);
-        path_display::print_selected_path_if_visible(&SelectedPathDisplayParams {
+        path_display::print_selected_path_if_visible(&SelectedPathDisplayParameters {
             loaded_config: self.loaded_config,
             resolved_path: &workspace_directory,
         });
