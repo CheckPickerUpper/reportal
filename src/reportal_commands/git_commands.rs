@@ -15,7 +15,7 @@ pub enum GitCommandOutcome {
 
 /// Parameters for running a git subcommand inside a specific repo directory.
 /// Passed to `run_git_command()` as its single argument.
-pub struct GitCommandParams<'a> {
+pub struct GitCommandParameters<'a> {
     /// The resolved filesystem path to run git in.
     pub repo_path: &'a PathBuf,
     /// The git subcommand and its arguments (e.g. `["status", "--porcelain"]`).
@@ -27,7 +27,7 @@ pub struct GitCommandParams<'a> {
 /// Returns `Output(trimmed_stdout)` on zero exit, [`NonZeroExit`] on
 /// non-zero exit, or `SpawnFailed` if the git binary couldn't be found.
 /// Used by status, sync, and web to avoid duplicating the spawn+capture logic.
-pub fn run_git_command(git_command_params: &GitCommandParams<'_>) -> GitCommandOutcome {
+pub fn run_git_command(git_command_params: &GitCommandParameters<'_>) -> GitCommandOutcome {
     let command_result = Command::new("git")
         .args(git_command_params.git_subcommand_args)
         .current_dir(git_command_params.repo_path)

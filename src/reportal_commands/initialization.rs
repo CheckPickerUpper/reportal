@@ -6,18 +6,21 @@
 //! No disk writes, no profile editing, no prompts — the shell code
 //! is regenerated every session and therefore never goes stale.
 
-use crate::cli_args::InitShell;
+use crate::cli_args::InitializeShell;
 
 use super::shell_integration::{bash_integration_content, powershell_integration_content};
+use super::shell_prompt_badge::prompt_badge_integration_snippet;
 
-/// Emits the shell integration script for the requested shell to
-/// stdout and returns. All integration content is generated in-memory
-/// from the running binary's version, which guarantees that a binary
-/// update takes effect in the next shell session with no manual step.
-pub fn run_init(shell: InitShell) {
-    let integration_script = match shell {
-        InitShell::Zsh | InitShell::Bash => bash_integration_content(),
-        InitShell::Powershell => powershell_integration_content(),
+/// @why Emits the shell integration script — chrome hooks plus
+/// the prompt-badge snippet — for the requested shell to stdout
+/// so the user wires a single `eval "$(rep init <shell>)"` line
+/// into their rc file and gets both the tab / window title
+/// chrome and the inline PS1 badge without further manual setup.
+pub fn run_initialize(shell: InitializeShell) {
+    let base_integration_script = match shell {
+        InitializeShell::Zsh | InitializeShell::Bash => bash_integration_content(),
+        InitializeShell::Powershell => powershell_integration_content(),
     };
-    print!("{integration_script}");
+    let badge_snippet = prompt_badge_integration_snippet(shell);
+    print!("{base_integration_script}{badge_snippet}");
 }

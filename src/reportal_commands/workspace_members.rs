@@ -1,6 +1,6 @@
 //! Add-repo and remove-repo subcommands for workspace membership.
 
-use crate::cli_args::WorkspaceArgsMemberEditParts;
+use crate::cli_args::WorkspaceArgumentsMemberEditParts;
 use crate::error::ReportalError;
 use crate::reportal_commands::workspace_operations::WorkspaceRegenerator;
 use crate::reportal_config::{
@@ -26,26 +26,26 @@ use owo_colors::OwoColorize;
 /// present in the workspace. Config I/O and file regeneration
 /// errors bubble up from the underlying calls.
 pub fn run_workspace_add_repo(
-    member_edit: &WorkspaceArgsMemberEditParts,
+    member_edit: &WorkspaceArgumentsMemberEditParts,
 ) -> Result<(), ReportalError> {
     let mut loaded_config = ReportalConfig::load_or_initialize()?;
-    loaded_config.get_repo(member_edit.repo_alias())?;
+    loaded_config.get_repo(member_edit.repository_alias())?;
     let canonical_workspace_name =
         loaded_config.resolve_workspace_canonical_name(member_edit.workspace_name())?;
 
     let target_workspace = loaded_config.get_workspace_mut(&canonical_workspace_name)?;
-    if target_workspace.contains_repo(member_edit.repo_alias()) {
+    if target_workspace.contains_repo(member_edit.repository_alias()) {
         return Err(ReportalError::ValidationFailure {
             field: "workspace member".to_owned(),
             reason: format!(
                 "repo '{}' is already a member of workspace '{canonical_workspace_name}'",
-                member_edit.repo_alias(),
+                member_edit.repository_alias(),
             ),
         });
     }
     let mut updated_members = target_workspace.members().to_vec();
     updated_members.push(WorkspaceMember::RegisteredRepo(
-        member_edit.repo_alias().to_owned(),
+        member_edit.repository_alias().to_owned(),
     ));
     target_workspace.set_members(updated_members);
     loaded_config.save_to_disk()?;
@@ -55,7 +55,7 @@ pub fn run_workspace_add_repo(
 
     terminal_style::print_success(&format!(
         "Added {} to workspace {}",
-        member_edit.repo_alias().style(terminal_style::ALIAS_STYLE),
+        member_edit.repository_alias().style(terminal_style::ALIAS_STYLE),
         canonical_workspace_name.style(terminal_style::ALIAS_STYLE),
     ));
     Ok(())
@@ -80,18 +80,18 @@ pub fn run_workspace_add_repo(
 /// zero members. Config I/O and file regeneration errors bubble up
 /// from the underlying calls.
 pub fn run_workspace_remove_repo(
-    member_edit: &WorkspaceArgsMemberEditParts,
+    member_edit: &WorkspaceArgumentsMemberEditParts,
 ) -> Result<(), ReportalError> {
     let mut loaded_config = ReportalConfig::load_or_initialize()?;
     let canonical_workspace_name =
         loaded_config.resolve_workspace_canonical_name(member_edit.workspace_name())?;
     let target_workspace = loaded_config.get_workspace_mut(&canonical_workspace_name)?;
-    if !target_workspace.contains_repo(member_edit.repo_alias()) {
+    if !target_workspace.contains_repo(member_edit.repository_alias()) {
         return Err(ReportalError::ValidationFailure {
             field: "workspace member".to_owned(),
             reason: format!(
                 "repo '{}' is not a member of workspace '{canonical_workspace_name}'",
-                member_edit.repo_alias(),
+                member_edit.repository_alias(),
             ),
         });
     }
@@ -100,7 +100,7 @@ pub fn run_workspace_remove_repo(
         .iter()
         .filter(|member| match member.registered_repo_alias() {
             WorkspaceMemberAliasLookup::Matches(existing_alias) => {
-                existing_alias != member_edit.repo_alias()
+                existing_alias != member_edit.repository_alias()
             }
             WorkspaceMemberAliasLookup::NotARepoReference => true,
         })
@@ -111,7 +111,7 @@ pub fn run_workspace_remove_repo(
             field: "workspace member".to_owned(),
             reason: format!(
                 "removing '{}' would leave workspace '{canonical_workspace_name}' with zero members; delete the workspace instead",
-                member_edit.repo_alias(),
+                member_edit.repository_alias(),
             ),
         });
     }
@@ -123,7 +123,7 @@ pub fn run_workspace_remove_repo(
 
     terminal_style::print_success(&format!(
         "Removed {} from workspace {}",
-        member_edit.repo_alias().style(terminal_style::ALIAS_STYLE),
+        member_edit.repository_alias().style(terminal_style::ALIAS_STYLE),
         canonical_workspace_name.style(terminal_style::ALIAS_STYLE),
     ));
     Ok(())

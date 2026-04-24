@@ -114,7 +114,7 @@ impl TerminalIdentity {
     /// Builds a terminal identity from the resolved title string and
     /// tab color action. Called after the title fallback chain
     /// (flag > config > alias) has been resolved.
-    pub fn new(identity_params: TerminalIdentityParams) -> Self {
+    pub fn new(identity_params: TerminalIdentityParameters) -> Self {
         Self {
             resolved_title: identity_params.resolved_title,
             tab_color_action: identity_params.tab_color_action,
@@ -133,7 +133,7 @@ impl TerminalIdentity {
 }
 
 /// Parameters for constructing a `TerminalIdentity`.
-pub struct TerminalIdentityParams {
+pub struct TerminalIdentityParameters {
     /// The final tab title after resolving flag > config > alias fallback.
     pub resolved_title: String,
     /// Whether to set a tab color or reset to default.

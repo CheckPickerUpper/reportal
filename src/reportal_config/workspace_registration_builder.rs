@@ -126,6 +126,8 @@ impl WorkspaceRegistrationBuilder {
             description: self.workspace_description,
             path: self.workspace_file_path,
             aliases: self.workspace_aliases,
+            title: crate::reportal_config::TabTitle::default(),
+            color: crate::reportal_config::RepoColor::default(),
         };
         Ok((self.workspace_name, validated_entry))
     }

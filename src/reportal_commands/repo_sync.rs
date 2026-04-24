@@ -1,7 +1,7 @@
 //! Pulls latest changes across all registered repos.
 
 use crate::error::ReportalError;
-use crate::reportal_commands::git_commands::{self, GitCommandOutcome, GitCommandParams};
+use crate::reportal_commands::git_commands::{self, GitCommandOutcome, GitCommandParameters};
 use crate::reportal_config::{ReportalConfig, TagFilter};
 use crate::terminal_style;
 use owo_colors::OwoColorize;
@@ -40,7 +40,7 @@ struct RepoSyncResult {
 
 /// Checks whether the working tree is clean enough to safely pull.
 fn check_pull_readiness(repo_path: &PathBuf) -> PullReadiness {
-    match git_commands::run_git_command(&GitCommandParams {
+    match git_commands::run_git_command(&GitCommandParameters {
         repo_path,
         git_subcommand_args: &["status", "--porcelain"],
     }) {

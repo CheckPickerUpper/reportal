@@ -11,7 +11,7 @@ use std::fmt::Write;
 /// Holds borrowed references into the loaded config so callers can read
 /// the alias and entry without cloning.
 pub struct SelectedRepo<'a> {
-    repo_alias: &'a str,
+    repository_alias: &'a str,
     repo_config: &'a RepoEntry,
 }
 
@@ -19,8 +19,8 @@ pub struct SelectedRepo<'a> {
 impl<'a> SelectedRepo<'a> {
     /// The canonical alias used to identify this repo in the config
     /// (either the direct alias passed in, or the one chosen from the fuzzy finder).
-    pub fn repo_alias(&self) -> &'a str {
-        self.repo_alias
+    pub fn repository_alias(&self) -> &'a str {
+        self.repository_alias
     }
 
     /// The full config entry for this repo, including path, tags,
@@ -32,7 +32,7 @@ impl<'a> SelectedRepo<'a> {
 
 /// All inputs needed to resolve a repo — either by direct alias lookup
 /// or interactive fuzzy selection with tag filtering and a labeled prompt.
-pub struct SelectedRepoParams<'a> {
+pub struct SelectedRepoParameters<'a> {
     /// The loaded config to search within.
     pub loaded_config: &'a ReportalConfig,
     /// If non-empty, skip the fuzzy finder and look up this alias directly.
@@ -56,11 +56,11 @@ fn push_formatted(target: &mut String, format_payload: std::fmt::Arguments<'_>) 
 /// with the given `prompt_label`. Repos are sorted by their first tag
 /// so same-tag repos cluster visually. Each item shows a color swatch,
 /// the alias, aliases, description, and tags.
-pub fn select_repo<'a>(selection_params: &'a SelectedRepoParams<'a>) -> Result<SelectedRepo<'a>, ReportalError> {
+pub fn select_repo<'a>(selection_params: &'a SelectedRepoParameters<'a>) -> Result<SelectedRepo<'a>, ReportalError> {
     if !selection_params.direct_alias.is_empty() {
         let found_repo = selection_params.loaded_config.get_repo(selection_params.direct_alias)?;
         return Ok(SelectedRepo {
-            repo_alias: selection_params.direct_alias,
+            repository_alias: selection_params.direct_alias,
             repo_config: found_repo,
         });
     }
@@ -120,7 +120,7 @@ pub fn select_repo<'a>(selection_params: &'a SelectedRepoParams<'a>) -> Result<S
                 return Err(ReportalError::SelectionCancelled);
             };
             matching_repos.get(chosen_index).map_or(Err(ReportalError::SelectionCancelled), |(chosen_alias, chosen_repo)| Ok(SelectedRepo {
-                repo_alias: chosen_alias.as_str(),
+                repository_alias: chosen_alias.as_str(),
                 repo_config: chosen_repo,
             }))
     }

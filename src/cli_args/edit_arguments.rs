@@ -2,20 +2,20 @@
 
 use clap::Args;
 use crate::reportal_config::TagFilter;
-use super::repo_selection_args::RepoSelectionArgs;
+use super::repository_selection_arguments::RepositorySelectionArguments;
 
 /// Arguments for the `rep edit` subcommand.
 ///
 /// Accepts optional repo selection (alias + tag filter) to choose
 /// which repo's metadata to edit interactively.
 #[derive(Args)]
-pub struct EditArgs {
+pub struct EditArguments {
     #[command(flatten)]
-    selection: RepoSelectionArgs,
+    selection: RepositorySelectionArguments,
 }
 
 /// Consuming conversion that splits into domain-layer parts.
-impl EditArgs {
+impl EditArguments {
     /// Returns (alias, `tag_filter`), consuming self.
     pub fn into_parts(self) -> (String, TagFilter) {
         self.selection.into_parts()

@@ -1,7 +1,7 @@
 //! Creates a new workspace and materializes its on-disk directory
 //! (symlinks + `.code-workspace` file).
 
-use crate::cli_args::WorkspaceArgsCreateParts;
+use crate::cli_args::WorkspaceArgumentsCreateParts;
 use crate::error::ReportalError;
 use crate::reportal_commands::workspace_operations::WorkspaceRegenerator;
 use crate::reportal_config::{ReportalConfig, WorkspaceRegistrationBuilder};
@@ -33,7 +33,7 @@ use std::path::PathBuf;
 /// is not registered, or the file/link I/O errors the regeneration
 /// path surfaces.
 pub fn run_workspace_create(
-    create_parts: &WorkspaceArgsCreateParts,
+    create_parts: &WorkspaceArgumentsCreateParts,
 ) -> Result<(), ReportalError> {
     let mut loaded_config = ReportalConfig::load_or_initialize()?;
 

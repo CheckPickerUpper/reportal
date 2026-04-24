@@ -4,7 +4,7 @@
 //! registered VSCode/Cursor `.code-workspace` definitions:
 //! listing, showing, creating, deleting, member editing, and
 //! opening. Shared fields that would otherwise repeat across
-//! variants (`workspace_name`, `repo_alias`) are extracted into
+//! variants (`workspace_name`, `repository_alias`) are extracted into
 //! composable arg structs and flattened into each action's
 //! payload so the variants never duplicate the field declaration.
 
@@ -12,17 +12,17 @@ use clap::{Args, Subcommand};
 
 /// Arguments for the top-level `rep workspace` command.
 #[derive(Args)]
-pub struct WorkspaceArgs {
+pub struct WorkspaceArguments {
     /// The workspace action the user invoked.
     #[command(subcommand)]
-    action: WorkspaceArgsSubcommand,
+    action: WorkspaceArgumentsSubcommand,
 }
 
 /// Consuming accessor for the workspace subcommand.
-impl WorkspaceArgs {
+impl WorkspaceArguments {
     /// Extracts the action variant, consuming the parsed args.
     #[must_use]
-    pub fn into_action(self) -> WorkspaceArgsSubcommand {
+    pub fn into_action(self) -> WorkspaceArgumentsSubcommand {
         self.action
     }
 }
@@ -48,12 +48,12 @@ impl WorkspaceArgsName {
     }
 }
 
-/// Positional `repo_alias` argument shared by member-editing
+/// Positional `repository_alias` argument shared by member-editing
 /// actions (`add-repo`, `remove-repo`).
 #[derive(Args)]
 pub struct WorkspaceArgsRepoAlias {
     /// Repo alias being added to or removed from the workspace.
-    repo_alias: String,
+    repository_alias: String,
 }
 
 /// Consuming accessor for the repo alias.
@@ -61,7 +61,7 @@ impl WorkspaceArgsRepoAlias {
     /// Extracts the repo alias, consuming the parsed arg.
     #[must_use]
     pub fn into_alias(self) -> String {
-        self.repo_alias
+        self.repository_alias
     }
 }
 
@@ -103,8 +103,8 @@ impl WorkspaceArgsDelete {
     /// Extracts the delete-action fields into a named parts struct,
     /// consuming the parsed args.
     #[must_use]
-    pub fn into_parts(self) -> WorkspaceArgsDeleteParts {
-        WorkspaceArgsDeleteParts {
+    pub fn into_parts(self) -> WorkspaceArgumentsDeleteParts {
+        WorkspaceArgumentsDeleteParts {
             workspace_name: self.target.into_name(),
             purge: self.purge,
         }
@@ -112,7 +112,7 @@ impl WorkspaceArgsDelete {
 }
 
 /// Owned named-field result of `WorkspaceArgsDelete::into_parts`.
-pub struct WorkspaceArgsDeleteParts {
+pub struct WorkspaceArgumentsDeleteParts {
     /// The workspace to unregister.
     workspace_name: String,
     /// Whether to also delete the on-disk workspace directory.
@@ -120,7 +120,7 @@ pub struct WorkspaceArgsDeleteParts {
 }
 
 /// Accessors for the delete-action parts.
-impl WorkspaceArgsDeleteParts {
+impl WorkspaceArgumentsDeleteParts {
     /// The workspace name to unregister.
     #[must_use]
     pub fn workspace_name(&self) -> &str {
@@ -150,10 +150,10 @@ impl WorkspaceArgsMemberEdit {
     /// Extracts the targeted workspace name and the repo alias,
     /// consuming the parsed args.
     #[must_use]
-    pub fn into_parts(self) -> WorkspaceArgsMemberEditParts {
-        WorkspaceArgsMemberEditParts {
+    pub fn into_parts(self) -> WorkspaceArgumentsMemberEditParts {
+        WorkspaceArgumentsMemberEditParts {
             workspace_name: self.target.into_name(),
-            repo_alias: self.member.into_alias(),
+            repository_alias: self.member.into_alias(),
         }
     }
 }
@@ -161,15 +161,15 @@ impl WorkspaceArgsMemberEdit {
 /// Owned tuple-equivalent returned from
 /// `WorkspaceArgsMemberEdit::into_parts`, with named fields so
 /// call sites never confuse the two strings.
-pub struct WorkspaceArgsMemberEditParts {
+pub struct WorkspaceArgumentsMemberEditParts {
     /// The workspace whose membership is being edited.
     workspace_name: String,
     /// The repo being added to or removed from the workspace.
-    repo_alias: String,
+    repository_alias: String,
 }
 
 /// Destructuring accessors for the member-edit parts.
-impl WorkspaceArgsMemberEditParts {
+impl WorkspaceArgumentsMemberEditParts {
     /// The workspace name this edit targets.
     #[must_use]
     pub fn workspace_name(&self) -> &str {
@@ -178,8 +178,8 @@ impl WorkspaceArgsMemberEditParts {
 
     /// The repo alias being added to or removed from the workspace.
     #[must_use]
-    pub fn repo_alias(&self) -> &str {
-        &self.repo_alias
+    pub fn repository_alias(&self) -> &str {
+        &self.repository_alias
     }
 }
 
@@ -219,8 +219,8 @@ impl WorkspaceArgsCreate {
     /// Extracts all create-action fields into a named parts
     /// struct, consuming the parsed args.
     #[must_use]
-    pub fn into_parts(self) -> WorkspaceArgsCreateParts {
-        WorkspaceArgsCreateParts {
+    pub fn into_parts(self) -> WorkspaceArgumentsCreateParts {
+        WorkspaceArgumentsCreateParts {
             workspace_name: self.target.into_name(),
             repo_aliases: self.repos,
             description: self.description,
@@ -234,7 +234,7 @@ impl WorkspaceArgsCreate {
 ///
 /// Returned instead of a bare tuple so call sites never confuse
 /// the string-typed fields.
-pub struct WorkspaceArgsCreateParts {
+pub struct WorkspaceArgumentsCreateParts {
     /// Name for the new workspace.
     workspace_name: String,
     /// Ordered list of repo aliases that belong to the workspace.
@@ -250,7 +250,7 @@ pub struct WorkspaceArgsCreateParts {
 }
 
 /// Accessors for the create-action parts.
-impl WorkspaceArgsCreateParts {
+impl WorkspaceArgumentsCreateParts {
     /// The name for the new workspace.
     #[must_use]
     pub fn workspace_name(&self) -> &str {
@@ -288,7 +288,7 @@ impl WorkspaceArgsCreateParts {
 
 /// Subcommands under `rep workspace`.
 #[derive(Subcommand)]
-pub enum WorkspaceArgsSubcommand {
+pub enum WorkspaceArgumentsSubcommand {
     /// List all registered workspaces with their member repos.
     #[command(alias = "ls")]
     List,

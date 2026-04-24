@@ -4,13 +4,13 @@ use crate::error::ReportalError;
 use crate::reportal_commands::direct_alias_router::{
     DirectAliasRouter, DirectAliasRouterOutcome,
 };
-use crate::reportal_commands::repo_selection::{self, SelectedRepoParams};
+use crate::reportal_commands::repo_selection::{self, SelectedRepoParameters};
 use crate::reportal_commands::run_workspace_open;
 use crate::reportal_commands::target_selection::{
-    self, SelectedTarget, SelectedTargetParams,
+    self, SelectedTarget, SelectedTargetParameters,
 };
 use crate::reportal_commands::terminal_identity_emit::{
-    self, TerminalIdentityEmitParams,
+    self, TerminalIdentityEmitParameters,
 };
 use crate::reportal_config::{PathVisibility, ReportalConfig, TagFilter};
 use crate::terminal_style;
@@ -18,7 +18,7 @@ use owo_colors::OwoColorize;
 use std::process::Command;
 
 /// All parameters needed to run the open command.
-pub struct OpenCommandParams<'a> {
+pub struct OpenCommandParameters<'a> {
     /// Which repos to show in the fuzzy finder.
     pub tag_filter: TagFilter,
     /// If non-empty, skip the fuzzy finder and open this alias directly.
@@ -48,11 +48,11 @@ pub struct OpenCommandParams<'a> {
 /// [`ReportalError::EditorLaunchFailure`] if the editor process
 /// cannot be spawned, or any config / file I/O errors the
 /// underlying paths surface.
-pub fn run_open(open_params: &OpenCommandParams<'_>) -> Result<(), ReportalError> {
+pub fn run_open(open_params: &OpenCommandParameters<'_>) -> Result<(), ReportalError> {
     let loaded_config = ReportalConfig::load_or_initialize()?;
 
     let resolved_repo_alias: String = if open_params.direct_alias.is_empty() {
-        let target_params = SelectedTargetParams {
+        let target_params = SelectedTargetParameters {
             loaded_config: &loaded_config,
             tag_filter: &open_params.tag_filter,
             prompt_label: "Open repo or workspace",
@@ -80,7 +80,7 @@ pub fn run_open(open_params: &OpenCommandParams<'_>) -> Result<(), ReportalError
         }
     };
 
-    let selection_params = SelectedRepoParams {
+    let selection_params = SelectedRepoParameters {
         loaded_config: &loaded_config,
         direct_alias: &resolved_repo_alias,
         tag_filter: &open_params.tag_filter,
@@ -88,8 +88,8 @@ pub fn run_open(open_params: &OpenCommandParams<'_>) -> Result<(), ReportalError
     };
     let selected = repo_selection::select_repo(&selection_params)?;
 
-    terminal_identity_emit::emit_repo_terminal_identity(&TerminalIdentityEmitParams {
-        selected_alias: selected.repo_alias(),
+    terminal_identity_emit::emit_repo_terminal_identity(&TerminalIdentityEmitParameters {
+        selected_alias: selected.repository_alias(),
         selected_repo: selected.repo_config(),
         title_override: open_params.title_override,
     });

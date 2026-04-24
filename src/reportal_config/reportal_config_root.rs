@@ -371,13 +371,13 @@ impl ReportalConfig {
     ///
     /// Returns `RepoAlreadyExists` if the alias is already taken.
     pub fn add_repo(&mut self, validated_registration: (String, RepoEntry)) -> Result<(), ReportalError> {
-        let (repo_alias, repo_entry) = validated_registration;
-        if self.repos.contains_key(&repo_alias) {
+        let (repository_alias, repo_entry) = validated_registration;
+        if self.repos.contains_key(&repository_alias) {
             return Err(ReportalError::RepoAlreadyExists {
-                alias: repo_alias,
+                alias: repository_alias,
             });
         }
-        self.repos.insert(repo_alias, repo_entry);
+        self.repos.insert(repository_alias, repo_entry);
         Ok(())
     }
 
@@ -523,11 +523,11 @@ impl ReportalConfig {
     #[must_use]
     pub fn workspaces_containing_repo(
         &self,
-        repo_alias: &str,
+        repository_alias: &str,
     ) -> Vec<(&String, &WorkspaceEntry)> {
         self.workspaces
             .iter()
-            .filter(|(_, workspace)| workspace.contains_repo(repo_alias))
+            .filter(|(_, workspace)| workspace.contains_repo(repository_alias))
             .collect()
     }
 
@@ -759,6 +759,8 @@ mod tests {
             description: String::new(),
             path: String::new(),
             aliases: Vec::new(),
+            title: Default::default(),
+            color: Default::default(),
         }
     }
 

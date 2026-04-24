@@ -20,6 +20,23 @@ pub enum RepoColor {
     Themed(HexColor),
 }
 
+/// Unwrapping of the inner `HexColor` without exposing callers
+/// to the enum's variant vocabulary.
+impl RepoColor {
+    /// @why Returns the themed hex color when one is set so
+    /// callers that only care about "is there a color" can skip
+    /// pattern-matching on the two-variant enum and keep their
+    /// own files free of `Themed` / `ResetToDefault` references.
+    #[must_use]
+    pub fn themed_hex_color(&self) -> Option<&HexColor> {
+        if let Self::Themed(hex_color) = self {
+            Some(hex_color)
+        } else {
+            None
+        }
+    }
+}
+
 /// Deserializes an empty string as `ResetToDefault`, valid hex as `Themed`.
 impl<'de> Deserialize<'de> for RepoColor {
     fn deserialize<D: serde::Deserializer<'de>>(

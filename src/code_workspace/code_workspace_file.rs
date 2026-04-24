@@ -38,6 +38,23 @@ pub struct CodeWorkspaceFile {
     /// into a new `folders` array via `jsonc-parser`'s typed
     /// `CstInputValue` builder API.
     folders: Vec<CodeWorkspaceFolderEntry>,
+    /// Workspace-identity override for the editor's
+    /// `window.title` setting.
+    ///
+    /// `None` leaves the file's `settings` block untouched on
+    /// write (the previous behavior). `Some(label)` replaces
+    /// the `settings` object with a reportal-managed shape that
+    /// carries this title plus the title-bar accent color.
+    window_title_override: Option<String>,
+    /// Workspace-identity accent color, stored as the raw
+    /// `#RRGGBB` string for direct insertion into
+    /// `workbench.colorCustomizations.titleBar.activeBackground`.
+    ///
+    /// Only read on write when `window_title_override` is also
+    /// set; the title and color travel as a single logical unit
+    /// since an editor window with a custom title but the
+    /// default title-bar color looks broken.
+    title_bar_color_hex: Option<String>,
 }
 
 /// Loading, mutation, and serialization for a `.code-workspace` file.
@@ -54,6 +71,8 @@ impl CodeWorkspaceFile {
         Self {
             original_file_text: String::new(),
             folders: Vec::new(),
+            window_title_override: None,
+            title_bar_color_hex: None,
         }
     }
 
@@ -87,6 +106,8 @@ impl CodeWorkspaceFile {
         Ok(Self {
             original_file_text: file_contents,
             folders: extracted_folders,
+            window_title_override: None,
+            title_bar_color_hex: None,
         })
     }
 
@@ -102,19 +123,31 @@ impl CodeWorkspaceFile {
         &self.folders
     }
 
-    /// Replaces the folder list with entries built from the given
-    /// absolute paths, in order.
-    ///
-    /// The original file text and every top-level field outside
-    /// `folders` are untouched so user-authored settings,
-    /// extensions, launch configs, and JSONC comments round-trip
-    /// across the regeneration. This is the single mutation the
-    /// parse-merge-write path performs.
+    /// @why Rewrites the folder list from absolute paths so the
+    /// `.code-workspace` file stays in sync with the current
+    /// workspace membership, preserving every other top-level
+    /// field (user settings, extensions, launch configs, JSONC
+    /// comments) through the parse-merge-write round-trip.
     pub fn set_folder_paths(&mut self, folder_absolute_paths: &[PathBuf]) {
         self.folders = folder_absolute_paths
             .iter()
             .map(|absolute_path| CodeWorkspaceFolderEntry::from_absolute_path(absolute_path))
             .collect();
+    }
+
+    /// @why Stamps a workspace-identity badge into the editor's
+    /// `window.title` and `workbench.colorCustomizations`
+    /// settings so opening the `.code-workspace` in VS Code or
+    /// Cursor shows the same prompt identity the shell displays,
+    /// giving one consistent signal across terminal and editor
+    /// for which workspace the user is in.
+    pub fn set_workspace_identity(
+        &mut self,
+        window_title: String,
+        title_bar_color_hex: Option<String>,
+    ) {
+        self.window_title_override = Some(window_title);
+        self.title_bar_color_hex = title_bar_color_hex;
     }
 
     /// Serializes the document back to JSONC and writes it to disk.
@@ -157,6 +190,15 @@ impl CodeWorkspaceFile {
                 root_object.append("folders", new_folders_value);
             }
         }
+        if self.window_title_override.is_some() {
+            let settings_value = self.build_identity_settings_cst_value();
+            match root_object.get("settings") {
+                Some(existing_settings_prop) => existing_settings_prop.set_value(settings_value),
+                None => {
+                    root_object.append("settings", settings_value);
+                }
+            }
+        }
         let serialized_text = cst_root.to_string();
         std::fs::write(file_path, serialized_text).map_err(|io_error| {
             ReportalError::CodeWorkspaceIoFailure {
@@ -165,6 +207,56 @@ impl CodeWorkspaceFile {
             }
         })?;
         Ok(())
+    }
+
+    /// Builds the `settings` object value reportal writes when a
+    /// workspace identity is set: a `window.title` string and,
+    /// when the accent color is present, a
+    /// `workbench.colorCustomizations` nested object that paints
+    /// the active title bar.
+    ///
+    /// Lives as a method (rather than a free function) to keep
+    /// this file's free-function count at the project budget of
+    /// two (`ensure_parent_directory_exists` and
+    /// `build_folders_cst_value`). The method reads directly
+    /// from `self` so the caller does not have to thread the
+    /// two fields through a temporary params struct.
+    fn build_identity_settings_cst_value(&self) -> CstInputValue {
+        let window_title = self
+            .window_title_override
+            .as_deref()
+            .unwrap_or_default()
+            .to_owned();
+        let mut settings_properties: Vec<(String, CstInputValue)> = Vec::new();
+        settings_properties.push((
+            "window.title".to_owned(),
+            CstInputValue::String(format!("{window_title} — ${{activeEditorShort}}")),
+        ));
+        if let Some(title_bar_hex) = self.title_bar_color_hex.as_deref() {
+            let color_customizations: Vec<(String, CstInputValue)> = vec![
+                (
+                    "titleBar.activeBackground".to_owned(),
+                    CstInputValue::String(title_bar_hex.to_owned()),
+                ),
+                (
+                    "titleBar.activeForeground".to_owned(),
+                    CstInputValue::String("#ffffff".to_owned()),
+                ),
+                (
+                    "titleBar.inactiveBackground".to_owned(),
+                    CstInputValue::String(title_bar_hex.to_owned()),
+                ),
+                (
+                    "titleBar.inactiveForeground".to_owned(),
+                    CstInputValue::String("#ffffff".to_owned()),
+                ),
+            ];
+            settings_properties.push((
+                "workbench.colorCustomizations".to_owned(),
+                CstInputValue::Object(color_customizations),
+            ));
+        }
+        CstInputValue::Object(settings_properties)
     }
 }
 

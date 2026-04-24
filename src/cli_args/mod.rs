@@ -2,38 +2,40 @@
 //!
 //! Each subcommand's args live in their own file. Shared building
 //! blocks (tag filter, repo selection) are composed via `#[command(flatten)]`.
-mod ai_args;
-mod color_args;
-mod edit_args;
-mod init_args;
-mod jump_args;
-mod list_args;
-mod open_args;
-mod remove_args;
-mod repo_selection_args;
+mod ai_arguments;
+mod color_arguments;
+mod edit_arguments;
+mod initialize_arguments;
+mod jump_arguments;
+mod list_arguments;
+mod open_arguments;
+mod prompt_arguments;
+mod remove_arguments;
+mod repository_selection_arguments;
 mod reportal_cli;
-mod run_args;
-mod status_args;
-mod sync_args;
-mod tag_filter_args;
-mod web_args;
-mod workspace_args;
-mod workspace_filter_args;
+mod run_arguments;
+mod status_arguments;
+mod sync_arguments;
+mod tag_filter_arguments;
+mod web_arguments;
+mod workspace_arguments;
+mod workspace_filter_arguments;
 
-pub use ai_args::AiArgs;
-pub use color_args::ColorArgs;
-pub use edit_args::EditArgs;
-pub use init_args::{InitArgs, InitShell};
-pub use jump_args::JumpArgs;
-pub use list_args::{ListArgs, ListArgsFilterParts};
-pub use open_args::OpenArgs;
-pub use remove_args::RemoveArgs;
+pub use ai_arguments::AiArguments;
+pub use color_arguments::ColorArguments;
+pub use edit_arguments::EditArguments;
+pub use initialize_arguments::{InitializeArguments, InitializeShell};
+pub use jump_arguments::JumpArguments;
+pub use list_arguments::{ListArguments, ListArgumentsFilterParts};
+pub use open_arguments::OpenArguments;
+pub use prompt_arguments::{PromptArguments, PromptShell};
+pub use remove_arguments::RemoveArguments;
 pub use reportal_cli::{ReportalCli, ReportalCliSubcommand};
-pub use run_args::RunArgs;
-pub use status_args::StatusArgs;
-pub use sync_args::SyncArgs;
-pub use web_args::WebArgs;
-pub use workspace_args::{
-    WorkspaceArgs, WorkspaceArgsCreateParts, WorkspaceArgsDeleteParts, WorkspaceArgsMemberEditParts,
-    WorkspaceArgsSubcommand,
+pub use run_arguments::RunArguments;
+pub use status_arguments::StatusArguments;
+pub use sync_arguments::SyncArguments;
+pub use web_arguments::WebArguments;
+pub use workspace_arguments::{
+    WorkspaceArguments, WorkspaceArgumentsCreateParts, WorkspaceArgumentsDeleteParts, WorkspaceArgumentsMemberEditParts,
+    WorkspaceArgumentsSubcommand,
 };
