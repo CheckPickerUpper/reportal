@@ -14,14 +14,14 @@ use clap::Args;
 /// because the project's rules forbid `Option` for domain state
 /// where both branches have meaning.
 #[derive(Args)]
-pub struct WorkspaceFilterArgs {
+pub struct WorkspaceFilterArguments {
     /// Filter repos by workspace membership
     #[arg(long = "workspace", default_value = "", hide_default_value = true)]
     workspace_name: String,
 }
 
 /// Consuming conversion to the domain's `WorkspaceFilter` enum.
-impl WorkspaceFilterArgs {
+impl WorkspaceFilterArguments {
     /// Converts the CLI flag value into a `WorkspaceFilter`.
     ///
     /// Empty string (absent flag) becomes `All`; any non-empty

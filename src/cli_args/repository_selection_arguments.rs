@@ -2,7 +2,7 @@
 
 use clap::Args;
 use crate::reportal_config::TagFilter;
-use super::tag_filter_args::TagFilterArgs;
+use super::tag_filter_arguments::TagFilterArguments;
 
 /// Optional repo alias (positional) combined with a `--tag` filter flag.
 ///
@@ -10,16 +10,16 @@ use super::tag_filter_args::TagFilterArgs;
 /// run, and ai. The alias is optional: when empty, the command presents
 /// a fuzzy finder. When non-empty, it jumps directly to that repo.
 #[derive(Args)]
-pub struct RepoSelectionArgs {
+pub struct RepositorySelectionArguments {
     /// Jump directly to this alias (skip fuzzy finder)
     #[arg(default_value = "", hide_default_value = true)]
     alias: String,
     #[command(flatten)]
-    tag_filter: TagFilterArgs,
+    tag_filter: TagFilterArguments,
 }
 
 /// Consuming conversion that splits the args into their domain-layer parts.
-impl RepoSelectionArgs {
+impl RepositorySelectionArguments {
     /// Returns the alias string and a `TagFilter`, consuming self.
     ///
     /// The alias may be empty (meaning no direct selection was provided).

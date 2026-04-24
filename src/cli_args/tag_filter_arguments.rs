@@ -8,14 +8,14 @@ use crate::reportal_config::TagFilter;
 /// When the flag is absent (empty default), resolves to `TagFilter::All`.
 /// When provided, resolves to `TagFilter::ByTag` with the given value.
 #[derive(Args)]
-pub struct TagFilterArgs {
+pub struct TagFilterArguments {
     /// Filter repos by this tag
     #[arg(long, default_value = "", hide_default_value = true)]
     tag: String,
 }
 
 /// Consuming conversion to the domain's `TagFilter` enum.
-impl TagFilterArgs {
+impl TagFilterArguments {
     /// Converts the CLI flag value into a `TagFilter`.
     ///
     /// Empty string (absent flag) becomes `All`; any non-empty value

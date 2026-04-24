@@ -1,10 +1,10 @@
 //! Emits OSC terminal identity sequences (tab title + color) for a selected repo.
 
 use crate::reportal_config::{RepoColor, RepoEntry, TabTitle};
-use crate::terminal_style::{self, TabColorAction, TerminalIdentity, TerminalIdentityParams};
+use crate::terminal_style::{self, TabColorAction, TerminalIdentity, TerminalIdentityParameters};
 
 /// Parameters for emitting terminal identity (tab title + color).
-pub struct TerminalIdentityEmitParams<'a> {
+pub struct TerminalIdentityEmitParameters<'a> {
     /// The selected repo's alias (used as fallback title).
     pub selected_alias: &'a str,
     /// The selected repo's config entry (provides title and color fields).
@@ -18,7 +18,7 @@ pub struct TerminalIdentityEmitParams<'a> {
 ///
 /// Title precedence: `title_override` > repo's `title` field > alias.
 /// Color: repo's `color` field if set, otherwise resets to terminal default.
-pub fn emit_repo_terminal_identity(identity_params: &TerminalIdentityEmitParams<'_>) {
+pub fn emit_repo_terminal_identity(identity_params: &TerminalIdentityEmitParameters<'_>) {
     let resolved_title = if identity_params.title_override.is_empty() {
         match identity_params.selected_repo.tab_title() {
             TabTitle::Custom(custom_title) => custom_title.to_owned(),
@@ -35,7 +35,7 @@ pub fn emit_repo_terminal_identity(identity_params: &TerminalIdentityEmitParams<
         RepoColor::ResetToDefault => TabColorAction::Reset,
     };
 
-    let identity = TerminalIdentity::new(TerminalIdentityParams {
+    let identity = TerminalIdentity::new(TerminalIdentityParameters {
         resolved_title,
         tab_color_action,
     });

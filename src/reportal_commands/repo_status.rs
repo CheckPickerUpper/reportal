@@ -1,7 +1,7 @@
 //! Shows git status across all registered repos in a table.
 
 use crate::error::ReportalError;
-use crate::reportal_commands::git_commands::{self, GitCommandOutcome, GitCommandParams};
+use crate::reportal_commands::git_commands::{self, GitCommandOutcome, GitCommandParameters};
 use crate::reportal_config::{ReportalConfig, TagFilter};
 use crate::terminal_style;
 use comfy_table::{Cell, Table};
@@ -77,7 +77,7 @@ enum UsizeParse {
 }
 
 /// Parameters for collecting git status from a single repo.
-struct StatusCollectionParams<'a> {
+struct StatusCollectionParameters<'a> {
     /// The alias of the repo being checked.
     alias: &'a str,
     /// The resolved filesystem path to the repo.
@@ -94,7 +94,7 @@ fn parse_usize(raw_text: &str) -> UsizeParse {
 
 /// Reads the current branch name from a repo directory.
 fn read_branch_name(repo_path: &PathBuf) -> String {
-    match git_commands::run_git_command(&GitCommandParams {
+    match git_commands::run_git_command(&GitCommandParameters {
         repo_path,
         git_subcommand_args: &["rev-parse", "--abbrev-ref", "HEAD"],
     }) {
@@ -106,7 +106,7 @@ fn read_branch_name(repo_path: &PathBuf) -> String {
 
 /// Checks whether the working tree has uncommitted changes.
 fn read_working_tree_state(repo_path: &PathBuf) -> WorkingTreeState {
-    match git_commands::run_git_command(&GitCommandParams {
+    match git_commands::run_git_command(&GitCommandParameters {
         repo_path,
         git_subcommand_args: &["status", "--porcelain"],
     }) {
@@ -133,7 +133,7 @@ fn parse_rev_list_counts(raw_counts: &str) -> RevListParse {
 
 /// Reads ahead/behind counts relative to the upstream tracking branch.
 fn read_upstream_delta(repo_path: &PathBuf) -> UpstreamDelta {
-    match git_commands::run_git_command(&GitCommandParams {
+    match git_commands::run_git_command(&GitCommandParameters {
         repo_path,
         git_subcommand_args: &["rev-list", "--left-right", "--count", "HEAD...@{upstream}"],
     }) {
@@ -147,7 +147,7 @@ fn read_upstream_delta(repo_path: &PathBuf) -> UpstreamDelta {
 
 /// Reads the relative age of the last commit (e.g. "3 days ago").
 fn read_last_commit_age(repo_path: &PathBuf) -> String {
-    match git_commands::run_git_command(&GitCommandParams {
+    match git_commands::run_git_command(&GitCommandParameters {
         repo_path,
         git_subcommand_args: &["log", "-1", "--format=%cr"],
     }) {
@@ -158,7 +158,7 @@ fn read_last_commit_age(repo_path: &PathBuf) -> String {
 }
 
 /// Collects git status for a single repo by running git commands in its directory.
-fn collect_repo_status(status_collection_params: &StatusCollectionParams<'_>) -> RepoGitStatus {
+fn collect_repo_status(status_collection_params: &StatusCollectionParameters<'_>) -> RepoGitStatus {
     if status_collection_params.repo_path.exists() {
         let branch = read_branch_name(status_collection_params.repo_path);
         let working_tree = read_working_tree_state(status_collection_params.repo_path);
@@ -214,7 +214,7 @@ pub fn run_status(tag_filter: &TagFilter) -> Result<(), ReportalError> {
         .iter()
         .map(|(alias, repo)| {
             let resolved = repo.resolved_path();
-            collect_repo_status(&StatusCollectionParams {
+            collect_repo_status(&StatusCollectionParameters {
                 alias,
                 repo_path: &resolved,
             })
