@@ -4,19 +4,19 @@ use crate::error::ReportalError;
 use crate::reportal_commands::direct_alias_router::{
     DirectAliasRouter, DirectAliasRouterOutcome,
 };
-use crate::reportal_commands::path_display::{self, SelectedPathDisplayParams};
-use crate::reportal_commands::repo_selection::{self, SelectedRepoParams};
+use crate::reportal_commands::path_display::{self, SelectedPathDisplayParameters};
+use crate::reportal_commands::repo_selection::{self, SelectedRepoParameters};
 use crate::reportal_commands::target_selection::{
-    self, SelectedTarget, SelectedTargetParams,
+    self, SelectedTarget, SelectedTargetParameters,
 };
 use crate::reportal_commands::terminal_identity_emit::{
-    self, TerminalIdentityEmitParams,
+    self, TerminalIdentityEmitParameters,
 };
 use crate::reportal_config::{ReportalConfig, TagFilter};
 use crate::terminal_style;
 
 /// All parameters needed to run the jump command.
-pub struct JumpCommandParams<'a> {
+pub struct JumpCommandParameters<'a> {
     /// Which repos to show in the fuzzy finder.
     pub tag_filter: TagFilter,
     /// If non-empty, skip the fuzzy finder and jump directly.
@@ -47,11 +47,11 @@ pub struct JumpCommandParams<'a> {
 /// Returns [`ReportalError::RepoNotFound`] when the direct alias
 /// resolves to neither a repo nor a workspace, or any error the
 /// repo-selection or workspace-regenerator paths surface.
-pub fn run_jump(jump_params: &JumpCommandParams<'_>) -> Result<(), ReportalError> {
+pub fn run_jump(jump_params: &JumpCommandParameters<'_>) -> Result<(), ReportalError> {
     let loaded_config = ReportalConfig::load_or_initialize()?;
 
     let resolved_repo_alias: String = if jump_params.direct_alias.is_empty() {
-        let target_params = SelectedTargetParams {
+        let target_params = SelectedTargetParameters {
             loaded_config: &loaded_config,
             tag_filter: &jump_params.tag_filter,
             prompt_label: "Jump to repo or workspace",
@@ -80,7 +80,7 @@ pub fn run_jump(jump_params: &JumpCommandParams<'_>) -> Result<(), ReportalError
         }
     };
 
-    let selection_params = SelectedRepoParams {
+    let selection_params = SelectedRepoParameters {
         loaded_config: &loaded_config,
         direct_alias: &resolved_repo_alias,
         tag_filter: &jump_params.tag_filter,
@@ -88,8 +88,8 @@ pub fn run_jump(jump_params: &JumpCommandParams<'_>) -> Result<(), ReportalError
     };
     let selected = repo_selection::select_repo(&selection_params)?;
 
-    terminal_identity_emit::emit_repo_terminal_identity(&TerminalIdentityEmitParams {
-        selected_alias: selected.repo_alias(),
+    terminal_identity_emit::emit_repo_terminal_identity(&TerminalIdentityEmitParameters {
+        selected_alias: selected.repository_alias(),
         selected_repo: selected.repo_config(),
         title_override: jump_params.title_override,
     });
@@ -99,7 +99,7 @@ pub fn run_jump(jump_params: &JumpCommandParams<'_>) -> Result<(), ReportalError
 
     terminal_style::write_stdout(&formatted_path.clone());
 
-    path_display::print_selected_path_if_visible(&SelectedPathDisplayParams {
+    path_display::print_selected_path_if_visible(&SelectedPathDisplayParameters {
         loaded_config: &loaded_config,
         resolved_path: &resolved_path,
     });

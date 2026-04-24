@@ -2,6 +2,8 @@
 //! VSCode/Cursor `.code-workspace` file.
 
 use crate::reportal_config::has_aliases::HasAliases;
+use crate::reportal_config::repository_color::RepoColor;
+use crate::reportal_config::tab_title::TabTitle;
 use crate::reportal_config::workspace_member::{
     WorkspaceMember, WorkspaceMemberAliasLookup,
 };
@@ -55,6 +57,18 @@ pub struct WorkspaceEntry {
     /// rejected before any command resolves it.
     #[serde(default)]
     pub(super) aliases: Vec<String>,
+    /// Short label shown in the shell prompt badge and editor
+    /// window title when the user is inside this workspace. When
+    /// `UseAlias`, the workspace's canonical name is used.
+    #[serde(default)]
+    pub(super) title: TabTitle,
+    /// Accent color for the shell prompt badge, the editor title
+    /// bar (`workbench.colorCustomizations`), and the terminal tab
+    /// strip when the user is inside this workspace. When
+    /// `ResetToDefault`, no accent is applied and the badge falls
+    /// back to the terminal's default foreground.
+    #[serde(default)]
+    pub(super) color: RepoColor,
 }
 
 /// Accessors and mutators for a workspace entry.
@@ -141,13 +155,29 @@ impl WorkspaceEntry {
     /// and the `rep remove` guard. Inline-path members never match
     /// because they carry no repo alias by construction.
     #[must_use]
-    pub fn contains_repo(&self, repo_alias: &str) -> bool {
+    pub fn contains_repo(&self, repository_alias: &str) -> bool {
         self.repos.iter().any(|member| {
             matches!(
                 member.registered_repo_alias(),
-                WorkspaceMemberAliasLookup::Matches(alias) if alias == repo_alias
+                WorkspaceMemberAliasLookup::Matches(alias) if alias == repository_alias
             )
         })
+    }
+
+    /// @why Exposes the workspace's prompt-badge / window-title
+    /// label so `rep prompt` and `rep workspace rebuild` can render
+    /// the same identity without re-reading the raw field.
+    #[must_use]
+    pub fn tab_title(&self) -> &TabTitle {
+        &self.title
+    }
+
+    /// @why Exposes the workspace's accent color so the prompt
+    /// badge, the terminal tab strip, and the editor title bar all
+    /// draw from one source of truth per workspace.
+    #[must_use]
+    pub fn workspace_color(&self) -> &RepoColor {
+        &self.color
     }
 
     /// Replaces the ordered member list with a new one.

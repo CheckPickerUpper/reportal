@@ -16,7 +16,7 @@
 
 use crate::error::ReportalError;
 use crate::reportal_commands::workspace_layout::{
-    materialize_workspace_layout, workspace_file_path_inside_dir, WorkspaceLayoutParams,
+    materialize_workspace_layout, workspace_file_path_inside_dir, WorkspaceLayoutParameters,
     WorkspaceLinkSpec,
 };
 use crate::reportal_config::{ReportalConfig, WorkspaceEntry, WorkspaceMember};
@@ -71,10 +71,20 @@ impl<'config_lifetime> WorkspaceRegenerator<'config_lifetime> {
         let target_workspace = self.config_registry.get_workspace(workspace_name)?;
         let member_links = self.build_member_link_specs(target_workspace)?;
         let workspace_directory = self.resolve_workspace_directory(workspace_name)?;
-        materialize_workspace_layout(&WorkspaceLayoutParams {
+        let resolved_window_title = match target_workspace.tab_title() {
+            crate::reportal_config::TabTitle::Custom(custom_label) => custom_label.clone(),
+            crate::reportal_config::TabTitle::UseAlias => workspace_name.to_owned(),
+        };
+        let resolved_title_bar_hex = target_workspace
+            .workspace_color()
+            .themed_hex_color()
+            .map(|hex_color| hex_color.raw_value().to_owned());
+        materialize_workspace_layout(&WorkspaceLayoutParameters {
             workspace_directory: &workspace_directory,
             workspace_name,
             member_links: &member_links,
+            window_title_override: Some(resolved_window_title.as_str()),
+            title_bar_color_hex: resolved_title_bar_hex.as_deref(),
         })
     }
 
@@ -150,10 +160,10 @@ impl<'config_lifetime> WorkspaceRegenerator<'config_lifetime> {
         let mut resolved_specs = Vec::with_capacity(declared_members.len());
         for member in declared_members {
             match member {
-                WorkspaceMember::RegisteredRepo(repo_alias) => {
-                    let member_repo = self.config_registry.get_repo(repo_alias)?;
+                WorkspaceMember::RegisteredRepo(repository_alias) => {
+                    let member_repo = self.config_registry.get_repo(repository_alias)?;
                     resolved_specs.push(WorkspaceLinkSpec {
-                        link_name: repo_alias.clone(),
+                        link_name: repository_alias.clone(),
                         target_absolute_path: member_repo.resolved_path(),
                     });
                 }

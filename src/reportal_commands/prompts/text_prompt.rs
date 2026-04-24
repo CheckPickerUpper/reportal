@@ -4,7 +4,7 @@ use crate::error::ReportalError;
 use dialoguer::{theme::ColorfulTheme, Input};
 
 /// Parameters for a text input prompt with a label and default value.
-pub struct TextPromptParams<'a> {
+pub struct TextPromptParameters<'a> {
     /// The dialoguer theme to style the prompt.
     pub prompt_theme: &'a ColorfulTheme,
     /// The label shown to the user (e.g. "Description").
@@ -17,7 +17,7 @@ pub struct TextPromptParams<'a> {
 ///
 /// Wraps the dialoguer `Input` widget and maps IO errors into
 /// `ReportalError::ConfigIoFailure` so callers can propagate with `?`.
-pub fn prompt_for_text(text_prompt_params: &TextPromptParams<'_>) -> Result<String, ReportalError> {
+pub fn prompt_for_text(text_prompt_params: &TextPromptParameters<'_>) -> Result<String, ReportalError> {
     let entered_text: String = Input::with_theme(text_prompt_params.prompt_theme)
         .with_prompt(text_prompt_params.label)
         .default(text_prompt_params.default_value.to_owned())

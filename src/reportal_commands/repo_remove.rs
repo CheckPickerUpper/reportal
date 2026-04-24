@@ -22,10 +22,10 @@ use crate::terminal_style;
 /// [`ReportalError::RepoIsWorkspaceMember`] if the repo is still a
 /// member of any workspace, or the config I/O errors that the load
 /// and save paths surface.
-pub fn run_remove(repo_alias: &str) -> Result<(), ReportalError> {
+pub fn run_remove(repository_alias: &str) -> Result<(), ReportalError> {
     let mut loaded_config = ReportalConfig::load_or_initialize()?;
 
-    let containing_workspaces = loaded_config.workspaces_containing_repo(repo_alias);
+    let containing_workspaces = loaded_config.workspaces_containing_repo(repository_alias);
     if !containing_workspaces.is_empty() {
         let joined_workspace_names = containing_workspaces
             .iter()
@@ -33,13 +33,13 @@ pub fn run_remove(repo_alias: &str) -> Result<(), ReportalError> {
             .collect::<Vec<&str>>()
             .join(", ");
         return Err(ReportalError::RepoIsWorkspaceMember {
-            alias: repo_alias.to_owned(),
+            alias: repository_alias.to_owned(),
             affected_workspaces: joined_workspace_names,
         });
     }
 
-    let removed_entry = loaded_config.remove_repo(repo_alias)?;
+    let removed_entry = loaded_config.remove_repo(repository_alias)?;
     loaded_config.save_to_disk()?;
-    terminal_style::print_success(&format!("Removed '{}' ({})", repo_alias, removed_entry.raw_path()));
+    terminal_style::print_success(&format!("Removed '{}' ({})", repository_alias, removed_entry.raw_path()));
     Ok(())
 }

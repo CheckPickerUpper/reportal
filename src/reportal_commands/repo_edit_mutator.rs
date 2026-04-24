@@ -5,7 +5,7 @@
 
 use crate::error::ReportalError;
 use crate::reportal_commands::prompts::{
-    self, ColorEditPromptParams, ColorEditResult, TextPromptParams,
+    self, ColorEditPromptParameters, ColorEditResult, TextPromptParameters,
 };
 use crate::reportal_commands::workspace_operations::WorkspaceRegenerator;
 use crate::reportal_config::{RepoColor, ReportalConfig, TabTitle};
@@ -94,7 +94,7 @@ impl RepoEditFieldMutator<'_, '_, '_> {
     /// been removed from under the edit session, or any config /
     /// file I/O error from save and regenerate.
     pub fn apply_path_edit(&mut self) -> Result<(), ReportalError> {
-        let new_raw_path = prompts::prompt_for_text(&TextPromptParams {
+        let new_raw_path = prompts::prompt_for_text(&TextPromptParameters {
             prompt_theme: self.prompt_theme,
             label: "Path",
             default_value: &self.current_raw_path,
@@ -131,7 +131,7 @@ impl RepoEditFieldMutator<'_, '_, '_> {
     /// whichever prompt, repo-lookup, or config I/O error the
     /// underlying calls surface.
     pub fn apply_description_edit(&mut self) -> Result<(), ReportalError> {
-        let new_description = prompts::prompt_for_text(&TextPromptParams {
+        let new_description = prompts::prompt_for_text(&TextPromptParameters {
             prompt_theme: self.prompt_theme,
             label: "Description",
             default_value: &self.current_description,
@@ -155,7 +155,7 @@ impl RepoEditFieldMutator<'_, '_, '_> {
     /// merge rule. Errors: returns whichever prompt or config I/O
     /// error the underlying calls surface.
     pub fn apply_tags_edit(&mut self) -> Result<(), ReportalError> {
-        let tags_input = prompts::prompt_for_text(&TextPromptParams {
+        let tags_input = prompts::prompt_for_text(&TextPromptParameters {
             prompt_theme: self.prompt_theme,
             label: "Tags (comma-separated)",
             default_value: &self.current_tags_csv,
@@ -178,7 +178,7 @@ impl RepoEditFieldMutator<'_, '_, '_> {
     /// cached display string. Errors: returns whichever prompt or
     /// config I/O error the underlying calls surface.
     pub fn apply_title_edit(&mut self) -> Result<(), ReportalError> {
-        let new_title = prompts::prompt_for_text(&TextPromptParams {
+        let new_title = prompts::prompt_for_text(&TextPromptParameters {
             prompt_theme: self.prompt_theme,
             label: "Tab title (empty = use alias)",
             default_value: &self.current_title,
@@ -208,7 +208,7 @@ impl RepoEditFieldMutator<'_, '_, '_> {
     /// the result to config. Errors: returns whichever prompt or
     /// config I/O error the underlying calls surface.
     pub fn apply_color_edit(&mut self) -> Result<(), ReportalError> {
-        let color_edit_result = prompts::prompt_for_color_edit(&ColorEditPromptParams {
+        let color_edit_result = prompts::prompt_for_color_edit(&ColorEditPromptParameters {
             prompt_theme: self.prompt_theme,
             current_default: &self.current_color_hex,
         })?;
