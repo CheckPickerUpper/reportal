@@ -2,7 +2,7 @@
 
 use crate::error::ReportalError;
 use crate::reportal_config::hex_color::HexColor;
-use crate::reportal_config::repo_color::RepoColor;
+use crate::reportal_config::repository_color::RepoColor;
 use crate::reportal_config::repo_entry::RepoEntry;
 use crate::reportal_config::tab_title::TabTitle;
 use std::collections::BTreeMap;

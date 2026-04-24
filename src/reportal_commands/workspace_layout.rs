@@ -87,7 +87,7 @@ pub fn create_workspace_link(target: &Path, link_path: &Path) -> io::Result<()> 
 /// Bundled so the public entry point takes a single struct rather
 /// than four positional arguments, in line with the project's
 /// param-count rules for public functions.
-pub struct WorkspaceLayoutParams<'caller> {
+pub struct WorkspaceLayoutParameters<'caller> {
     /// Absolute path of the directory that should hold the
     /// `.code-workspace` file and every member link.
     pub workspace_directory: &'caller Path,
@@ -98,6 +98,15 @@ pub struct WorkspaceLayoutParams<'caller> {
     /// determines the `folders[]` order in the `.code-workspace`
     /// file and therefore the editor sidebar.
     pub member_links: &'caller [WorkspaceLinkSpec],
+    /// Workspace identity label stamped into the editor's
+    /// `window.title` setting. `None` leaves the setting
+    /// untouched; `Some(label)` replaces the `.code-workspace`
+    /// file's `settings` object with a reportal-managed block.
+    pub window_title_override: Option<&'caller str>,
+    /// Workspace accent color as a raw `#RRGGBB` string, used
+    /// for the editor title bar when `window_title_override` is
+    /// also set. `None` means no title-bar color override.
+    pub title_bar_color_hex: Option<&'caller str>,
 }
 
 /// Materializes the workspace directory, one link per member, and
@@ -123,7 +132,7 @@ pub struct WorkspaceLayoutParams<'caller> {
 /// occupied by a real file / directory that is not a symlink
 /// pointing at the expected target.
 pub fn materialize_workspace_layout(
-    layout_params: &WorkspaceLayoutParams<'_>,
+    layout_params: &WorkspaceLayoutParameters<'_>,
 ) -> Result<PathBuf, ReportalError> {
     ensure_directory_exists(layout_params.workspace_directory)?;
     for link_spec in layout_params.member_links {
@@ -141,6 +150,12 @@ pub fn materialize_workspace_layout(
     let mut code_workspace_document =
         CodeWorkspaceFile::load_or_empty(&workspace_file_path)?;
     code_workspace_document.set_folder_paths(&relative_folder_paths);
+    if let Some(window_title) = layout_params.window_title_override {
+        code_workspace_document.set_workspace_identity(
+            window_title.to_owned(),
+            layout_params.title_bar_color_hex.map(str::to_owned),
+        );
+    }
     code_workspace_document.write_to_disk(&workspace_file_path)?;
     Ok(workspace_file_path)
 }
@@ -375,10 +390,12 @@ mod tests {
             },
         ];
 
-        let workspace_file_path = materialize_workspace_layout(&WorkspaceLayoutParams {
+        let workspace_file_path = materialize_workspace_layout(&WorkspaceLayoutParameters {
             workspace_directory: &workspace_dir,
             workspace_name: "nro",
             member_links: &member_links,
+            window_title_override: None,
+            title_bar_color_hex: None,
         })
         .expect("materialize must succeed");
 
@@ -457,10 +474,12 @@ mod tests {
             target_absolute_path: real_target.clone(),
         }];
 
-        materialize_workspace_layout(&WorkspaceLayoutParams {
+        materialize_workspace_layout(&WorkspaceLayoutParameters {
             workspace_directory: &workspace_dir,
             workspace_name: "nro",
             member_links: &member_links,
+            window_title_override: None,
+            title_bar_color_hex: None,
         })
         .expect("first run must succeed");
 
@@ -472,10 +491,12 @@ mod tests {
         );
 
         // Second run is a no-op — must still succeed.
-        materialize_workspace_layout(&WorkspaceLayoutParams {
+        materialize_workspace_layout(&WorkspaceLayoutParameters {
             workspace_directory: &workspace_dir,
             workspace_name: "nro",
             member_links: &member_links,
+            window_title_override: None,
+            title_bar_color_hex: None,
         })
         .expect("second run must be idempotent");
 
@@ -506,10 +527,12 @@ mod tests {
             target_absolute_path: real_target.clone(),
         }];
 
-        let outcome = materialize_workspace_layout(&WorkspaceLayoutParams {
+        let outcome = materialize_workspace_layout(&WorkspaceLayoutParameters {
             workspace_directory: &workspace_dir,
             workspace_name: "nro",
             member_links: &member_links,
+            window_title_override: None,
+            title_bar_color_hex: None,
         });
 
         assert!(

@@ -3,15 +3,15 @@
 use crate::error::ReportalError;
 use crate::reportal_config::{ReportalConfig, TagFilter};
 use crate::terminal_style;
-use crate::reportal_commands::repo_selection::{self, SelectedRepoParams};
+use crate::reportal_commands::repo_selection::{self, SelectedRepoParameters};
 use crate::reportal_commands::terminal_identity_emit::{
-    self, TerminalIdentityEmitParams,
+    self, TerminalIdentityEmitParameters,
 };
 use owo_colors::OwoColorize;
 use std::process::Command;
 
 /// All parameters needed to run the web command.
-pub struct WebCommandParams<'a> {
+pub struct WebCommandParameters<'a> {
     /// Which repos to show in the fuzzy finder.
     pub tag_filter: TagFilter,
     /// If non-empty, skip the fuzzy finder and open this alias directly.
@@ -82,10 +82,10 @@ fn detect_git_remote(repo_path: &std::path::Path) -> RemoteResolution {
 /// falling back to `git remote get-url origin` in the repo directory.
 /// Converts SSH remotes to HTTPS URLs for browser compatibility.
 /// Emits tab title and color before opening the browser.
-pub fn run_web(web_params: &WebCommandParams<'_>) -> Result<(), ReportalError> {
+pub fn run_web(web_params: &WebCommandParameters<'_>) -> Result<(), ReportalError> {
     let loaded_config = ReportalConfig::load_or_initialize()?;
 
-    let selection_params = SelectedRepoParams {
+    let selection_params = SelectedRepoParameters {
         loaded_config: &loaded_config,
         direct_alias: web_params.direct_alias,
         tag_filter: &web_params.tag_filter,
@@ -93,8 +93,8 @@ pub fn run_web(web_params: &WebCommandParams<'_>) -> Result<(), ReportalError> {
     };
     let selected = repo_selection::select_repo(&selection_params)?;
 
-    terminal_identity_emit::emit_repo_terminal_identity(&TerminalIdentityEmitParams {
-        selected_alias: selected.repo_alias(),
+    terminal_identity_emit::emit_repo_terminal_identity(&TerminalIdentityEmitParameters {
+        selected_alias: selected.repository_alias(),
         selected_repo: selected.repo_config(),
         title_override: "",
     });
@@ -103,7 +103,7 @@ pub fn run_web(web_params: &WebCommandParams<'_>) -> Result<(), ReportalError> {
         RemoteResolution::Resolved(detected_url) => detected_url,
         RemoteResolution::NotFound => {
             return Err(ReportalError::NoRemoteUrl {
-                alias: selected.repo_alias().to_owned(),
+                alias: selected.repository_alias().to_owned(),
             });
         }
     } } else { selected.repo_config().remote().to_owned() };

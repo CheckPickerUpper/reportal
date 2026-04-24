@@ -2,7 +2,7 @@
 
 use crate::error::ReportalError;
 use crate::reportal_commands::prompts::{
-    self, ColorPromptResult, TextPromptParams,
+    self, ColorPromptResult, TextPromptParameters,
 };
 use crate::reportal_config::{RepoRegistrationBuilder, ReportalConfig};
 use crate::terminal_style;
@@ -28,19 +28,19 @@ impl RegistrationContext<'_> {
     pub fn collect_metadata_and_register(self) -> Result<(), ReportalError> {
         let prompt_theme = terminal_style::reportal_prompt_theme();
 
-        let repo_alias = prompts::prompt_for_text(&TextPromptParams {
+        let repository_alias = prompts::prompt_for_text(&TextPromptParameters {
             prompt_theme: &prompt_theme,
             label: "Alias",
             default_value: &self.suggested_alias,
         })?;
 
-        let repo_description = prompts::prompt_for_text(&TextPromptParams {
+        let repo_description = prompts::prompt_for_text(&TextPromptParameters {
             prompt_theme: &prompt_theme,
             label: "Description",
             default_value: "",
         })?;
 
-        let tags_input = prompts::prompt_for_text(&TextPromptParams {
+        let tags_input = prompts::prompt_for_text(&TextPromptParameters {
             prompt_theme: &prompt_theme,
             label: "Tags (comma-separated)",
             default_value: "",
@@ -48,13 +48,13 @@ impl RegistrationContext<'_> {
 
         let parsed_tags = prompts::parse_comma_separated_tags(&tags_input);
 
-        let repo_remote = prompts::prompt_for_text(&TextPromptParams {
+        let repo_remote = prompts::prompt_for_text(&TextPromptParameters {
             prompt_theme: &prompt_theme,
             label: "Remote URL",
             default_value: &self.detected_remote,
         })?;
 
-        let tab_title = prompts::prompt_for_text(&TextPromptParams {
+        let tab_title = prompts::prompt_for_text(&TextPromptParameters {
             prompt_theme: &prompt_theme,
             label: "Tab title (empty = use alias)",
             default_value: "",
@@ -63,7 +63,7 @@ impl RegistrationContext<'_> {
         let repo_color = prompts::prompt_for_color(&prompt_theme)?;
 
         terminal_style::write_stdout("\n");
-        terminal_style::write_stdout(&format!("  {} {}\n", "Alias:".style(terminal_style::LABEL_STYLE), repo_alias.style(terminal_style::ALIAS_STYLE)));
+        terminal_style::write_stdout(&format!("  {} {}\n", "Alias:".style(terminal_style::LABEL_STYLE), repository_alias.style(terminal_style::ALIAS_STYLE)));
         terminal_style::write_stdout(&format!("  {} {}\n", "Path:".style(terminal_style::LABEL_STYLE), self.filesystem_path.style(terminal_style::PATH_STYLE)));
         if !repo_description.is_empty() {
             terminal_style::write_stdout(&format!("  {} {}\n", "Desc:".style(terminal_style::LABEL_STYLE), repo_description));
@@ -85,9 +85,9 @@ impl RegistrationContext<'_> {
         }
         terminal_style::write_stdout("\n");
 
-        let display_alias = repo_alias.as_str().to_owned();
+        let display_alias = repository_alias.as_str().to_owned();
 
-        let mut builder = RepoRegistrationBuilder::start(repo_alias)
+        let mut builder = RepoRegistrationBuilder::start(repository_alias)
             .repo_path(self.filesystem_path.to_owned())
             .repo_description(repo_description)
             .repo_tags(parsed_tags)

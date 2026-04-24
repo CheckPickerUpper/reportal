@@ -2,16 +2,16 @@
 
 use clap::Args;
 use crate::reportal_config::TagFilter;
-use super::repo_selection_args::RepoSelectionArgs;
+use super::repository_selection_arguments::RepositorySelectionArguments;
 
 /// Arguments for the `rep open` subcommand.
 ///
 /// Supports repo selection, an optional editor override, and an
 /// optional tab title override.
 #[derive(Args)]
-pub struct OpenArgs {
+pub struct OpenArguments {
     #[command(flatten)]
-    selection: RepoSelectionArgs,
+    selection: RepositorySelectionArguments,
     /// Override the default editor command
     #[arg(long, default_value = "", hide_default_value = true)]
     editor: String,
@@ -21,7 +21,7 @@ pub struct OpenArgs {
 }
 
 /// Consuming conversion that splits into domain-layer parts.
-impl OpenArgs {
+impl OpenArguments {
     /// Returns (alias, `tag_filter`, `editor_override`, `title_override`), consuming self.
     pub fn into_parts(self) -> (String, TagFilter, String, String) {
         let (alias, tag_filter) = self.selection.into_parts();

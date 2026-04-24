@@ -1,7 +1,7 @@
 //! Removes a workspace from config, optionally purging its on-disk
 //! directory.
 
-use crate::cli_args::WorkspaceArgsDeleteParts;
+use crate::cli_args::WorkspaceArgumentsDeleteParts;
 use crate::error::ReportalError;
 use crate::reportal_commands::workspace_layout::purge_workspace_directory;
 use crate::reportal_commands::workspace_operations::WorkspaceRegenerator;
@@ -26,7 +26,7 @@ use owo_colors::OwoColorize;
 /// matches the name or alias, or the config / filesystem I/O
 /// errors that the load, save, and purge paths surface.
 pub fn run_workspace_delete(
-    delete_parts: &WorkspaceArgsDeleteParts,
+    delete_parts: &WorkspaceArgumentsDeleteParts,
 ) -> Result<(), ReportalError> {
     let mut loaded_config = ReportalConfig::load_or_initialize()?;
     let canonical_name =

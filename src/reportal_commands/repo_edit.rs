@@ -2,14 +2,14 @@
 
 use crate::error::ReportalError;
 use crate::reportal_commands::repo_edit_mutator::RepoEditFieldMutator;
-use crate::reportal_commands::repo_selection::{self, SelectedRepoParams};
+use crate::reportal_commands::repo_selection::{self, SelectedRepoParameters};
 use crate::reportal_config::{RepoColor, ReportalConfig, TabTitle, TagFilter};
 use crate::terminal_style;
 use dialoguer::Select;
 use owo_colors::OwoColorize;
 
 /// All parameters needed to run the edit command.
-pub struct EditCommandParams<'a> {
+pub struct EditCommandParameters<'a> {
     /// Which repos to show in the fuzzy finder.
     pub tag_filter: TagFilter,
     /// If non-empty, skip the fuzzy finder and edit this alias directly.
@@ -30,18 +30,18 @@ pub struct EditCommandParams<'a> {
 ///
 /// Returns whatever the underlying selection, prompt, config I/O,
 /// validation, or workspace regeneration call surfaces.
-pub fn run_edit(command_params: &EditCommandParams<'_>) -> Result<(), ReportalError> {
+pub fn run_edit(command_params: &EditCommandParameters<'_>) -> Result<(), ReportalError> {
     let mut loaded_config = ReportalConfig::load_or_initialize()?;
 
     let selected_alias = {
-        let selection_params = SelectedRepoParams {
+        let selection_params = SelectedRepoParameters {
             loaded_config: &loaded_config,
             direct_alias: command_params.direct_alias,
             tag_filter: &command_params.tag_filter,
             prompt_label: "Edit repo",
         };
         let selection = repo_selection::select_repo(&selection_params)?;
-        selection.repo_alias().to_owned()
+        selection.repository_alias().to_owned()
     };
 
     let initial_repo = loaded_config.get_repo(&selected_alias)?;

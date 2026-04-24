@@ -2,7 +2,7 @@
 
 use crate::reportal_config::command_entry::CommandEntry;
 use crate::reportal_config::has_aliases::HasAliases;
-use crate::reportal_config::repo_color::RepoColor;
+use crate::reportal_config::repository_color::RepoColor;
 use crate::reportal_config::tab_title::TabTitle;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;

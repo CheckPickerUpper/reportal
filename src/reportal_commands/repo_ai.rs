@@ -3,15 +3,15 @@
 use crate::error::ReportalError;
 use crate::reportal_config::{ReportalConfig, TagFilter};
 use crate::terminal_style;
-use crate::reportal_commands::repo_selection::{self, SelectedRepoParams};
+use crate::reportal_commands::repo_selection::{self, SelectedRepoParameters};
 use crate::reportal_commands::terminal_identity_emit::{
-    self, TerminalIdentityEmitParams,
+    self, TerminalIdentityEmitParameters,
 };
 use owo_colors::OwoColorize;
 use std::process::Command;
 
 /// All parameters needed to run the ai command.
-pub struct AiCommandParams<'a> {
+pub struct AiCommandParameters<'a> {
     /// Which repos to show in the fuzzy finder.
     pub tag_filter: TagFilter,
     /// If non-empty, skip the fuzzy finder and use this alias directly.
@@ -25,7 +25,7 @@ pub struct AiCommandParams<'a> {
 /// Resolves the repo (fuzzy select or direct alias), resolves the AI tool
 /// (--tool flag or config default), applies tab theming, then spawns the
 /// AI CLI with stdin/stdout/stderr inherited for interactive passthrough.
-pub fn run_ai(ai_params: &AiCommandParams<'_>) -> Result<(), ReportalError> {
+pub fn run_ai(ai_params: &AiCommandParameters<'_>) -> Result<(), ReportalError> {
     let loaded_config = ReportalConfig::load_or_initialize()?;
 
     let ai_cli_entries = loaded_config.ai_cli_registry();
@@ -38,7 +38,7 @@ pub fn run_ai(ai_params: &AiCommandParams<'_>) -> Result<(), ReportalError> {
     let ai_tool = loaded_config.get_ai_tool(tool_name)?;
 
     let prompt_label = format!("Launch {tool_name} in");
-    let selection_params = SelectedRepoParams {
+    let selection_params = SelectedRepoParameters {
         loaded_config: &loaded_config,
         direct_alias: ai_params.direct_alias,
         tag_filter: &ai_params.tag_filter,
@@ -46,8 +46,8 @@ pub fn run_ai(ai_params: &AiCommandParams<'_>) -> Result<(), ReportalError> {
     };
     let selected = repo_selection::select_repo(&selection_params)?;
 
-    terminal_identity_emit::emit_repo_terminal_identity(&TerminalIdentityEmitParams {
-        selected_alias: selected.repo_alias(),
+    terminal_identity_emit::emit_repo_terminal_identity(&TerminalIdentityEmitParameters {
+        selected_alias: selected.repository_alias(),
         selected_repo: selected.repo_config(),
         title_override: "",
     });

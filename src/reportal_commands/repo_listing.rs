@@ -1,9 +1,9 @@
 //! Lists registered repos grouped by workspace membership.
 
-use crate::cli_args::ListArgsFilterParts;
+use crate::cli_args::ListArgumentsFilterParts;
 use crate::error::ReportalError;
 use crate::reportal_commands::repo_listing_renderer::RepoListingRenderer;
-use crate::reportal_commands::repo_tree_grouping::{RepoTreeGrouping, RepoTreeGroupingParams};
+use crate::reportal_commands::repo_tree_grouping::{RepoTreeGrouping, RepoTreeGroupingParameters};
 use crate::reportal_config::ReportalConfig;
 
 /// Prints a workspace-grouped listing of registered repos.
@@ -26,9 +26,9 @@ use crate::reportal_config::ReportalConfig;
 /// workspace filter names an unknown workspace (a silent empty
 /// output would mask typos), or config I/O errors from the
 /// underlying load path.
-pub fn run_list(filter_parts: &ListArgsFilterParts) -> Result<(), ReportalError> {
+pub fn run_list(filter_parts: &ListArgumentsFilterParts) -> Result<(), ReportalError> {
     let loaded_config = ReportalConfig::load_or_initialize()?;
-    let tree_grouping = RepoTreeGrouping::build(&RepoTreeGroupingParams {
+    let tree_grouping = RepoTreeGrouping::build(&RepoTreeGroupingParameters {
         loaded_config: &loaded_config,
         tag_filter: filter_parts.tag_filter(),
         workspace_filter: filter_parts.workspace_filter(),

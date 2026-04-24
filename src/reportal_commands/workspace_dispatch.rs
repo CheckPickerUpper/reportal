@@ -1,11 +1,11 @@
 //! Dispatch layer for `rep workspace` subcommands.
 //!
-//! Routes a parsed `WorkspaceArgs` to the matching handler in one
+//! Routes a parsed `WorkspaceArguments` to the matching handler in one
 //! place so main.rs does not grow a secondary match on workspace
 //! variants, and so adding a new workspace subcommand requires
 //! exactly one new arm in exactly one file.
 
-use crate::cli_args::{WorkspaceArgs, WorkspaceArgsSubcommand};
+use crate::cli_args::{WorkspaceArguments, WorkspaceArgumentsSubcommand};
 use crate::error::ReportalError;
 use crate::reportal_commands::{
     run_workspace_add_repo, run_workspace_create, run_workspace_delete, run_workspace_jump,
@@ -16,7 +16,7 @@ use crate::reportal_commands::{
 /// Dispatches a parsed `rep workspace` invocation to the matching
 /// subcommand handler.
 ///
-/// Taking ownership of `WorkspaceArgs` is required because every
+/// Taking ownership of `WorkspaceArguments` is required because every
 /// handler pulls owned strings out via `into_parts` /
 /// `into_workspace_name`, which consume the parsed args. Returning
 /// the handler's `Result` directly lets main.rs treat workspace
@@ -28,32 +28,32 @@ use crate::reportal_commands::{
 /// individual `run_workspace_*` functions for the per-action error
 /// set.
 pub fn dispatch_workspace_subcommand(
-    parsed_workspace_args: WorkspaceArgs,
+    parsed_workspace_args: WorkspaceArguments,
 ) -> Result<(), ReportalError> {
     match parsed_workspace_args.into_action() {
-        WorkspaceArgsSubcommand::List => run_workspace_list(),
-        WorkspaceArgsSubcommand::Show(name_only) => {
+        WorkspaceArgumentsSubcommand::List => run_workspace_list(),
+        WorkspaceArgumentsSubcommand::Show(name_only) => {
             run_workspace_show(&name_only.into_workspace_name())
         }
-        WorkspaceArgsSubcommand::Create(create_args) => {
+        WorkspaceArgumentsSubcommand::Create(create_args) => {
             run_workspace_create(&create_args.into_parts())
         }
-        WorkspaceArgsSubcommand::Delete(delete_args) => {
+        WorkspaceArgumentsSubcommand::Delete(delete_args) => {
             run_workspace_delete(&delete_args.into_parts())
         }
-        WorkspaceArgsSubcommand::AddRepo(member_edit) => {
+        WorkspaceArgumentsSubcommand::AddRepo(member_edit) => {
             run_workspace_add_repo(&member_edit.into_parts())
         }
-        WorkspaceArgsSubcommand::RemoveRepo(member_edit) => {
+        WorkspaceArgumentsSubcommand::RemoveRepo(member_edit) => {
             run_workspace_remove_repo(&member_edit.into_parts())
         }
-        WorkspaceArgsSubcommand::Open(optional_name) => {
+        WorkspaceArgumentsSubcommand::Open(optional_name) => {
             run_workspace_open(&optional_name.into_optional_workspace_name())
         }
-        WorkspaceArgsSubcommand::Jump(optional_name) => {
+        WorkspaceArgumentsSubcommand::Jump(optional_name) => {
             run_workspace_jump(&optional_name.into_optional_workspace_name())
         }
-        WorkspaceArgsSubcommand::Rebuild(name_only) => {
+        WorkspaceArgumentsSubcommand::Rebuild(name_only) => {
             run_workspace_rebuild(&name_only.into_workspace_name())
         }
     }

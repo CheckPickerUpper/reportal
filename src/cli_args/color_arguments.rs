@@ -10,7 +10,7 @@ use crate::reportal_commands::ColorCommandMode;
 /// behavior (prints title to stdout, preserves state on no-match) and
 /// explicit behavior (silent stdout, resets color on no-match).
 #[derive(Args)]
-pub struct ColorArgs {
+pub struct ColorArguments {
     /// Look up this repo by alias instead of matching the current directory
     #[arg(long, default_value = "", hide_default_value = true)]
     repo: String,
@@ -20,8 +20,8 @@ pub struct ColorArgs {
 }
 
 /// Consuming conversion that splits into domain-layer parts.
-impl ColorArgs {
-    /// Returns (`repo_alias`, mode), consuming self.
+impl ColorArguments {
+    /// Returns (`repository_alias`, mode), consuming self.
     pub fn into_parts(self) -> (String, ColorCommandMode) {
         (self.repo, self.mode)
     }

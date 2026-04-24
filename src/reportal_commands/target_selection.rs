@@ -36,7 +36,7 @@ pub enum SelectedTarget {
 /// Workspace rows are included only when the tag filter is `All`,
 /// because workspaces do not carry tags and slipping them into a
 /// tag-restricted list would imply they match the filter.
-pub struct SelectedTargetParams<'borrow> {
+pub struct SelectedTargetParameters<'borrow> {
     /// The loaded config to draw rows from.
     pub loaded_config: &'borrow ReportalConfig,
     /// Which repos to show in the finder; workspaces are shown
@@ -67,7 +67,7 @@ pub struct SelectedTargetParams<'borrow> {
 /// escapes the prompt; [`ReportalError::ConfigIoFailure`] for
 /// fuzzy-finder I/O errors.
 pub fn select_target(
-    params: &SelectedTargetParams<'_>,
+    params: &SelectedTargetParameters<'_>,
 ) -> Result<SelectedTarget, ReportalError> {
     let matching_repos = params.loaded_config.repos_matching_tag_filter(params.tag_filter);
     let workspace_rows_included = match params.tag_filter {
@@ -83,14 +83,14 @@ pub fn select_target(
         matching_repos.len() + workspace_rows_included.len(),
     );
 
-    for (repo_alias, repo_entry) in &matching_repos {
+    for (repository_alias, repo_entry) in &matching_repos {
         let swatch_style =
             match terminal_style::swatch_style_for_repo_color(repo_entry.repo_color()) {
                 Ok(resolved_style) => resolved_style,
                 Err(_color_error) => terminal_style::DEFAULT_SWATCH_STYLE,
             };
         let swatch = "██".style(swatch_style);
-        let mut label = format!("{swatch} {repo_alias}");
+        let mut label = format!("{swatch} {repository_alias}");
         if !repo_entry.aliases().is_empty() {
             let aliases_joined = repo_entry.aliases().join(", ");
             label = format!("{label} ({aliases_joined})");
@@ -137,7 +137,7 @@ pub fn select_target(
     if chosen_index < repo_count {
         match matching_repos.get(chosen_index) {
             Some((chosen_repo_alias, _chosen_repo_entry)) => {
-                Ok(SelectedTarget::Repo(chosen_repo_alias.to_string()))
+                Ok(SelectedTarget::Repo((*chosen_repo_alias).clone()))
             }
             None => Err(ReportalError::SelectionCancelled),
         }
@@ -145,7 +145,7 @@ pub fn select_target(
         let workspace_offset = chosen_index - repo_count;
         match workspace_rows_included.get(workspace_offset) {
             Some((chosen_workspace_name, _chosen_entry)) => {
-                Ok(SelectedTarget::Workspace(chosen_workspace_name.to_string()))
+                Ok(SelectedTarget::Workspace((*chosen_workspace_name).clone()))
             }
             None => Err(ReportalError::SelectionCancelled),
         }

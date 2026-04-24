@@ -63,7 +63,7 @@ impl<'config> RepoTreeGrouping<'config> {
     /// alias fails post-load resolution (which should not happen
     /// if `validate_workspace_references` succeeded).
     pub fn build(
-        build_params: &RepoTreeGroupingParams<'config>,
+        build_params: &RepoTreeGroupingParameters<'config>,
     ) -> Result<Self, ReportalError> {
         build_params.validate_workspace_target()?;
         let workspace_sections = build_params.collect_workspace_sections()?;
@@ -121,7 +121,7 @@ impl<'config> RepoTreeGrouping<'config> {
 /// take at most one non-`self` argument, and the named fields
 /// prevent call sites from swapping the two filter refs (which
 /// share the same enum taxonomy at a glance).
-pub struct RepoTreeGroupingParams<'config> {
+pub struct RepoTreeGroupingParameters<'config> {
     /// The loaded config whose workspaces and repos are grouped.
     pub(super) loaded_config: &'config ReportalConfig,
     /// The tag filter applied to every member before inclusion.
@@ -130,10 +130,10 @@ pub struct RepoTreeGroupingParams<'config> {
     pub(super) workspace_filter: &'config WorkspaceFilter,
 }
 
-/// Collection methods for `RepoTreeGroupingParams`, each written
+/// Collection methods for `RepoTreeGroupingParameters`, each written
 /// as a separate method so nesting starts fresh inside each body
 /// and no single method exceeds the project's depth budget.
-impl<'config> RepoTreeGroupingParams<'config> {
+impl<'config> RepoTreeGroupingParameters<'config> {
     /// Ensures the workspace filter, when set to `ByName`,
     /// references a workspace that exists. A silent empty tree
     /// for a typo would mask the mistake, so the early check
@@ -238,7 +238,7 @@ impl<'config> RepoTreeGroupingParams<'config> {
         if workspace_restriction_active {
             return unassigned_repos;
         }
-        for (repo_alias, repo_entry) in self.loaded_config.repos_with_aliases() {
+        for (repository_alias, repo_entry) in self.loaded_config.repos_with_aliases() {
             let repo_survives_tag = !tag_restriction_active
                 || repo_entry
                     .tags()
@@ -248,9 +248,9 @@ impl<'config> RepoTreeGroupingParams<'config> {
                 continue;
             }
             let containing_workspaces =
-                self.loaded_config.workspaces_containing_repo(repo_alias);
+                self.loaded_config.workspaces_containing_repo(repository_alias);
             if containing_workspaces.is_empty() {
-                unassigned_repos.push((repo_alias.as_str(), repo_entry));
+                unassigned_repos.push((repository_alias.as_str(), repo_entry));
             }
         }
         unassigned_repos
@@ -259,7 +259,7 @@ impl<'config> RepoTreeGroupingParams<'config> {
     /// Returns the target workspace name as a borrowed string
     /// slice, or an empty string when the filter is `All`. The
     /// empty-string sentinel is safe because
-    /// `WorkspaceFilterArgs::into_workspace_filter` rejects
+    /// `WorkspaceFilterArguments::into_workspace_filter` rejects
     /// empty input as the `All` variant, so `ByName` never
     /// carries an empty string in production.
     fn workspace_restriction_target(&self) -> &'config str {
@@ -271,7 +271,7 @@ impl<'config> RepoTreeGroupingParams<'config> {
 
     /// Returns the target tag as a borrowed string slice, or an
     /// empty string when the filter is `All`. The empty-string
-    /// sentinel is safe because `TagFilterArgs::into_tag_filter`
+    /// sentinel is safe because `TagFilterArguments::into_tag_filter`
     /// rejects empty input as the `All` variant.
     fn tag_restriction_target(&self) -> &'config str {
         match *self.tag_filter {
@@ -294,7 +294,7 @@ mod tests {
         tag_filter: &'config TagFilter,
         workspace_filter: &'config WorkspaceFilter,
     ) -> Result<RepoTreeGrouping<'config>, ReportalError> {
-        RepoTreeGrouping::build(&RepoTreeGroupingParams {
+        RepoTreeGrouping::build(&RepoTreeGroupingParameters {
             loaded_config: test_config,
             tag_filter,
             workspace_filter,
@@ -478,7 +478,7 @@ mod tests {
         let observed_member_order: Vec<&str> = tree_grouping.workspace_sections()[0]
             .member_repos()
             .iter()
-            .map(|(repo_alias, _repo_entry)| *repo_alias)
+            .map(|(repository_alias, _repo_entry)| *repository_alias)
             .collect();
         assert_eq!(
             observed_member_order,

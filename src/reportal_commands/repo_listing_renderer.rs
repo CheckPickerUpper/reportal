@@ -6,7 +6,7 @@
 //! without a terminal, and keeps the rendering free to change
 //! its output format without touching the tree-building rules.
 
-use crate::cli_args::ListArgsFilterParts;
+use crate::cli_args::ListArgumentsFilterParts;
 use crate::error::ReportalError;
 use crate::reportal_commands::repo_tree_grouping::RepoTreeGrouping;
 use crate::reportal_commands::repo_tree_workspace_section::WorkspaceSection;
@@ -48,7 +48,7 @@ impl<'tree> RepoListingRenderer<'tree> {
     ///
     /// Returns any error surfaced by the per-repo color swatch
     /// resolution path.
-    pub fn render(&self, filter_parts: &ListArgsFilterParts) -> Result<(), ReportalError> {
+    pub fn render(&self, filter_parts: &ListArgumentsFilterParts) -> Result<(), ReportalError> {
         if self.tree_grouping.is_empty() {
             Self::render_empty_state(filter_parts);
             return Ok(());
@@ -89,7 +89,7 @@ impl<'tree> RepoListingRenderer<'tree> {
     /// repo. Takes the filter parts directly (no `self`) because
     /// the message content is derived entirely from the filters,
     /// not from the tree the renderer wraps.
-    fn render_empty_state(filter_parts: &ListArgsFilterParts) {
+    fn render_empty_state(filter_parts: &ListArgumentsFilterParts) {
         let empty_state_message = match (
             filter_parts.tag_filter(),
             filter_parts.workspace_filter(),
@@ -145,10 +145,10 @@ impl<'tree> RepoListingRenderer<'tree> {
     /// project's argument rules cap non-`self` parameters at one
     /// per method.
     fn render_repo_leaf(repo_pair: &(&str, &RepoEntry)) -> Result<(), ReportalError> {
-        let (repo_alias, repo_entry) = *repo_pair;
+        let (repository_alias, repo_entry) = *repo_pair;
         let directory_exists = repo_entry.resolved_path().exists();
         let swatch_style = terminal_style::swatch_style_for_repo_color(repo_entry.repo_color())?;
-        let uppercase_alias = repo_alias.to_uppercase();
+        let uppercase_alias = repository_alias.to_uppercase();
         terminal_style::write_stdout(&format!(
             "     {} {}\n",
             "██".style(swatch_style),

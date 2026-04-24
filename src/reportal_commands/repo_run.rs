@@ -3,9 +3,9 @@
 use crate::error::ReportalError;
 use crate::reportal_config::{CommandEntry, ReportalConfig, TagFilter};
 use crate::terminal_style;
-use crate::reportal_commands::repo_selection::{self, SelectedRepoParams};
+use crate::reportal_commands::repo_selection::{self, SelectedRepoParameters};
 use crate::reportal_commands::terminal_identity_emit::{
-    self, TerminalIdentityEmitParams,
+    self, TerminalIdentityEmitParameters,
 };
 use dialoguer::FuzzySelect;
 use owo_colors::OwoColorize;
@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 use std::process::Command;
 
 /// All parameters needed to run the run command.
-pub struct RunCommandParams<'a> {
+pub struct RunCommandParameters<'a> {
     /// Which repos to show in the fuzzy finder.
     pub tag_filter: TagFilter,
     /// If non-empty, skip the repo fuzzy finder and use this alias directly.
@@ -36,7 +36,7 @@ struct MergedCommandEntry<'a> {
 }
 
 /// Parameters for resolving which command to run.
-struct ResolveCommandParams<'a> {
+struct ResolveCommandParameters<'a> {
     /// Global commands from config.
     global_commands: &'a BTreeMap<String, CommandEntry>,
     /// Per-repo commands (override globals with same name, or add repo-specific ones).
@@ -49,7 +49,7 @@ struct ResolveCommandParams<'a> {
 /// which command to run (direct or fuzzy-selected).
 ///
 /// Repo-level commands override global commands with the same name.
-fn resolve_command(resolve_params: &ResolveCommandParams<'_>) -> Result<ResolvedCommand, ReportalError> {
+fn resolve_command(resolve_params: &ResolveCommandParameters<'_>) -> Result<ResolvedCommand, ReportalError> {
     let mut merged: Vec<MergedCommandEntry<'_>> = Vec::new();
 
     for (name, entry) in resolve_params.global_commands {
@@ -136,10 +136,10 @@ fn resolve_command(resolve_params: &ResolveCommandParams<'_>) -> Result<Resolved
 /// from `[repos.<alias>.commands]`. Repo-level commands override globals
 /// with the same name. The command is spawned via the system shell with
 /// inherited stdio for interactive passthrough.
-pub fn run_run(run_params: &RunCommandParams<'_>) -> Result<(), ReportalError> {
+pub fn run_run(run_params: &RunCommandParameters<'_>) -> Result<(), ReportalError> {
     let loaded_config = ReportalConfig::load_or_initialize()?;
 
-    let selection_params = SelectedRepoParams {
+    let selection_params = SelectedRepoParameters {
         loaded_config: &loaded_config,
         direct_alias: run_params.direct_alias,
         tag_filter: &run_params.tag_filter,
@@ -147,13 +147,13 @@ pub fn run_run(run_params: &RunCommandParams<'_>) -> Result<(), ReportalError> {
     };
     let selected = repo_selection::select_repo(&selection_params)?;
 
-    terminal_identity_emit::emit_repo_terminal_identity(&TerminalIdentityEmitParams {
-        selected_alias: selected.repo_alias(),
+    terminal_identity_emit::emit_repo_terminal_identity(&TerminalIdentityEmitParameters {
+        selected_alias: selected.repository_alias(),
         selected_repo: selected.repo_config(),
         title_override: "",
     });
 
-    let resolved_command = resolve_command(&ResolveCommandParams {
+    let resolved_command = resolve_command(&ResolveCommandParameters {
         global_commands: loaded_config.global_commands(),
         repo_commands: selected.repo_config().repo_commands(),
         direct_command: run_params.direct_command,

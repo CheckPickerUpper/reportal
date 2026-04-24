@@ -21,7 +21,7 @@ use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use crate::cli_args::InitShell;
+use crate::cli_args::InitializeShell;
 
 /// Fenced marker opening the auto-managed integration block. This
 /// string is byte-for-byte identical to the markers used by the shell
@@ -115,11 +115,11 @@ enum AutoSetupOutcome {
 }
 
 /// Parses `$SHELL`'s basename (or picks `PowerShell` on Windows when
-/// `$SHELL` is absent) and returns the matching `InitShell` variant.
+/// `$SHELL` is absent) and returns the matching `InitializeShell` variant.
 /// Returns `None` for fish, tcsh, csh, or anything else we don't
 /// generate integration code for — those users can run
 /// `rep init <shell>` themselves and will get a clear rejection.
-fn shell_from_env() -> Option<InitShell> {
+fn shell_from_env() -> Option<InitializeShell> {
     if let Some(shell_path) = env::var_os("SHELL") {
         let basename = Path::new(&shell_path)
             .file_name()
@@ -127,9 +127,9 @@ fn shell_from_env() -> Option<InitShell> {
             .map(str::to_ascii_lowercase);
         if let Some(name) = basename {
             return match name.as_str() {
-                "zsh" => Some(InitShell::Zsh),
-                "bash" => Some(InitShell::Bash),
-                "pwsh" | "powershell" => Some(InitShell::Powershell),
+                "zsh" => Some(InitializeShell::Zsh),
+                "bash" => Some(InitializeShell::Bash),
+                "pwsh" | "powershell" => Some(InitializeShell::Powershell),
                 _ => None,
             };
         }
@@ -138,7 +138,7 @@ fn shell_from_env() -> Option<InitShell> {
     // matches the installer's behavior and covers users who launched
     // from `pwsh`/`powershell.exe` directly.
     if cfg!(windows) {
-        Some(InitShell::Powershell)
+        Some(InitializeShell::Powershell)
     } else {
         None
     }
@@ -156,11 +156,11 @@ fn shell_from_env() -> Option<InitShell> {
 ///
 /// Returns `None` if the home directory cannot be determined and no
 /// `$PROFILE` is set — in which case auto-setup quietly bails.
-fn rc_file_for(shell: InitShell) -> Option<PathBuf> {
+fn rc_file_for(shell: InitializeShell) -> Option<PathBuf> {
     match shell {
-        InitShell::Zsh => dirs::home_dir().map(|home| home.join(".zshrc")),
-        InitShell::Bash => dirs::home_dir().map(|home| home.join(".bashrc")),
-        InitShell::Powershell => powershell_profile_path(),
+        InitializeShell::Zsh => dirs::home_dir().map(|home| home.join(".zshrc")),
+        InitializeShell::Bash => dirs::home_dir().map(|home| home.join(".bashrc")),
+        InitializeShell::Powershell => powershell_profile_path(),
     }
 }
 
@@ -186,11 +186,11 @@ fn powershell_profile_path() -> Option<PathBuf> {
 /// given shell. Byte-for-byte identical to what the shell installer
 /// writes, so either code path producing the block results in the
 /// same file contents.
-fn eval_line_for(shell: InitShell) -> &'static str {
+fn eval_line_for(shell: InitializeShell) -> &'static str {
     match shell {
-        InitShell::Zsh => "eval \"$(rep init zsh)\"",
-        InitShell::Bash => "eval \"$(rep init bash)\"",
-        InitShell::Powershell => "Invoke-Expression (& rep init powershell | Out-String)",
+        InitializeShell::Zsh => "eval \"$(rep init zsh)\"",
+        InitializeShell::Bash => "eval \"$(rep init bash)\"",
+        InitializeShell::Powershell => "Invoke-Expression (& rep init powershell | Out-String)",
     }
 }
 
@@ -201,7 +201,7 @@ fn eval_line_for(shell: InitShell) -> &'static str {
 /// for the caller's stderr hint.
 fn append_integration_if_missing(
     rc_file: &Path,
-    shell: InitShell,
+    shell: InitializeShell,
 ) -> Result<AutoSetupOutcome, String> {
     if rc_file.exists() {
         let existing = std::fs::read_to_string(rc_file)
@@ -231,7 +231,7 @@ fn append_integration_if_missing(
 /// starts on its own line.
 fn write_fenced_block(
     rc_file: &Path,
-    shell: InitShell,
+    shell: InitializeShell,
     needs_leading_newline: bool,
 ) -> Result<(), String> {
     let mut file = OpenOptions::new()
@@ -240,7 +240,7 @@ fn write_fenced_block(
         .open(rc_file)
         .map_err(|open_err| format!("open {}: {open_err}", rc_file.display()))?;
 
-    let eol = if matches!(shell, InitShell::Powershell) && cfg!(windows) {
+    let eol = if matches!(shell, InitializeShell::Powershell) && cfg!(windows) {
         "\r\n"
     } else {
         "\n"

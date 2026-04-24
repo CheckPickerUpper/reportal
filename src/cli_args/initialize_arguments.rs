@@ -10,14 +10,14 @@ use clap::{Args, ValueEnum};
 /// starship, zoxide, direnv, and mise. The binary never writes
 /// integration files to disk and never prompts the user.
 #[derive(Args)]
-pub struct InitArgs {
+pub struct InitializeArguments {
     /// Shell to generate integration code for
-    shell: InitShell,
+    shell: InitializeShell,
 }
 
 /// Shells that `rep init` can generate integration code for.
 #[derive(Clone, Copy, Debug, ValueEnum)]
-pub enum InitShell {
+pub enum InitializeShell {
     /// Zsh (prints POSIX-compatible shell functions).
     Zsh,
     /// Bash (prints POSIX-compatible shell functions).
@@ -27,9 +27,9 @@ pub enum InitShell {
 }
 
 /// Accessor for the parsed shell choice.
-impl InitArgs {
+impl InitializeArguments {
     /// The shell whose integration code should be emitted.
-    pub fn shell(&self) -> InitShell {
+    pub fn shell(&self) -> InitializeShell {
         self.shell
     }
 }
