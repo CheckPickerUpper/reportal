@@ -8,6 +8,7 @@ mod path_display;
 mod prompt_badge_emit;
 mod prompt_identity;
 mod prompts;
+mod shell_alias_emit;
 mod shell_prompt_badge;
 mod shell_integration;
 mod repo_add;

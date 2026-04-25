@@ -8,7 +8,8 @@
 //! Each failed check prints an actionable hint so the user knows
 //! exactly what to run to fix the problem.
 
-use crate::reportal_config::ReportalConfig;
+use crate::reportal_config::{HasAliases, ReportalConfig, ShellAliasExport};
+use crate::system_executable_lookup::SystemExecutableLookupOutcome;
 use crate::terminal_style;
 use owo_colors::OwoColorize;
 
@@ -125,22 +126,187 @@ impl DiagnosticSummary {
             return;
         }
 
-        for (alias, entry) in &all_repos {
-            self.check_single_repo(alias, entry);
+        for (registered_alias, registered_repository_entry) in &all_repos {
+            self.check_single_repository(&DiagnosticSummaryRepositoryEntryParameters {
+                registered_alias,
+                registered_repository_entry,
+            });
         }
     }
 
-    /// Validates that a single repo path exists and records the diagnostic.
-    fn check_single_repo(&mut self, alias: &str, entry: &crate::reportal_config::RepoEntry) {
-        let resolved_path = entry.resolved_path();
+    /// Validates that a single repository path exists and records the diagnostic.
+    fn check_single_repository(
+        &mut self,
+        parameters: &DiagnosticSummaryRepositoryEntryParameters<'_>,
+    ) {
+        let resolved_path =
+            parameters.registered_repository_entry.resolved_path();
         let path_display = resolved_path.display().to_string();
-        let styled_alias = alias.style(terminal_style::ALIAS_STYLE);
+        let styled_alias = parameters
+            .registered_alias
+            .style(terminal_style::ALIAS_STYLE);
         let styled_path = path_display.style(terminal_style::PATH_STYLE);
         let diagnostic_label = format!("{styled_alias}  {styled_path}");
         if resolved_path.exists() {
             self.record_pass(&diagnostic_label);
         } else {
             self.record_fail(&format!("{diagnostic_label} (path does not exist)"));
+        }
+    }
+}
+
+/// Parameters for one repository-path diagnostic. Named with the
+/// primary type's prefix so the type-per-file guard treats it as
+/// a companion of `DiagnosticSummary`.
+struct DiagnosticSummaryRepositoryEntryParameters<'entry> {
+    /// The repository's canonical alias key as registered in
+    /// configuration.
+    registered_alias: &'entry str,
+    /// The repository entry whose path is being checked.
+    registered_repository_entry: &'entry crate::reportal_config::RepoEntry,
+}
+
+/// Parameters for one shell-alias shadow probe, kept as a named
+/// struct so the probe helper has one self argument and one
+/// params argument instead of two unlabelled positional `&str`
+/// args. Named with the primary type's prefix so the
+/// type-per-file guard treats it as a companion of
+/// `DiagnosticSummary`.
+struct DiagnosticSummaryShadowProbeParameters<'probe> {
+    /// The name (canonical key or declared alias) that
+    /// `rep init <shell>` would emit as a top-level shell
+    /// function for this opted-in entry.
+    candidate_emitted_name: &'probe str,
+    /// Human-readable label classifying which kind of name this
+    /// is (`repository canonical`, `repository alias`,
+    /// `workspace canonical`, `workspace alias`, `command`).
+    emitted_kind_label: &'probe str,
+}
+
+/// Shell-alias emission diagnostics for `DiagnosticSummary`,
+/// kept in their own impl block so the addition does not
+/// cascade into the surrounding methods.
+impl DiagnosticSummary {
+    /// Walks every opted-in repository, workspace, and command
+    /// entry and flags any name (canonical key or declared alias)
+    /// that resolves to an existing executable on the user's
+    /// `PATH`. Such a name silently shadows the system command
+    /// once `rep init <shell>` emits it as a top-level shell
+    /// function, so doctor reports it here even though
+    /// configuration-load tolerates legacy entries that pre-date
+    /// the system-shadow validation.
+    fn check_shell_alias_emission_health(
+        &mut self,
+        loaded_configuration: &ReportalConfig,
+    ) {
+        terminal_style::write_stdout("\n");
+        terminal_style::write_stdout(&format!(
+            "  {}\n",
+            "Shell Alias Shadows".style(terminal_style::EMPHASIS_STYLE),
+        ));
+
+        let mut probed_any_opted_in_name = false;
+        for (repository_canonical_key, repository_entry) in
+            loaded_configuration.repos_with_aliases()
+        {
+            match repository_entry.shell_alias_export() {
+                ShellAliasExport::Disabled => continue,
+                ShellAliasExport::Enabled => {
+                    probed_any_opted_in_name = true;
+                    self.probe_one_emitted_name(
+                        &DiagnosticSummaryShadowProbeParameters {
+                            candidate_emitted_name: repository_canonical_key,
+                            emitted_kind_label: "repository canonical",
+                        },
+                    );
+                    for declared_alias in repository_entry.aliases() {
+                        self.probe_one_emitted_name(
+                            &DiagnosticSummaryShadowProbeParameters {
+                                candidate_emitted_name: declared_alias,
+                                emitted_kind_label: "repository alias",
+                            },
+                        );
+                    }
+                }
+            }
+        }
+        for (workspace_canonical_name, workspace_entry) in
+            loaded_configuration.workspaces_with_names()
+        {
+            match workspace_entry.shell_alias_export() {
+                ShellAliasExport::Disabled => continue,
+                ShellAliasExport::Enabled => {
+                    probed_any_opted_in_name = true;
+                    self.probe_one_emitted_name(
+                        &DiagnosticSummaryShadowProbeParameters {
+                            candidate_emitted_name: workspace_canonical_name,
+                            emitted_kind_label: "workspace canonical",
+                        },
+                    );
+                    for declared_alias in workspace_entry.aliases() {
+                        self.probe_one_emitted_name(
+                            &DiagnosticSummaryShadowProbeParameters {
+                                candidate_emitted_name: declared_alias,
+                                emitted_kind_label: "workspace alias",
+                            },
+                        );
+                    }
+                }
+            }
+        }
+        for (command_key, command_entry) in loaded_configuration.global_commands() {
+            match command_entry.shell_alias_export() {
+                ShellAliasExport::Disabled => continue,
+                ShellAliasExport::Enabled => {
+                    probed_any_opted_in_name = true;
+                    self.probe_one_emitted_name(
+                        &DiagnosticSummaryShadowProbeParameters {
+                            candidate_emitted_name: command_key,
+                            emitted_kind_label: "command",
+                        },
+                    );
+                }
+            }
+        }
+        if !probed_any_opted_in_name {
+            self.record_pass("No entries opted into shell-alias export");
+        }
+    }
+
+    /// Probes a single emitted-name candidate against `PATH` and
+    /// records pass / fail. Used by
+    /// `check_shell_alias_emission_health` for every opted-in
+    /// canonical key and declared alias.
+    fn probe_one_emitted_name(
+        &mut self,
+        probe_parameters: &DiagnosticSummaryShadowProbeParameters<'_>,
+    ) {
+        let styled_name = probe_parameters
+            .candidate_emitted_name
+            .style(terminal_style::ALIAS_STYLE);
+        match SystemExecutableLookupOutcome::for_candidate_name(
+            probe_parameters.candidate_emitted_name,
+        ) {
+            SystemExecutableLookupOutcome::NotFound => {
+                self.record_pass(&format!(
+                    "{label}  {styled_name}",
+                    label = probe_parameters.emitted_kind_label,
+                ));
+            }
+            SystemExecutableLookupOutcome::ShadowsExisting {
+                existing_executable,
+            } => {
+                let existing_executable_display = existing_executable.display().to_string();
+                let styled_existing_executable_path =
+                    existing_executable_display.style(terminal_style::PATH_STYLE);
+                self.record_fail(&format!(
+                    "{label}  {styled_name} shadows {styled_existing_executable_path}",
+                    label = probe_parameters.emitted_kind_label,
+                ));
+                Self::print_hint(
+                    "Pick a different alias, or remove `shell_alias = true` to keep this entry as a `rj <alias>` target only",
+                );
+            }
         }
     }
 }
@@ -159,7 +325,10 @@ pub fn run_doctor() {
     let loaded_config = summary.check_config();
     summary.check_shell_integration();
 
-    if let Some(ref config) = loaded_config { summary.check_repo_paths(config) }
+    if let Some(ref config) = loaded_config {
+        summary.check_repo_paths(config);
+        summary.check_shell_alias_emission_health(config);
+    }
 
     terminal_style::write_stdout("\n");
     match summary.failed {
