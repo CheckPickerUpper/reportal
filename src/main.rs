@@ -9,6 +9,7 @@
 mod cli_args;
 mod code_workspace;
 mod error;
+mod system_executable_lookup;
 mod reportal_commands;
 mod reportal_config;
 mod terminal_style;
