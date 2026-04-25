@@ -8,6 +8,9 @@
 //! Each failed check prints an actionable hint so the user knows
 //! exactly what to run to fix the problem.
 
+use crate::reportal_commands::{
+    current_shell_integration_loaded_state, AutoWireOperationLoadedState,
+};
 use crate::reportal_config::{HasAliases, ReportalConfig, ShellAliasExport};
 use crate::system_executable_lookup::SystemExecutableLookupOutcome;
 use crate::terminal_style;
@@ -97,14 +100,14 @@ impl DiagnosticSummary {
             "Shell Integration".style(terminal_style::EMPHASIS_STYLE),
         ));
 
-        match std::env::var("REPORTAL_LOADED") {
-            Ok(ref _marker_value) => {
+        match current_shell_integration_loaded_state() {
+            AutoWireOperationLoadedState::LoadedInCurrentShell => {
                 self.record_pass("Shell integration loaded in current session");
             }
-            Err(ref _env_error) => {
+            AutoWireOperationLoadedState::NotLoadedInCurrentShell => {
                 self.record_fail("Shell integration NOT loaded in current session");
                 Self::print_hint(
-                    "Add eval \"$(rep init zsh)\" (or bash/powershell) to your shell rc file",
+                    "Add eval \"$(rep init zsh)\" (or bash/powershell) to your shell rc file, then 'source' it or open a new terminal",
                 );
             }
         }
