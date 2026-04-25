@@ -11,6 +11,7 @@ mod prompts;
 mod shell_alias_emit;
 mod shell_prompt_badge;
 mod shell_integration;
+mod shell_integration_autowire;
 mod repo_add;
 mod repo_ai;
 mod repository_color;
@@ -46,7 +47,10 @@ mod workspace_show;
 pub use color_command_mode::ColorCommandMode;
 pub use doctor::run_doctor;
 pub use initialization::run_initialize;
-pub use shell_integration::ensure_shell_integration_installed;
+pub use shell_integration_autowire::{
+    current_shell_integration_loaded_state, ensure_shell_integration_installed,
+    AutoWireOperationLoadedState,
+};
 pub use repo_add::run_add;
 pub use repo_ai::{run_ai, AiCommandParameters};
 pub use repo_edit::{run_edit, EditCommandParameters};
