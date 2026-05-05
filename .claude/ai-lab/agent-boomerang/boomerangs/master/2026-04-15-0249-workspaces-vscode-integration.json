@@ -3,7 +3,7 @@
   "agent_id": "main",
   "session_id": "reportal-workspaces-spec-step1",
   "created_by": "human",
-  "status": "open",
+  "status": "completed",
   "project": "C:/Users/ozzyi/dev/personal-projects/reportal",
   "branch": "master",
   "worktree": null,
@@ -96,5 +96,7 @@
     "The 11 #[expect(dead_code)] markers WILL self-destruct as consumers are added. Each marker removal is forced by the compiler — do not preemptively remove them, let the compiler tell you which.",
     "CodeWorkspaceIoFailure and CodeWorkspaceParseFailure were initially marked with #[expect(dead_code)] but it was unfulfilled because their constructors in code_workspace/* reference them — rustc considers them live via the reference even when the constructors themselves are dead. Removed. Leave them unmarked.",
     "Step 2 command handlers need to call regenerate_workspace_file after any mutation. Create handler pattern: (1) load config, (2) mutate workspace, (3) save config, (4) call regenerate_workspace_file(&config, name). Saving the config before regenerating is important so the regeneration reads the post-mutation state."
-  ]
+  ],
+  "completed_by": "stale-auto-close",
+  "completed_at": "2026-04-20T20:27:20.159Z"
 }
