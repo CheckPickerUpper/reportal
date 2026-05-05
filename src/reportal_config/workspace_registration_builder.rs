@@ -1,8 +1,10 @@
 //! Step-by-step builder for constructing a validated workspace entry.
 
 use crate::error::ReportalError;
+use crate::reportal_config::shell_alias_export::ShellAliasExport;
 use crate::reportal_config::workspace_entry::WorkspaceEntry;
 use crate::reportal_config::workspace_member::WorkspaceMember;
+use crate::system_executable_lookup::SystemExecutableLookupOutcome;
 
 /// Chainable builder that assembles a `WorkspaceEntry` from separate
 /// field inputs and validates name/membership invariants on `build()`.
@@ -117,6 +119,10 @@ impl WorkspaceRegistrationBuilder {
             });
         }
         validate_alias_list_shape(&self.workspace_aliases, &self.workspace_name)?;
+        reject_alias_that_shadows_system_command(&self.workspace_name, "workspace name")?;
+        for declared_alias in &self.workspace_aliases {
+            reject_alias_that_shadows_system_command(declared_alias, "workspace alias")?;
+        }
         let validated_entry = WorkspaceEntry {
             repos: self
                 .repo_aliases
@@ -128,6 +134,7 @@ impl WorkspaceRegistrationBuilder {
             aliases: self.workspace_aliases,
             title: crate::reportal_config::TabTitle::default(),
             color: crate::reportal_config::RepoColor::default(),
+            shell_alias: ShellAliasExport::Disabled,
         };
         Ok((self.workspace_name, validated_entry))
     }
@@ -188,6 +195,29 @@ fn validate_alias_list_shape(
         }
     }
     Ok(())
+}
+
+/// Rejects a workspace name or alias that resolves to an existing
+/// executable on the user's `PATH`, so opting the workspace into
+/// shell-alias export later cannot silently shadow a real
+/// system command (`mc`, `train`, `home`, etc.).
+fn reject_alias_that_shadows_system_command(
+    candidate_name: &str,
+    field_label_for_error: &str,
+) -> Result<(), ReportalError> {
+    match SystemExecutableLookupOutcome::for_candidate_name(candidate_name.trim()) {
+        SystemExecutableLookupOutcome::NotFound => Ok(()),
+        SystemExecutableLookupOutcome::ShadowsExisting { existing_executable } => {
+            Err(ReportalError::ValidationFailure {
+                field: field_label_for_error.to_owned(),
+                reason: format!(
+                    "'{candidate}' would shadow the existing system command at {existing}; pick a different name",
+                    candidate = candidate_name.trim(),
+                    existing = existing_executable.display(),
+                ),
+            })
+        }
+    }
 }
 
 #[cfg(test)]
