@@ -593,6 +593,7 @@ mod tests {
             title: Default::default(),
             color: Default::default(),
             commands: BTreeMap::new(),
+            shell_alias: Default::default(),
         }
     }
 
@@ -761,6 +762,7 @@ mod tests {
             aliases: Vec::new(),
             title: Default::default(),
             color: Default::default(),
+            shell_alias: Default::default(),
         }
     }
 
