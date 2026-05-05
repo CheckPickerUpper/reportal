@@ -4,7 +4,9 @@ use crate::error::ReportalError;
 use crate::reportal_config::hex_color::HexColor;
 use crate::reportal_config::repository_color::RepoColor;
 use crate::reportal_config::repo_entry::RepoEntry;
+use crate::reportal_config::shell_alias_export::ShellAliasExport;
 use crate::reportal_config::tab_title::TabTitle;
+use crate::system_executable_lookup::SystemExecutableLookupOutcome;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
@@ -111,6 +113,19 @@ impl RepoRegistrationBuilder {
                 reason: "must not be empty".to_owned(),
             });
         }
+        match SystemExecutableLookupOutcome::for_candidate_name(self.alias.trim()) {
+            SystemExecutableLookupOutcome::NotFound => {}
+            SystemExecutableLookupOutcome::ShadowsExisting { existing_executable } => {
+                return Err(ReportalError::ValidationFailure {
+                    field: "alias".to_owned(),
+                    reason: format!(
+                        "'{}' would shadow the existing system command at {}; pick a different alias",
+                        self.alias.trim(),
+                        existing_executable.display(),
+                    ),
+                });
+            }
+        }
         if self.repo_path.trim().is_empty() {
             return Err(ReportalError::ValidationFailure {
                 field: "path".to_owned(),
@@ -134,6 +149,7 @@ impl RepoRegistrationBuilder {
             title: self.repo_title,
             color: self.repo_color,
             commands: BTreeMap::new(),
+            shell_alias: ShellAliasExport::Disabled,
         };
         Ok((self.alias, validated_entry))
     }
