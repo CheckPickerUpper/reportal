@@ -98,5 +98,5 @@
     "Step 2 command handlers need to call regenerate_workspace_file after any mutation. Create handler pattern: (1) load config, (2) mutate workspace, (3) save config, (4) call regenerate_workspace_file(&config, name). Saving the config before regenerating is important so the regeneration reads the post-mutation state."
   ],
   "completed_by": "stale-auto-close",
-  "completed_at": "2026-04-20T20:27:20.159Z"
+  "completed_at": "2026-04-24T23:17:09.244Z"
 }

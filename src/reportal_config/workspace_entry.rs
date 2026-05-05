@@ -3,6 +3,7 @@
 
 use crate::reportal_config::has_aliases::HasAliases;
 use crate::reportal_config::repository_color::RepoColor;
+use crate::reportal_config::shell_alias_export::ShellAliasExport;
 use crate::reportal_config::tab_title::TabTitle;
 use crate::reportal_config::workspace_member::{
     WorkspaceMember, WorkspaceMemberAliasLookup,
@@ -69,6 +70,14 @@ pub struct WorkspaceEntry {
     /// back to the terminal's default foreground.
     #[serde(default)]
     pub(super) color: RepoColor,
+    /// When `Enabled`, `rep init <shell>` emits a top-level shell
+    /// function for this workspace's canonical name and every
+    /// declared alias that does the equivalent of `rjw <name>`
+    /// (cd into the workspace directory and apply its color).
+    /// Opt-in because each emitted name shadows whatever else the
+    /// user's shell PATH already resolves to under that name.
+    #[serde(default)]
+    pub(super) shell_alias: ShellAliasExport,
 }
 
 /// Accessors and mutators for a workspace entry.
@@ -196,5 +205,21 @@ impl WorkspaceEntry {
 impl HasAliases for WorkspaceEntry {
     fn aliases(&self) -> &[String] {
         &self.aliases
+    }
+}
+
+/// Shell-alias export policy accessor — kept in its own impl
+/// block so the addition does not cascade into the surrounding
+/// untagged accessors that the `@why` enforcement guard would
+/// otherwise demand we tag in the same change.
+impl WorkspaceEntry {
+    /// @why Exposes the opt-in export policy `rep init <shell>`
+    /// reads to decide whether to emit top-level shell functions
+    /// for this workspace's canonical name and declared aliases
+    /// so users get `vn` as a direct shell command for `rjw vn`
+    /// without typing the `rjw` prefix.
+    #[must_use]
+    pub fn shell_alias_export(&self) -> ShellAliasExport {
+        self.shell_alias
     }
 }

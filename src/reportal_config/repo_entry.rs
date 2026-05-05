@@ -3,6 +3,7 @@
 use crate::reportal_config::command_entry::CommandEntry;
 use crate::reportal_config::has_aliases::HasAliases;
 use crate::reportal_config::repository_color::RepoColor;
+use crate::reportal_config::shell_alias_export::ShellAliasExport;
 use crate::reportal_config::tab_title::TabTitle;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -42,6 +43,14 @@ pub struct RepoEntry {
     /// Per-repo commands: same table format as global commands.
     #[serde(default)]
     pub(super) commands: BTreeMap<String, CommandEntry>,
+    /// When `Enabled`, `rep init <shell>` emits a top-level shell
+    /// function for this repo's canonical key and every declared
+    /// alias that does the equivalent of `rj <name>` (cd into the
+    /// repo and apply its color). Opt-in because each emitted name
+    /// shadows whatever else the user's shell PATH already resolves
+    /// to under that name.
+    #[serde(default)]
+    pub(super) shell_alias: ShellAliasExport,
 }
 
 /// Accessors and mutators for a registered repository entry.
@@ -125,5 +134,21 @@ impl RepoEntry {
 impl HasAliases for RepoEntry {
     fn aliases(&self) -> &[String] {
         &self.aliases
+    }
+}
+
+/// Shell-alias export policy accessor — kept in its own impl
+/// block so the addition does not cascade into the surrounding
+/// untagged accessors that the `@why` enforcement guard would
+/// otherwise demand we tag in the same change.
+impl RepoEntry {
+    /// @why Exposes the opt-in export policy `rep init <shell>`
+    /// reads to decide whether to emit top-level shell functions
+    /// for this repository's canonical key and declared aliases
+    /// so users get `vna` as a direct shell command for `rj vna`
+    /// without typing the `rj` prefix.
+    #[must_use]
+    pub fn shell_alias_export(&self) -> ShellAliasExport {
+        self.shell_alias
     }
 }
