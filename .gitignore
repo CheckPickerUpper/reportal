@@ -20,6 +20,7 @@ Desktop.ini
 # IDE
 .idea/
 .vscode/
+.serena/
 *.swp
 *.swo
 
