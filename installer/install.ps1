@@ -4,15 +4,13 @@
 # Downloads the latest (or pinned) reportal release archive from GitHub,
 # installs the reportal and rep binaries into
 # $env:LOCALAPPDATA\Programs\reportal, ensures that directory is on the
-# user-scope PATH, and appends an idempotent
-# `Invoke-Expression (& rep init powershell | Out-String)` block to
-# $PROFILE.
+# user-scope PATH, and appends an idempotent guarded RePortal block to $PROFILE.
 #
 # Usage:
 #   powershell -ExecutionPolicy Bypass -c "irm https://github.com/CheckPickerUpper/reportal/releases/latest/download/reportal-installer.ps1 | iex"
 #
 # Optional env:
-#   $env:REPORTAL_VERSION = 'v0.15.0'   Pin to a specific tag.
+#   $env:REPORTAL_VERSION = 'v0.18.4'   Pin to a specific tag.
 #
 # Licensed under MIT.
 
@@ -24,7 +22,7 @@ $DownloadBase  = "https://github.com/$Repo/releases/download"
 $InstallDir    = Join-Path $env:LOCALAPPDATA 'Programs\reportal'
 $MarkerStart   = '# >>> reportal shell integration (do not edit) >>>'
 $MarkerEnd     = '# <<< reportal shell integration <<<'
-$IntegrationLine = 'Invoke-Expression (& rep init powershell | Out-String)'
+$ReinstallCommand = 'powershell -ExecutionPolicy Bypass -c "irm https://github.com/CheckPickerUpper/reportal/releases/latest/download/reportal-installer.ps1 | iex"'
 
 function Write-Info {
     param([string]$Message)
@@ -117,7 +115,16 @@ function Install-ShellIntegration {
     }
     $block += ''
     $block += $MarkerStart
-    $block += $IntegrationLine
+    $block += 'if (Get-Command rep -CommandType Application -ErrorAction SilentlyContinue) {'
+    $block += '    Invoke-Expression (& rep init powershell | Out-String)'
+    $block += '} elseif (Get-Command reportal -CommandType Application -ErrorAction SilentlyContinue) {'
+    $block += '    Invoke-Expression (& reportal init powershell | Out-String)'
+    $block += '} else {'
+    $block += '    function global:rep {'
+    $block += "        Write-Error 'RePortal: rep.exe is not on PATH. Reinstall with: $ReinstallCommand'"
+    $block += '        $global:LASTEXITCODE = 127'
+    $block += '    }'
+    $block += '}'
     $block += $MarkerEnd
     Add-Content -Path $profilePath -Value ($block -join [Environment]::NewLine)
     Write-Info "appended shell integration to $profilePath"

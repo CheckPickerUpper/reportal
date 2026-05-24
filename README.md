@@ -26,11 +26,23 @@ RePortal is a single-binary CLI that keeps a registry of your dev repos and lets
 
 All methods install both `reportal` and `rep` (short alias) binaries.
 
-### Cargo (all platforms)
+For daily shell use, prefer the shell installer, Homebrew, or Scoop. Those routes put the executable in a user-local or package-manager-owned directory instead of relying on `~/.cargo/bin`, so reinstalling Rust/Cargo does not remove the command your shell profile calls.
+
+### Shell installer (macOS / Linux)
 
 ```bash
-cargo install reportal
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/CheckPickerUpper/reportal/releases/latest/download/reportal-installer.sh | sh
 ```
+
+Installs to `~/.local/bin` and writes a guarded shell integration block. If `rep` later disappears from `PATH`, shell startup stays quiet and running `rep` prints the reinstall command.
+
+### PowerShell installer (Windows)
+
+```powershell
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/CheckPickerUpper/reportal/releases/latest/download/reportal-installer.ps1 | iex"
+```
+
+Installs to `$env:LOCALAPPDATA\Programs\reportal`, adds that directory to the user `PATH`, and writes the same guarded profile block for PowerShell.
 
 ### Homebrew (macOS / Linux)
 
@@ -52,19 +64,13 @@ scoop install reportal
 winget install CheckPickerUpper.RePortal
 ```
 
-### Shell installer (macOS / Linux)
+### Cargo (all platforms)
 
 ```bash
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/CheckPickerUpper/reportal/releases/latest/download/reportal-installer.sh | sh
+cargo install reportal
 ```
 
-### PowerShell installer (Windows)
-
-```powershell
-powershell -ExecutionPolicy Bypass -c "irm https://github.com/CheckPickerUpper/reportal/releases/latest/download/reportal-installer.ps1 | iex"
-```
-
-Both installers drop the binaries into a user-local directory and auto-append an idempotent `eval "$(rep init <shell>)"` block (or the PowerShell equivalent) to your shell rc file, so integration is wired up on the next shell start — no manual rc editing required.
+Cargo installs into Cargo's bin directory. That is still useful for contributors and Rust-native workflows, but the shell installer is the durable path for everyday `rep` usage.
 
 ### From source
 
@@ -76,27 +82,48 @@ cargo install --path .
 
 ## Quick start
 
-Shell integration is auto-wired the first time you run any `rep` subcommand: the binary detects that the integration isn't sourced yet, appends an idempotent fenced `eval` block to your rc file (`~/.zshrc`, `~/.bashrc`, or `$PROFILE`), and prints a single `source your-rc` hint. Subsequent runs are a no-op. If you prefer to wire it yourself — same pattern as `starship`, `zoxide`, `direnv`, and `mise` — add one of these lines manually:
+The release installers auto-wire shell integration with a guarded rc/profile block. If you prefer to wire it yourself — same pattern as `starship`, `zoxide`, `direnv`, and `mise` — add one of these blocks manually:
 
 **Zsh** (`~/.zshrc`):
 
 ```zsh
-eval "$(rep init zsh)"
+if command -v rep >/dev/null 2>&1; then
+    eval "$(rep init zsh)"
+elif command -v reportal >/dev/null 2>&1; then
+    eval "$(reportal init zsh)"
+else
+    rep() { printf '%s\n' "RePortal: rep is not on PATH. Reinstall with: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/CheckPickerUpper/reportal/releases/latest/download/reportal-installer.sh | sh" >&2; return 127; }
+fi
 ```
 
 **Bash** (`~/.bashrc`):
 
 ```bash
-eval "$(rep init bash)"
+if command -v rep >/dev/null 2>&1; then
+    eval "$(rep init bash)"
+elif command -v reportal >/dev/null 2>&1; then
+    eval "$(reportal init bash)"
+else
+    rep() { printf '%s\n' "RePortal: rep is not on PATH. Reinstall with: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/CheckPickerUpper/reportal/releases/latest/download/reportal-installer.sh | sh" >&2; return 127; }
+fi
 ```
 
 **PowerShell** (`$PROFILE`):
 
 ```powershell
-Invoke-Expression (& rep init powershell | Out-String)
+if (Get-Command rep -CommandType Application -ErrorAction SilentlyContinue) {
+    Invoke-Expression (& rep init powershell | Out-String)
+} elseif (Get-Command reportal -CommandType Application -ErrorAction SilentlyContinue) {
+    Invoke-Expression (& reportal init powershell | Out-String)
+} else {
+    function global:rep {
+        Write-Error 'RePortal: rep.exe is not on PATH. Reinstall with: powershell -ExecutionPolicy Bypass -c "irm https://github.com/CheckPickerUpper/reportal/releases/latest/download/reportal-installer.ps1 | iex"'
+        $global:LASTEXITCODE = 127
+    }
+}
 ```
 
-That's it — no disk writes beyond the one-shot rc append, no profile editing after setup, no prompts. The integration code is regenerated every shell session, so a `cargo install reportal` upgrade takes effect on the next terminal you open. The first time you run any `rep` subcommand, a default `~/.reportal/config.toml` is created for you.
+That's it — no prompts and no profile editing after setup. The integration code is regenerated every shell session when the binary exists, and a missing binary produces a clear recovery command only when you invoke `rep`. The first time you run any `rep` subcommand, a default `~/.reportal/config.toml` is created for you.
 
 ```bash
 # Register a local repo
