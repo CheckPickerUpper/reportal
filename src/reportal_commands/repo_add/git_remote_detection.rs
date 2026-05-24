@@ -1,7 +1,7 @@
 //! Detects git remote URLs from local repo directories.
 
-use std::process::Command;
 use crate::terminal_style;
+use std::process::Command;
 
 /// Whether a git remote was found in the target directory.
 pub enum GitRemoteDetection {
@@ -22,10 +22,20 @@ pub fn detect_git_remote(directory_path: &str) -> GitRemoteDetection {
         .output();
 
     match detection_result {
-        Ok(command_output) => if command_output.status.success() {
-            let remote_url = String::from_utf8_lossy(&command_output.stdout).trim().to_owned();
-            if remote_url.is_empty() { GitRemoteDetection::NoOriginConfigured } else { GitRemoteDetection::Found(remote_url) }
-        } else { GitRemoteDetection::NoOriginConfigured },
+        Ok(command_output) => {
+            if command_output.status.success() {
+                let remote_url = String::from_utf8_lossy(&command_output.stdout)
+                    .trim()
+                    .to_owned();
+                if remote_url.is_empty() {
+                    GitRemoteDetection::NoOriginConfigured
+                } else {
+                    GitRemoteDetection::Found(remote_url)
+                }
+            } else {
+                GitRemoteDetection::NoOriginConfigured
+            }
+        }
         Err(git_spawn_error) => {
             terminal_style::write_stderr(&format!("  git not available: {git_spawn_error}\n"));
             GitRemoteDetection::GitUnavailable

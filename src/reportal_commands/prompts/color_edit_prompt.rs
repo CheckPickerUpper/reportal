@@ -18,7 +18,9 @@ pub struct ColorEditPromptParameters<'a> {
 /// Prompts for a hex color during repo editing, with the current value
 /// as default. Re-asks on invalid input until the user enters a valid
 /// `#RRGGBB`, clears it, or keeps the default.
-pub fn prompt_for_color_edit(color_edit_params: &ColorEditPromptParameters<'_>) -> Result<ColorEditResult, ReportalError> {
+pub fn prompt_for_color_edit(
+    color_edit_params: &ColorEditPromptParameters<'_>,
+) -> Result<ColorEditResult, ReportalError> {
     loop {
         let color_input: String = Input::with_theme(color_edit_params.prompt_theme)
             .with_prompt("Background color (#RRGGBB, empty = none)")

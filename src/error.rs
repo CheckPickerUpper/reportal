@@ -87,7 +87,9 @@ pub enum ReportalError {
     NoWorkspacesConfigured,
 
     /// A repo has no remote URL configured and none could be detected from git.
-    #[error("No remote URL for repo '{alias}'. Set the 'remote' field in config or add a git remote.")]
+    #[error(
+        "No remote URL for repo '{alias}'. Set the 'remote' field in config or add a git remote."
+    )]
     NoRemoteUrl {
         /// The alias of the repo missing a remote.
         alias: String,

@@ -8,8 +8,8 @@
 
 use crate::code_workspace::code_workspace_folder_entry::CodeWorkspaceFolderEntry;
 use crate::error::ReportalError;
-use jsonc_parser::ParseOptions;
 use jsonc_parser::cst::{CstNode, CstRootNode};
+use jsonc_parser::ParseOptions;
 use std::path::Path;
 
 /// Per-file context for parsing a `.code-workspace` document.
@@ -52,12 +52,13 @@ impl<'path_lifetime> FolderParsingContext<'path_lifetime> {
         &self,
         file_contents: &str,
     ) -> Result<Vec<CodeWorkspaceFolderEntry>, ReportalError> {
-        let cst_root = CstRootNode::parse(file_contents, &ParseOptions::default()).map_err(
-            |parse_error| ReportalError::CodeWorkspaceParseFailure {
-                file_path: self.source_file_path.display().to_string(),
-                reason: parse_error.to_string(),
-            },
-        )?;
+        let cst_root =
+            CstRootNode::parse(file_contents, &ParseOptions::default()).map_err(|parse_error| {
+                ReportalError::CodeWorkspaceParseFailure {
+                    file_path: self.source_file_path.display().to_string(),
+                    reason: parse_error.to_string(),
+                }
+            })?;
         let Some(root_object) = cst_root.object_value() else {
             return Err(ReportalError::CodeWorkspaceParseFailure {
                 file_path: self.source_file_path.display().to_string(),
@@ -169,7 +170,10 @@ mod tests {
         let input_text = "[]";
         let parse_outcome = parse(input_text);
         assert!(
-            matches!(parse_outcome, Err(ReportalError::CodeWorkspaceParseFailure { .. })),
+            matches!(
+                parse_outcome,
+                Err(ReportalError::CodeWorkspaceParseFailure { .. })
+            ),
             "array root must be rejected, got {parse_outcome:?}",
         );
     }
@@ -183,7 +187,10 @@ mod tests {
         }"#;
         let parse_outcome = parse(input_text);
         assert!(
-            matches!(parse_outcome, Err(ReportalError::CodeWorkspaceParseFailure { .. })),
+            matches!(
+                parse_outcome,
+                Err(ReportalError::CodeWorkspaceParseFailure { .. })
+            ),
             "missing path field must be rejected, got {parse_outcome:?}",
         );
     }
@@ -197,7 +204,10 @@ mod tests {
         }"#;
         let parse_outcome = parse(input_text);
         assert!(
-            matches!(parse_outcome, Err(ReportalError::CodeWorkspaceParseFailure { .. })),
+            matches!(
+                parse_outcome,
+                Err(ReportalError::CodeWorkspaceParseFailure { .. })
+            ),
             "non-string path must be rejected, got {parse_outcome:?}",
         );
     }

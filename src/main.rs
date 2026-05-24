@@ -9,9 +9,9 @@
 mod cli_args;
 mod code_workspace;
 mod error;
-mod system_executable_lookup;
 mod reportal_commands;
 mod reportal_config;
+mod system_executable_lookup;
 mod terminal_style;
 
 use clap::Parser;
@@ -52,7 +52,8 @@ fn main() {
             })
         }
         ReportalCliSubcommand::Open(open_arguments) => {
-            let (direct_alias, tag_filter, editor_override, title_override) = open_arguments.into_parts();
+            let (direct_alias, tag_filter, editor_override, title_override) =
+                open_arguments.into_parts();
             reportal_commands::run_open(&OpenCommandParameters {
                 tag_filter,
                 direct_alias: &direct_alias,
@@ -60,9 +61,7 @@ fn main() {
                 title_override: &title_override,
             })
         }
-        ReportalCliSubcommand::Add { repo_path } => {
-            reportal_commands::run_add(&repo_path)
-        }
+        ReportalCliSubcommand::Add { repo_path } => reportal_commands::run_add(&repo_path),
         ReportalCliSubcommand::Edit(edit_arguments) => {
             let (direct_alias, tag_filter) = edit_arguments.into_parts();
             reportal_commands::run_edit(&EditCommandParameters {

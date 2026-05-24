@@ -51,8 +51,7 @@ impl SystemExecutableLookupOutcome {
             }
             #[cfg(windows)]
             {
-                let extension_probe_path =
-                    path_directory.join(format!("{candidate_name}.exe"));
+                let extension_probe_path = path_directory.join(format!("{candidate_name}.exe"));
                 if extension_probe_path.is_file() {
                     return Self::ShadowsExisting {
                         existing_executable: extension_probe_path,

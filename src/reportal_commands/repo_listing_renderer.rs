@@ -90,10 +90,8 @@ impl<'tree> RepoListingRenderer<'tree> {
     /// the message content is derived entirely from the filters,
     /// not from the tree the renderer wraps.
     fn render_empty_state(filter_parts: &ListArgumentsFilterParts) {
-        let empty_state_message = match (
-            filter_parts.tag_filter(),
-            filter_parts.workspace_filter(),
-        ) {
+        let empty_state_message = match (filter_parts.tag_filter(), filter_parts.workspace_filter())
+        {
             (TagFilter::All, WorkspaceFilter::All) => {
                 "No repos registered. Use 'reportal add <path>' to add one.".to_owned()
             }
@@ -104,9 +102,7 @@ impl<'tree> RepoListingRenderer<'tree> {
                 format!("No repos found in workspace '{target_workspace}'")
             }
             (TagFilter::ByTag(target_tag), WorkspaceFilter::ByName(target_workspace)) => {
-                format!(
-                    "No repos found in workspace '{target_workspace}' with tag '{target_tag}'"
-                )
+                format!("No repos found in workspace '{target_workspace}' with tag '{target_tag}'")
             }
         };
         terminal_style::write_stdout(&format!("{empty_state_message}\n"));

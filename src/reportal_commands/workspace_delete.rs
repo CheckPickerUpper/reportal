@@ -46,13 +46,19 @@ pub fn run_workspace_delete(
     if delete_parts.purge() {
         terminal_style::write_stdout(&format!(
             "   Purging workspace directory {} (member repos are not touched)\n",
-            workspace_directory.display().to_string().style(terminal_style::PATH_STYLE),
+            workspace_directory
+                .display()
+                .to_string()
+                .style(terminal_style::PATH_STYLE),
         ));
         purge_workspace_directory(&workspace_directory)?;
         terminal_style::print_success(&format!(
             "Removed workspace {} from config and purged {}",
             canonical_name.style(terminal_style::ALIAS_STYLE),
-            workspace_directory.display().to_string().style(terminal_style::PATH_STYLE),
+            workspace_directory
+                .display()
+                .to_string()
+                .style(terminal_style::PATH_STYLE),
         ));
     } else {
         terminal_style::print_success(&format!(

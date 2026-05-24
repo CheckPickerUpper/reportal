@@ -15,7 +15,9 @@ use super::git_remote_detection::{detect_git_remote, GitRemoteDetection};
 use super::registration_context::RegistrationContext;
 
 /// Prompts the user for a custom directory path to clone into.
-fn prompt_custom_clone_path(prompt_theme: &dialoguer::theme::ColorfulTheme) -> Result<PathBuf, ReportalError> {
+fn prompt_custom_clone_path(
+    prompt_theme: &dialoguer::theme::ColorfulTheme,
+) -> Result<PathBuf, ReportalError> {
     let custom_path: String = Input::with_theme(prompt_theme)
         .with_prompt("Clone into directory")
         .interact_text()
@@ -27,14 +29,19 @@ fn prompt_custom_clone_path(prompt_theme: &dialoguer::theme::ColorfulTheme) -> R
 }
 
 /// Registers a local directory as a repo in the config.
-fn add_local_repo(loaded_config: &mut ReportalConfig, local_path: &str) -> Result<(), ReportalError> {
+fn add_local_repo(
+    loaded_config: &mut ReportalConfig,
+    local_path: &str,
+) -> Result<(), ReportalError> {
     let suggested_alias = match suggest_alias_from_path(local_path) {
         AliasSuggestion::Inferred(folder_alias) => folder_alias,
         AliasSuggestion::NoSuggestion => String::new(),
     };
     let detected_remote = match detect_git_remote(local_path) {
         GitRemoteDetection::Found(remote_url) => remote_url,
-        GitRemoteDetection::NoOriginConfigured | GitRemoteDetection::GitUnavailable => String::new(),
+        GitRemoteDetection::NoOriginConfigured | GitRemoteDetection::GitUnavailable => {
+            String::new()
+        }
     };
     let registration = RegistrationContext {
         loaded_config,

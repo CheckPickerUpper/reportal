@@ -3,8 +3,8 @@
 use crate::code_workspace::code_workspace_folder_entry::CodeWorkspaceFolderEntry;
 use crate::code_workspace::folder_parsing::FolderParsingContext;
 use crate::error::ReportalError;
-use jsonc_parser::ParseOptions;
 use jsonc_parser::cst::{CstInputValue, CstRootNode};
+use jsonc_parser::ParseOptions;
 use std::path::{Path, PathBuf};
 
 /// Parsed, mutable view of a `.code-workspace` file.
@@ -176,12 +176,13 @@ impl CodeWorkspaceFile {
         } else {
             &self.original_file_text
         };
-        let cst_root = CstRootNode::parse(seed_text, &ParseOptions::default()).map_err(
-            |parse_error| ReportalError::CodeWorkspaceParseFailure {
-                file_path: file_path.display().to_string(),
-                reason: parse_error.to_string(),
-            },
-        )?;
+        let cst_root =
+            CstRootNode::parse(seed_text, &ParseOptions::default()).map_err(|parse_error| {
+                ReportalError::CodeWorkspaceParseFailure {
+                    file_path: file_path.display().to_string(),
+                    reason: parse_error.to_string(),
+                }
+            })?;
         let root_object = cst_root.object_value_or_set();
         let new_folders_value = build_folders_cst_value(&self.folders);
         match root_object.get("folders") {
