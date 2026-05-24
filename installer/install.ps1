@@ -10,7 +10,7 @@
 #   powershell -ExecutionPolicy Bypass -c "irm https://github.com/CheckPickerUpper/reportal/releases/latest/download/reportal-installer.ps1 | iex"
 #
 # Optional env:
-#   $env:REPORTAL_VERSION = 'v0.18.4'   Pin to a specific tag.
+#   $env:REPORTAL_VERSION = 'v0.18.5'   Pin to a specific tag.
 #
 # Licensed under MIT.
 

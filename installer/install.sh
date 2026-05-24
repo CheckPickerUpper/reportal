@@ -13,7 +13,7 @@
 #     | bash
 #
 # Optional env:
-#   REPORTAL_VERSION=v0.18.4   Pin to a specific tag instead of "latest".
+#   REPORTAL_VERSION=v0.18.5   Pin to a specific tag instead of "latest".
 #
 # Licensed under MIT.
 
@@ -25,7 +25,7 @@ readonly DOWNLOAD_BASE="https://github.com/${REPO}/releases/download"
 readonly INSTALL_DIR="${HOME}/.local/bin"
 readonly MARKER_START="# >>> reportal shell integration (do not edit) >>>"
 readonly MARKER_END="# <<< reportal shell integration <<<"
-readonly REINSTALL_COMMAND="curl --proto '=https' --tlsv1.2 -LsSf https://github.com/${REPO}/releases/latest/download/reportal-installer.sh | sh"
+readonly REINSTALL_COMMAND="curl --proto '=https' --tlsv1.2 -LsSf https://github.com/${REPO}/releases/latest/download/reportal-installer.sh | bash"
 
 err() {
     printf 'reportal-installer: error: %s\n' "$*" >&2
@@ -227,7 +227,8 @@ main() {
     info "installing reportal ${tag} for ${target}"
 
     tmpdir=$(mktemp -d)
-    trap 'rm -rf "$tmpdir"' EXIT
+    REPORTAL_TMPDIR="$tmpdir"
+    trap 'if [ -n "${REPORTAL_TMPDIR:-}" ]; then rm -rf "$REPORTAL_TMPDIR"; fi' EXIT
 
     archive_path="${tmpdir}/${archive}"
     sha_path="${archive_path}.sha256"
