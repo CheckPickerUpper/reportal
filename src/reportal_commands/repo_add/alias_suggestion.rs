@@ -12,10 +12,11 @@ pub enum AliasSuggestion {
 
 /// Extracts a suggested alias from the last segment of a filesystem path.
 pub fn suggest_alias_from_path(directory_path: &str) -> AliasSuggestion {
-    Path::new(directory_path).file_name().map_or(
-        AliasSuggestion::NoSuggestion,
-        |folder_name| AliasSuggestion::Inferred(folder_name.to_string_lossy().into_owned()),
-    )
+    Path::new(directory_path)
+        .file_name()
+        .map_or(AliasSuggestion::NoSuggestion, |folder_name| {
+            AliasSuggestion::Inferred(folder_name.to_string_lossy().into_owned())
+        })
 }
 
 /// Extracts the repo name from a git URL for use as default alias.
@@ -25,7 +26,9 @@ pub fn repo_name_from_git_url(git_url: &str) -> AliasSuggestion {
     if !repo_name.is_empty() {
         return AliasSuggestion::Inferred(repo_name.to_owned());
     }
-    let ssh_repo_name = trimmed.rsplit(':').next()
+    let ssh_repo_name = trimmed
+        .rsplit(':')
+        .next()
         .and_then(|ssh_path| ssh_path.rsplit('/').next())
         .unwrap_or("");
     if ssh_repo_name.is_empty() {

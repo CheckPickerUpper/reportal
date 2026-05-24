@@ -8,30 +8,29 @@ mod path_display;
 mod prompt_badge_emit;
 mod prompt_identity;
 mod prompts;
-mod shell_alias_emit;
-mod shell_prompt_badge;
-mod shell_integration;
-mod shell_integration_autowire;
 mod repo_add;
 mod repo_ai;
-mod repository_color;
 mod repo_edit;
 mod repo_edit_mutator;
 mod repo_jump;
 mod repo_listing;
 mod repo_listing_renderer;
-mod repo_tree_grouping;
-mod repo_tree_workspace_section;
 mod repo_open;
 mod repo_remove;
 mod repo_run;
 mod repo_selection;
 mod repo_status;
-mod terminal_identity_emit;
 mod repo_sync;
+mod repo_tree_grouping;
+mod repo_tree_workspace_section;
 mod repo_web;
+mod repository_color;
+mod shell_alias_emit;
+mod shell_integration;
+mod shell_integration_autowire;
+mod shell_prompt_badge;
 mod target_selection;
-mod workspace_selection;
+mod terminal_identity_emit;
 mod workspace_create;
 mod workspace_delete;
 mod workspace_dispatch;
@@ -42,20 +41,16 @@ mod workspace_members;
 mod workspace_open;
 mod workspace_operations;
 mod workspace_rebuild;
+mod workspace_selection;
 mod workspace_show;
 
 pub use color_command_mode::ColorCommandMode;
 pub use doctor::run_doctor;
 pub use initialization::run_initialize;
-pub use shell_integration_autowire::{
-    current_shell_integration_loaded_state, ensure_shell_integration_installed,
-    AutoWireOperationLoadedState,
-};
+pub use prompt_badge_emit::run_prompt;
 pub use repo_add::run_add;
 pub use repo_ai::{run_ai, AiCommandParameters};
 pub use repo_edit::{run_edit, EditCommandParameters};
-pub use prompt_badge_emit::run_prompt;
-pub use repository_color::{run_color, ColorCommandParameters};
 pub use repo_jump::{run_jump, JumpCommandParameters};
 pub use repo_listing::run_list;
 pub use repo_open::{run_open, OpenCommandParameters};
@@ -64,6 +59,11 @@ pub use repo_run::{run_run, RunCommandParameters};
 pub use repo_status::run_status;
 pub use repo_sync::run_sync;
 pub use repo_web::{run_web, WebCommandParameters};
+pub use repository_color::{run_color, ColorCommandParameters};
+pub use shell_integration_autowire::{
+    current_shell_integration_loaded_state, ensure_shell_integration_installed,
+    AutoWireOperationLoadedState,
+};
 pub use workspace_create::run_workspace_create;
 pub use workspace_delete::run_workspace_delete;
 pub use workspace_dispatch::dispatch_workspace_subcommand;

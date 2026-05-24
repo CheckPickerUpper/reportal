@@ -1,8 +1,8 @@
 //! Shared optional alias positional arg + `--tag` flag for repo selection.
 
-use clap::Args;
-use crate::reportal_config::TagFilter;
 use super::tag_filter_arguments::TagFilterArguments;
+use crate::reportal_config::TagFilter;
+use clap::Args;
 
 /// Optional repo alias (positional) combined with a `--tag` filter flag.
 ///

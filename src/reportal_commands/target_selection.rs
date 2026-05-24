@@ -69,7 +69,9 @@ pub struct SelectedTargetParameters<'borrow> {
 pub fn select_target(
     params: &SelectedTargetParameters<'_>,
 ) -> Result<SelectedTarget, ReportalError> {
-    let matching_repos = params.loaded_config.repos_matching_tag_filter(params.tag_filter);
+    let matching_repos = params
+        .loaded_config
+        .repos_matching_tag_filter(params.tag_filter);
     let workspace_rows_included = match params.tag_filter {
         TagFilter::All => params.loaded_config.workspaces_with_names(),
         TagFilter::ByTag(_restricted_tag) => Vec::new(),
@@ -79,9 +81,8 @@ pub fn select_target(
         return Err(ReportalError::NoReposMatchFilter);
     }
 
-    let mut display_labels: Vec<String> = Vec::with_capacity(
-        matching_repos.len() + workspace_rows_included.len(),
-    );
+    let mut display_labels: Vec<String> =
+        Vec::with_capacity(matching_repos.len() + workspace_rows_included.len());
 
     for (repository_alias, repo_entry) in &matching_repos {
         let swatch_style =

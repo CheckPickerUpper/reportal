@@ -95,10 +95,12 @@ impl ResolvedTerminalIdentity {
         if matches!(invocation_mode, ColorCommandMode::PromptHook) {
             terminal_style::write_stdout(&self.display_title);
         }
-        let tab_color_action = self.accent_color.as_ref().map_or(
-            TabColorAction::Reset,
-            |hex_color| TabColorAction::SetColor(hex_color.as_osc_tab_color_sequence()),
-        );
+        let tab_color_action = self
+            .accent_color
+            .as_ref()
+            .map_or(TabColorAction::Reset, |hex_color| {
+                TabColorAction::SetColor(hex_color.as_osc_tab_color_sequence())
+            });
         let terminal_identity = TerminalIdentity::new(TerminalIdentityParameters {
             resolved_title: self.display_title.clone(),
             tab_color_action,

@@ -1,8 +1,8 @@
 //! CLI args for `rep status`.
 
-use clap::Args;
-use crate::reportal_config::TagFilter;
 use super::tag_filter_arguments::TagFilterArguments;
+use crate::reportal_config::TagFilter;
+use clap::Args;
 
 /// Arguments for the `rep status` subcommand.
 ///

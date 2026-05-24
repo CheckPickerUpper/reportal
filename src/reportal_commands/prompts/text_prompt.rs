@@ -17,7 +17,9 @@ pub struct TextPromptParameters<'a> {
 ///
 /// Wraps the dialoguer `Input` widget and maps IO errors into
 /// `ReportalError::ConfigIoFailure` so callers can propagate with `?`.
-pub fn prompt_for_text(text_prompt_params: &TextPromptParameters<'_>) -> Result<String, ReportalError> {
+pub fn prompt_for_text(
+    text_prompt_params: &TextPromptParameters<'_>,
+) -> Result<String, ReportalError> {
     let entered_text: String = Input::with_theme(text_prompt_params.prompt_theme)
         .with_prompt(text_prompt_params.label)
         .default(text_prompt_params.default_value.to_owned())

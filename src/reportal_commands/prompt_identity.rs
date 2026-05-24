@@ -96,9 +96,7 @@ impl<'configuration_lifetime> PromptIdentityResolver<'configuration_lifetime> {
     /// working directory cannot be read, or any error surfaced
     /// by the workspace directory resolver (missing home
     /// directory).
-    pub fn resolve_from_current_directory(
-        &self,
-    ) -> Result<Option<PromptIdentity>, ReportalError> {
+    pub fn resolve_from_current_directory(&self) -> Result<Option<PromptIdentity>, ReportalError> {
         let current_directory = std::env::current_dir().map_err(|working_directory_error| {
             ReportalError::ConfigIoFailure {
                 reason: working_directory_error.to_string(),
@@ -122,8 +120,7 @@ impl<'configuration_lifetime> PromptIdentityResolver<'configuration_lifetime> {
         let mut best_match_length: usize = 0;
         let mut best_identity: Option<PromptIdentity> = None;
 
-        for (workspace_name, workspace_entry) in
-            self.configuration_registry.workspaces_with_names()
+        for (workspace_name, workspace_entry) in self.configuration_registry.workspaces_with_names()
         {
             let workspace_directory = regenerator.resolve_workspace_directory(workspace_name)?;
             if !current_directory.starts_with(&workspace_directory) {
@@ -140,7 +137,10 @@ impl<'configuration_lifetime> PromptIdentityResolver<'configuration_lifetime> {
             };
             best_identity = Some(PromptIdentity {
                 display_label: resolved_display_label,
-                accent_color: workspace_entry.workspace_color().themed_hex_color().cloned(),
+                accent_color: workspace_entry
+                    .workspace_color()
+                    .themed_hex_color()
+                    .cloned(),
             });
         }
         Ok(best_identity)
@@ -155,8 +155,7 @@ impl<'configuration_lifetime> PromptIdentityResolver<'configuration_lifetime> {
         let mut best_match_length: usize = 0;
         let mut best_identity: Option<PromptIdentity> = None;
 
-        for (repository_alias, repository_entry) in
-            self.configuration_registry.repos_with_aliases()
+        for (repository_alias, repository_entry) in self.configuration_registry.repos_with_aliases()
         {
             let repository_path = repository_entry.resolved_path();
             if !current_directory.starts_with(&repository_path) {

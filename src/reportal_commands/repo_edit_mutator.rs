@@ -241,8 +241,9 @@ impl RepoEditFieldMutator<'_, '_, '_> {
     /// after a successful config save leaves disk state
     /// inconsistent with config state, which the user must see.
     fn regenerate_affected_workspaces(&self) -> Result<(), ReportalError> {
-        let affected_workspaces =
-            self.loaded_config.workspaces_containing_repo(self.selected_alias);
+        let affected_workspaces = self
+            .loaded_config
+            .workspaces_containing_repo(self.selected_alias);
         if affected_workspaces.is_empty() {
             return Ok(());
         }
