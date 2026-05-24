@@ -3,9 +3,7 @@
 use crate::cli_args::WorkspaceArgumentsMemberEditParts;
 use crate::error::ReportalError;
 use crate::reportal_commands::workspace_operations::WorkspaceRegenerator;
-use crate::reportal_config::{
-    ReportalConfig, WorkspaceMember, WorkspaceMemberAliasLookup,
-};
+use crate::reportal_config::{ReportalConfig, WorkspaceMember, WorkspaceMemberAliasLookup};
 use crate::terminal_style;
 use owo_colors::OwoColorize;
 
@@ -55,7 +53,9 @@ pub fn run_workspace_add_repo(
 
     terminal_style::print_success(&format!(
         "Added {} to workspace {}",
-        member_edit.repository_alias().style(terminal_style::ALIAS_STYLE),
+        member_edit
+            .repository_alias()
+            .style(terminal_style::ALIAS_STYLE),
         canonical_workspace_name.style(terminal_style::ALIAS_STYLE),
     ));
     Ok(())
@@ -123,7 +123,9 @@ pub fn run_workspace_remove_repo(
 
     terminal_style::print_success(&format!(
         "Removed {} from workspace {}",
-        member_edit.repository_alias().style(terminal_style::ALIAS_STYLE),
+        member_edit
+            .repository_alias()
+            .style(terminal_style::ALIAS_STYLE),
         canonical_workspace_name.style(terminal_style::ALIAS_STYLE),
     ));
     Ok(())

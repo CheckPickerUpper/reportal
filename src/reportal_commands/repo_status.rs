@@ -98,7 +98,13 @@ fn read_branch_name(repo_path: &PathBuf) -> String {
         repo_path,
         git_subcommand_args: &["rev-parse", "--abbrev-ref", "HEAD"],
     }) {
-        GitCommandOutcome::Output(branch) => if branch.is_empty() || branch == "HEAD" { "detached".to_owned() } else { branch },
+        GitCommandOutcome::Output(branch) => {
+            if branch.is_empty() || branch == "HEAD" {
+                "detached".to_owned()
+            } else {
+                branch
+            }
+        }
         GitCommandOutcome::NonZeroExit => "unknown".to_owned(),
         GitCommandOutcome::SpawnFailed => "no-git".to_owned(),
     }
@@ -110,7 +116,13 @@ fn read_working_tree_state(repo_path: &PathBuf) -> WorkingTreeState {
         repo_path,
         git_subcommand_args: &["status", "--porcelain"],
     }) {
-        GitCommandOutcome::Output(output) => if output.is_empty() { WorkingTreeState::Clean } else { WorkingTreeState::Dirty },
+        GitCommandOutcome::Output(output) => {
+            if output.is_empty() {
+                WorkingTreeState::Clean
+            } else {
+                WorkingTreeState::Dirty
+            }
+        }
         GitCommandOutcome::NonZeroExit | GitCommandOutcome::SpawnFailed => WorkingTreeState::Dirty,
     }
 }
@@ -141,7 +153,9 @@ fn read_upstream_delta(repo_path: &PathBuf) -> UpstreamDelta {
             RevListParse::Parsed(counts) => UpstreamDelta::Tracked(counts),
             RevListParse::Malformed => UpstreamDelta::NoUpstream,
         },
-        GitCommandOutcome::NonZeroExit | GitCommandOutcome::SpawnFailed => UpstreamDelta::NoUpstream,
+        GitCommandOutcome::NonZeroExit | GitCommandOutcome::SpawnFailed => {
+            UpstreamDelta::NoUpstream
+        }
     }
 }
 
@@ -174,10 +188,12 @@ fn collect_repo_status(status_collection_params: &StatusCollectionParameters<'_>
                 last_commit_age,
             }),
         }
-    } else { RepoGitStatus {
-        alias: status_collection_params.alias.to_owned(),
-        presence: RepoPresence::Missing,
-    } }
+    } else {
+        RepoGitStatus {
+            alias: status_collection_params.alias.to_owned(),
+            presence: RepoPresence::Missing,
+        }
+    }
 }
 
 /// Formats the upstream delta into a string like "2↑ 1↓" or "synced".
@@ -193,7 +209,11 @@ fn format_upstream_delta(upstream_delta: &UpstreamDelta) -> String {
                 0 => {}
                 behind_count => parts.push(format!("{behind_count}↓")),
             }
-            if parts.is_empty() { "synced".to_owned() } else { parts.join(" ") }
+            if parts.is_empty() {
+                "synced".to_owned()
+            } else {
+                parts.join(" ")
+            }
         }
         UpstreamDelta::NoUpstream => "no upstream".to_owned(),
     }
@@ -228,8 +248,12 @@ pub fn run_status(tag_filter: &TagFilter) -> Result<(), ReportalError> {
         match &repo_status.presence {
             RepoPresence::Present(git_info) => {
                 let status_text = match &git_info.working_tree {
-                    WorkingTreeState::Clean => "clean".style(terminal_style::SUCCESS_STYLE).to_string(),
-                    WorkingTreeState::Dirty => "dirty".style(terminal_style::FAILURE_STYLE).to_string(),
+                    WorkingTreeState::Clean => {
+                        "clean".style(terminal_style::SUCCESS_STYLE).to_string()
+                    }
+                    WorkingTreeState::Dirty => {
+                        "dirty".style(terminal_style::FAILURE_STYLE).to_string()
+                    }
                 };
 
                 let upstream_text = format_upstream_delta(&git_info.upstream_delta);
@@ -246,11 +270,7 @@ pub fn run_status(tag_filter: &TagFilter) -> Result<(), ReportalError> {
                 table.add_row(vec![
                     Cell::new(&repo_status.alias),
                     Cell::new("—"),
-                    Cell::new(
-                        "missing"
-                            .style(terminal_style::FAILURE_STYLE)
-                            .to_string(),
-                    ),
+                    Cell::new("missing".style(terminal_style::FAILURE_STYLE).to_string()),
                     Cell::new("—"),
                     Cell::new("—"),
                 ]);

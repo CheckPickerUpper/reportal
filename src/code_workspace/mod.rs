@@ -18,5 +18,8 @@ mod code_workspace_folder_entry;
 mod folder_parsing;
 
 pub use code_workspace_file::CodeWorkspaceFile;
-#[expect(unused_imports, reason = "consumed by later hooks — repo_edit path-change regeneration reads folder entries")]
+#[expect(
+    unused_imports,
+    reason = "consumed by later hooks — repo_edit path-change regeneration reads folder entries"
+)]
 pub use code_workspace_folder_entry::CodeWorkspaceFolderEntry;

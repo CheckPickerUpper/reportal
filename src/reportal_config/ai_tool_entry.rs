@@ -25,7 +25,6 @@ impl AiToolEntry {
         }
     }
 
-
     /// The executable name used to spawn the AI CLI process.
     pub fn cli_command(&self) -> &str {
         &self.command

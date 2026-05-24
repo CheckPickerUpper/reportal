@@ -44,7 +44,13 @@ fn check_pull_readiness(repo_path: &PathBuf) -> PullReadiness {
         repo_path,
         git_subcommand_args: &["status", "--porcelain"],
     }) {
-        GitCommandOutcome::Output(output) => if output.is_empty() { PullReadiness::Ready } else { PullReadiness::DirtyWorkingTree },
+        GitCommandOutcome::Output(output) => {
+            if output.is_empty() {
+                PullReadiness::Ready
+            } else {
+                PullReadiness::DirtyWorkingTree
+            }
+        }
         GitCommandOutcome::NonZeroExit | GitCommandOutcome::SpawnFailed => PullReadiness::Unknown,
     }
 }
@@ -57,13 +63,15 @@ fn pull_repo(repo_path: &PathBuf) -> SyncOutcome {
         .output();
 
     match pull_result {
-        Ok(output) => if output.status.success() {
-            let stdout = String::from_utf8_lossy(&output.stdout).trim().to_owned();
-            SyncOutcome::Pulled(stdout)
-        } else {
-            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_owned();
-            SyncOutcome::PullFailed(stderr)
-        },
+        Ok(output) => {
+            if output.status.success() {
+                let stdout = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+                SyncOutcome::Pulled(stdout)
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr).trim().to_owned();
+                SyncOutcome::PullFailed(stderr)
+            }
+        }
         Err(spawn_error) => SyncOutcome::PullFailed(spawn_error.to_string()),
     }
 }
@@ -79,7 +87,9 @@ fn sync_single_repo(alias: &str, repo_path: &PathBuf) -> RepoSyncResult {
     let outcome = match check_pull_readiness(repo_path) {
         PullReadiness::Ready => pull_repo(repo_path),
         PullReadiness::DirtyWorkingTree => SyncOutcome::SkippedDirty,
-        PullReadiness::Unknown => SyncOutcome::PullFailed("could not determine working tree state".to_owned()),
+        PullReadiness::Unknown => {
+            SyncOutcome::PullFailed("could not determine working tree state".to_owned())
+        }
     };
     RepoSyncResult {
         alias: alias.to_owned(),
@@ -91,8 +101,16 @@ fn sync_single_repo(alias: &str, repo_path: &PathBuf) -> RepoSyncResult {
 fn print_sync_result(sync_result: &RepoSyncResult) {
     match &sync_result.outcome {
         SyncOutcome::Pulled(output) => {
-            let marker = if output.contains("Already up to date") { "✓" } else { "↓" };
-            let suffix = if output.contains("Already up to date") { "up to date" } else { "pulled" };
+            let marker = if output.contains("Already up to date") {
+                "✓"
+            } else {
+                "↓"
+            };
+            let suffix = if output.contains("Already up to date") {
+                "up to date"
+            } else {
+                "pulled"
+            };
             terminal_style::write_stdout(&format!(
                 "  {} {} {}
 ",
@@ -159,9 +177,13 @@ pub fn run_sync(tag_filter: &TagFilter) -> Result<(), ReportalError> {
     terminal_style::write_stdout("\n");
     terminal_style::write_stdout(&format!(
         "  {} pulled, {} skipped, {} failed\n",
-        pulled_count.to_string().style(terminal_style::SUCCESS_STYLE),
+        pulled_count
+            .to_string()
+            .style(terminal_style::SUCCESS_STYLE),
         skipped_count.to_string().style(terminal_style::TAG_STYLE),
-        failed_count.to_string().style(terminal_style::FAILURE_STYLE),
+        failed_count
+            .to_string()
+            .style(terminal_style::FAILURE_STYLE),
     ));
 
     Ok(())

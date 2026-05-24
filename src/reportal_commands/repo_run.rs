@@ -1,12 +1,10 @@
 //! Fuzzy-selects a repo and runs a user-defined command in it.
 
 use crate::error::ReportalError;
+use crate::reportal_commands::repo_selection::{self, SelectedRepoParameters};
+use crate::reportal_commands::terminal_identity_emit::{self, TerminalIdentityEmitParameters};
 use crate::reportal_config::{CommandEntry, ReportalConfig, TagFilter};
 use crate::terminal_style;
-use crate::reportal_commands::repo_selection::{self, SelectedRepoParameters};
-use crate::reportal_commands::terminal_identity_emit::{
-    self, TerminalIdentityEmitParameters,
-};
 use dialoguer::FuzzySelect;
 use owo_colors::OwoColorize;
 use std::collections::BTreeMap;
@@ -49,7 +47,9 @@ struct ResolveCommandParameters<'a> {
 /// which command to run (direct or fuzzy-selected).
 ///
 /// Repo-level commands override global commands with the same name.
-fn resolve_command(resolve_params: &ResolveCommandParameters<'_>) -> Result<ResolvedCommand, ReportalError> {
+fn resolve_command(
+    resolve_params: &ResolveCommandParameters<'_>,
+) -> Result<ResolvedCommand, ReportalError> {
     let mut merged: Vec<MergedCommandEntry<'_>> = Vec::new();
 
     for (name, entry) in resolve_params.global_commands {
@@ -82,7 +82,9 @@ fn resolve_command(resolve_params: &ResolveCommandParameters<'_>) -> Result<Reso
         }
     }
 
-    if merged.is_empty() { return Err(ReportalError::NoCommandsAvailable) }
+    if merged.is_empty() {
+        return Err(ReportalError::NoCommandsAvailable);
+    }
 
     if resolve_params.direct_command.is_empty() {
         let display_labels: Vec<String> = merged
@@ -111,21 +113,30 @@ fn resolve_command(resolve_params: &ResolveCommandParameters<'_>) -> Result<Reso
         let Some(chosen_index) = selected_index else {
             return Err(ReportalError::SelectionCancelled);
         };
-        merged.get(chosen_index).map_or(Err(ReportalError::SelectionCancelled), |entry| Ok(ResolvedCommand {
-            command_name: entry.name.to_owned(),
-            shell_command: entry.shell_command.to_owned(),
-        }))
-    } else {
-        merged.iter()
-            .find(|entry| entry.name == resolve_params.direct_command)
-            .map_or_else(
-                || Err(ReportalError::CommandNotFound {
-                    command_name: resolve_params.direct_command.to_owned(),
-                }),
-                |entry| Ok(ResolvedCommand {
+        merged
+            .get(chosen_index)
+            .map_or(Err(ReportalError::SelectionCancelled), |entry| {
+                Ok(ResolvedCommand {
                     command_name: entry.name.to_owned(),
                     shell_command: entry.shell_command.to_owned(),
-                }),
+                })
+            })
+    } else {
+        merged
+            .iter()
+            .find(|entry| entry.name == resolve_params.direct_command)
+            .map_or_else(
+                || {
+                    Err(ReportalError::CommandNotFound {
+                        command_name: resolve_params.direct_command.to_owned(),
+                    })
+                },
+                |entry| {
+                    Ok(ResolvedCommand {
+                        command_name: entry.name.to_owned(),
+                        shell_command: entry.shell_command.to_owned(),
+                    })
+                },
             )
     }
 }
@@ -163,8 +174,12 @@ pub fn run_run(run_params: &RunCommandParameters<'_>) -> Result<(), ReportalErro
 
     terminal_style::print_success(&format!(
         "Running {} in {}",
-        resolved_command.command_name.style(terminal_style::ALIAS_STYLE),
-        loaded_config.path_display_format().format_path(&resolved_repo_path)
+        resolved_command
+            .command_name
+            .style(terminal_style::ALIAS_STYLE),
+        loaded_config
+            .path_display_format()
+            .format_path(&resolved_repo_path)
             .style(terminal_style::PATH_STYLE),
     ));
 
@@ -192,9 +207,12 @@ pub fn run_run(run_params: &RunCommandParameters<'_>) -> Result<(), ReportalErro
             reason: format!("{}: {spawn_error}", resolved_command.shell_command),
         })?;
 
-    let exit_status = spawned_process.wait().map_err(|wait_error| ReportalError::CommandLaunchFailure {
-        reason: format!("process exited unexpectedly: {wait_error}"),
-    })?;
+    let exit_status =
+        spawned_process
+            .wait()
+            .map_err(|wait_error| ReportalError::CommandLaunchFailure {
+                reason: format!("process exited unexpectedly: {wait_error}"),
+            })?;
 
     if !exit_status.success() {
         match exit_status.code() {

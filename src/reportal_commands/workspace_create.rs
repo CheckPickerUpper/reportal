@@ -40,14 +40,13 @@ pub fn run_workspace_create(
     let reinterpreted_directory_path =
         reinterpret_custom_path_as_directory(create_parts.custom_file_path());
 
-    let validated_registration = WorkspaceRegistrationBuilder::start(
-        create_parts.workspace_name().to_owned(),
-    )
-    .repo_aliases(create_parts.repo_aliases().to_vec())
-    .workspace_description(create_parts.description().to_owned())
-    .workspace_file_path(reinterpreted_directory_path)
-    .workspace_aliases(create_parts.workspace_aliases().to_vec())
-    .build()?;
+    let validated_registration =
+        WorkspaceRegistrationBuilder::start(create_parts.workspace_name().to_owned())
+            .repo_aliases(create_parts.repo_aliases().to_vec())
+            .workspace_description(create_parts.description().to_owned())
+            .workspace_file_path(reinterpreted_directory_path)
+            .workspace_aliases(create_parts.workspace_aliases().to_vec())
+            .build()?;
 
     loaded_config.add_workspace(validated_registration)?;
     loaded_config.save_to_disk()?;
@@ -55,16 +54,25 @@ pub fn run_workspace_create(
     let regenerator = WorkspaceRegenerator::for_config(&loaded_config);
     let workspace_file_path =
         regenerator.regenerate_workspace_file(create_parts.workspace_name())?;
-    let workspace_directory = regenerator.resolve_workspace_directory(create_parts.workspace_name())?;
+    let workspace_directory =
+        regenerator.resolve_workspace_directory(create_parts.workspace_name())?;
 
     terminal_style::print_success(&format!(
         "Created workspace {} at {}",
-        create_parts.workspace_name().style(terminal_style::ALIAS_STYLE),
-        workspace_directory.display().to_string().style(terminal_style::PATH_STYLE),
+        create_parts
+            .workspace_name()
+            .style(terminal_style::ALIAS_STYLE),
+        workspace_directory
+            .display()
+            .to_string()
+            .style(terminal_style::PATH_STYLE),
     ));
     terminal_style::write_stdout(&format!(
         "   workspace file: {}\n",
-        workspace_file_path.display().to_string().style(terminal_style::PATH_STYLE),
+        workspace_file_path
+            .display()
+            .to_string()
+            .style(terminal_style::PATH_STYLE),
     ));
     Ok(())
 }
@@ -89,9 +97,7 @@ fn reinterpret_custom_path_as_directory(raw_path: &str) -> String {
     {
         return candidate
             .parent()
-            .map_or_else(String::new, |parent_path| {
-                parent_path.display().to_string()
-            });
+            .map_or_else(String::new, |parent_path| parent_path.display().to_string());
     }
     trimmed.to_owned()
 }

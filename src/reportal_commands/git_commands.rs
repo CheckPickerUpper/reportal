@@ -34,9 +34,13 @@ pub fn run_git_command(git_command_params: &GitCommandParameters<'_>) -> GitComm
         .output();
 
     match command_result {
-        Ok(output) => if output.status.success() { GitCommandOutcome::Output(
-            String::from_utf8_lossy(&output.stdout).trim().to_owned(),
-        ) } else { GitCommandOutcome::NonZeroExit },
+        Ok(output) => {
+            if output.status.success() {
+                GitCommandOutcome::Output(String::from_utf8_lossy(&output.stdout).trim().to_owned())
+            } else {
+                GitCommandOutcome::NonZeroExit
+            }
+        }
         Err(_git_spawn_error) => GitCommandOutcome::SpawnFailed,
     }
 }

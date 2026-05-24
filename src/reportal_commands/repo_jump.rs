@@ -1,17 +1,11 @@
 //! Fuzzy-selects a repo and prints its path for shell `cd` integration.
 
 use crate::error::ReportalError;
-use crate::reportal_commands::direct_alias_router::{
-    DirectAliasRouter, DirectAliasRouterOutcome,
-};
+use crate::reportal_commands::direct_alias_router::{DirectAliasRouter, DirectAliasRouterOutcome};
 use crate::reportal_commands::path_display::{self, SelectedPathDisplayParameters};
 use crate::reportal_commands::repo_selection::{self, SelectedRepoParameters};
-use crate::reportal_commands::target_selection::{
-    self, SelectedTarget, SelectedTargetParameters,
-};
-use crate::reportal_commands::terminal_identity_emit::{
-    self, TerminalIdentityEmitParameters,
-};
+use crate::reportal_commands::target_selection::{self, SelectedTarget, SelectedTargetParameters};
+use crate::reportal_commands::terminal_identity_emit::{self, TerminalIdentityEmitParameters};
 use crate::reportal_config::{ReportalConfig, TagFilter};
 use crate::terminal_style;
 
@@ -66,9 +60,7 @@ pub fn run_jump(jump_params: &JumpCommandParameters<'_>) -> Result<(), ReportalE
     } else {
         let router = DirectAliasRouter::for_config(&loaded_config);
         match router.classify(jump_params.direct_alias)? {
-            DirectAliasRouterOutcome::RegisteredRepo => {
-                jump_params.direct_alias.to_owned()
-            }
+            DirectAliasRouterOutcome::RegisteredRepo => jump_params.direct_alias.to_owned(),
             DirectAliasRouterOutcome::Workspace(canonical_workspace_name) => {
                 return router.jump_to_workspace_parent(&canonical_workspace_name);
             }
@@ -95,7 +87,9 @@ pub fn run_jump(jump_params: &JumpCommandParameters<'_>) -> Result<(), ReportalE
     });
 
     let resolved_path = selected.repo_config().resolved_path();
-    let formatted_path = loaded_config.path_display_format().format_path(&resolved_path);
+    let formatted_path = loaded_config
+        .path_display_format()
+        .format_path(&resolved_path);
 
     terminal_style::write_stdout(&formatted_path.clone());
 

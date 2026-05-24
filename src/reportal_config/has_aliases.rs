@@ -96,7 +96,10 @@ mod tests {
     #[test]
     fn canonical_key_match_wins_first() {
         let entry_map = build_entry_map();
-        assert_eq!(resolve_canonical_key(&entry_map, "example-workspace"), Some("example-workspace"));
+        assert_eq!(
+            resolve_canonical_key(&entry_map, "example-workspace"),
+            Some("example-workspace")
+        );
     }
 
     #[test]
