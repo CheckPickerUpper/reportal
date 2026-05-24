@@ -4,8 +4,8 @@
 #
 # Downloads the latest (or pinned) reportal release archive from GitHub,
 # installs the `reportal` and `rep` binaries into ~/.local/bin, and appends
-# an idempotent `eval "$(rep init <shell>)"` block to the user's shell rc
-# file. Matches the distribution pattern used by starship/mise/zoxide.
+# an idempotent guarded RePortal block to the user's shell rc file. Matches
+# the distribution pattern used by starship/mise/zoxide.
 #
 # Usage:
 #   curl --proto '=https' --tlsv1.2 -LsSf \
@@ -13,7 +13,7 @@
 #     | bash
 #
 # Optional env:
-#   REPORTAL_VERSION=v0.15.0   Pin to a specific tag instead of "latest".
+#   REPORTAL_VERSION=v0.18.4   Pin to a specific tag instead of "latest".
 #
 # Licensed under MIT.
 
@@ -25,6 +25,7 @@ readonly DOWNLOAD_BASE="https://github.com/${REPO}/releases/download"
 readonly INSTALL_DIR="${HOME}/.local/bin"
 readonly MARKER_START="# >>> reportal shell integration (do not edit) >>>"
 readonly MARKER_END="# <<< reportal shell integration <<<"
+readonly REINSTALL_COMMAND="curl --proto '=https' --tlsv1.2 -LsSf https://github.com/${REPO}/releases/latest/download/reportal-installer.sh | sh"
 
 err() {
     printf 'reportal-installer: error: %s\n' "$*" >&2
@@ -181,7 +182,13 @@ install_shell_integration() {
 
     {
         printf '\n%s\n' "$MARKER_START"
-        printf 'eval "$(rep init %s)"\n' "$shell_name"
+        printf 'if command -v rep >/dev/null 2>&1; then\n'
+        printf '    eval "$(rep init %s)"\n' "$shell_name"
+        printf 'elif command -v reportal >/dev/null 2>&1; then\n'
+        printf '    eval "$(reportal init %s)"\n' "$shell_name"
+        printf 'else\n'
+        printf '    rep() { printf '\''%%s\\n'\'' "RePortal: rep is not on PATH. Reinstall with: %s" >&2; return 127; }\n' "$REINSTALL_COMMAND"
+        printf 'fi\n'
         printf '%s\n' "$MARKER_END"
     } >> "$rc_file"
 
