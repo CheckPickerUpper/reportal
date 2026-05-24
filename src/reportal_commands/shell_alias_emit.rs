@@ -36,19 +36,15 @@ pub struct ShellAliasEmissionParameters<'configuration> {
 /// the built-ins by reusing the same name — collisions are
 /// silently skipped at emission time and the user keeps the
 /// expected `rj`/`ro`/`rjw`/`row`/`rw`/`rr` behavior.
-const BUILTIN_SHELL_FUNCTION_NAMES: &[&str] =
-    &["rj", "ro", "rjw", "row", "rw", "rr"];
+const BUILTIN_SHELL_FUNCTION_NAMES: &[&str] = &["rj", "ro", "rjw", "row", "rw", "rr"];
 
 /// @why Builds the per-shell snippet that defines a top-level
 /// function for every opted-in repo, workspace, and command so
 /// users invoke their config entries directly from the prompt
 /// without typing `rj`, `rjw`, or `rep run --cmd` first.
 #[must_use]
-pub fn shell_alias_export_snippet(
-    parameters: &ShellAliasEmissionParameters<'_>,
-) -> String {
-    let exported_dispatch_entries =
-        collect_exported_dispatch_entries(parameters.configuration);
+pub fn shell_alias_export_snippet(parameters: &ShellAliasEmissionParameters<'_>) -> String {
+    let exported_dispatch_entries = collect_exported_dispatch_entries(parameters.configuration);
     if exported_dispatch_entries.is_empty() {
         return String::new();
     }
@@ -56,9 +52,7 @@ pub fn shell_alias_export_snippet(
         InitializeShell::Zsh | InitializeShell::Bash => {
             render_bash_snippet(&exported_dispatch_entries)
         }
-        InitializeShell::Powershell => {
-            render_powershell_snippet(&exported_dispatch_entries)
-        }
+        InitializeShell::Powershell => render_powershell_snippet(&exported_dispatch_entries),
     }
 }
 
@@ -102,25 +96,19 @@ struct ExportedDispatchEntry {
 /// `ExportedDispatchEntry`. Skips names that collide with the
 /// base integration's built-in functions and names that are not
 /// usable as bare shell identifiers.
-fn collect_exported_dispatch_entries(
-    configuration: &ReportalConfig,
-) -> Vec<ExportedDispatchEntry> {
+fn collect_exported_dispatch_entries(configuration: &ReportalConfig) -> Vec<ExportedDispatchEntry> {
     let mut collected: Vec<ExportedDispatchEntry> = Vec::new();
     for (command_key, command_entry) in configuration.global_commands() {
         append_command_dispatch_entry(&mut collected, command_key, command_entry);
     }
-    for (repository_canonical_key, repository_entry) in
-        configuration.repos_with_aliases()
-    {
+    for (repository_canonical_key, repository_entry) in configuration.repos_with_aliases() {
         append_repository_dispatch_entries(
             &mut collected,
             repository_canonical_key,
             repository_entry,
         );
     }
-    for (workspace_canonical_name, workspace_entry) in
-        configuration.workspaces_with_names()
-    {
+    for (workspace_canonical_name, workspace_entry) in configuration.workspaces_with_names() {
         append_workspace_dispatch_entries(
             &mut collected,
             workspace_canonical_name,
@@ -142,8 +130,7 @@ fn deduplicate_by_function_name(
     raw_entries: Vec<ExportedDispatchEntry>,
 ) -> Vec<ExportedDispatchEntry> {
     let mut already_emitted_names: HashSet<String> = HashSet::new();
-    let mut deduplicated: Vec<ExportedDispatchEntry> =
-        Vec::with_capacity(raw_entries.len());
+    let mut deduplicated: Vec<ExportedDispatchEntry> = Vec::with_capacity(raw_entries.len());
     for raw_entry in raw_entries {
         if already_emitted_names.contains(&raw_entry.function_name) {
             continue;
@@ -192,9 +179,7 @@ fn append_repository_dispatch_entries(
                 repository_canonical_key,
                 ExportedDispatchKind::RepositoryJump,
             );
-            for declared_alias in
-                crate::reportal_config::HasAliases::aliases(repository_entry)
-            {
+            for declared_alias in crate::reportal_config::HasAliases::aliases(repository_entry) {
                 push_one_dispatch_entry_if_emittable(
                     collector,
                     declared_alias,
@@ -223,9 +208,7 @@ fn append_workspace_dispatch_entries(
                 workspace_canonical_name,
                 ExportedDispatchKind::WorkspaceJump,
             );
-            for declared_alias in
-                crate::reportal_config::HasAliases::aliases(workspace_entry)
-            {
+            for declared_alias in crate::reportal_config::HasAliases::aliases(workspace_entry) {
                 push_one_dispatch_entry_if_emittable(
                     collector,
                     declared_alias,

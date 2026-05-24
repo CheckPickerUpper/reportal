@@ -167,9 +167,7 @@ fn validate_alias_list_shape(
         if declared.trim().is_empty() {
             return Err(ReportalError::ValidationFailure {
                 field: "workspace alias".to_owned(),
-                reason: format!(
-                    "workspace '{owning_workspace_name}' declares an empty alias"
-                ),
+                reason: format!("workspace '{owning_workspace_name}' declares an empty alias"),
             });
         }
         if declared == owning_workspace_name {
@@ -259,7 +257,11 @@ mod tests {
     #[test]
     fn valid_builder_produces_entry_with_ordered_members() {
         let workspace_builder = WorkspaceRegistrationBuilder::start("backend".to_owned())
-            .repo_aliases(vec!["alpha".to_owned(), "bravo".to_owned(), "charlie".to_owned()])
+            .repo_aliases(vec![
+                "alpha".to_owned(),
+                "bravo".to_owned(),
+                "charlie".to_owned(),
+            ])
             .workspace_description("Backend services".to_owned())
             .workspace_file_path("~/work.code-workspace".to_owned());
         let (workspace_name, entry) = workspace_builder

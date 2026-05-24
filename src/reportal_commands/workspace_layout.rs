@@ -147,8 +147,7 @@ pub fn materialize_workspace_layout(
         .iter()
         .map(|link_spec| PathBuf::from(format!("./{}", link_spec.link_name)))
         .collect();
-    let mut code_workspace_document =
-        CodeWorkspaceFile::load_or_empty(&workspace_file_path)?;
+    let mut code_workspace_document = CodeWorkspaceFile::load_or_empty(&workspace_file_path)?;
     code_workspace_document.set_folder_paths(&relative_folder_paths);
     if let Some(window_title) = layout_params.window_title_override {
         code_workspace_document.set_workspace_identity(
@@ -164,10 +163,7 @@ pub fn materialize_workspace_layout(
 /// workspace directory, for callers that only need the file path
 /// without running the full materialization.
 #[must_use]
-pub fn workspace_file_path_inside_dir(
-    workspace_directory: &Path,
-    workspace_name: &str,
-) -> PathBuf {
+pub fn workspace_file_path_inside_dir(workspace_directory: &Path, workspace_name: &str) -> PathBuf {
     workspace_directory.join(format!("{workspace_name}.code-workspace"))
 }
 
@@ -232,11 +228,12 @@ fn ensure_member_link(
     let link_metadata = std::fs::symlink_metadata(&link_path);
     match link_metadata {
         Err(metadata_error) if metadata_error.kind() == io::ErrorKind::NotFound => {
-            create_workspace_link(&link_spec.target_absolute_path, &link_path)
-                .map_err(|link_error| ReportalError::CodeWorkspaceIoFailure {
+            create_workspace_link(&link_spec.target_absolute_path, &link_path).map_err(
+                |link_error| ReportalError::CodeWorkspaceIoFailure {
                     file_path: link_path.display().to_string(),
                     reason: link_error.to_string(),
-                })?;
+                },
+            )?;
             Ok(WorkspaceLinkOutcome::Created)
         }
         Err(metadata_error) => Err(ReportalError::CodeWorkspaceIoFailure {
@@ -334,8 +331,9 @@ mod tests {
     fn unique_temp_dir(label: &str) -> PathBuf {
         let counter_value = TEST_DIR_COUNTER.fetch_add(1, Ordering::Relaxed);
         let process_id = std::process::id();
-        let path =
-            std::env::temp_dir().join(format!("reportal-wslayout-{label}-{process_id}-{counter_value}"));
+        let path = std::env::temp_dir().join(format!(
+            "reportal-wslayout-{label}-{process_id}-{counter_value}"
+        ));
         let _ = std::fs::remove_dir_all(&path);
         std::fs::create_dir_all(&path).expect("temp dir must be creatable");
         path
@@ -357,8 +355,7 @@ mod tests {
             link_metadata.file_type().is_symlink(),
             "created path must be a symlink",
         );
-        let resolved_target =
-            std::fs::read_link(&link_path).expect("symlink must be readable");
+        let resolved_target = std::fs::read_link(&link_path).expect("symlink must be readable");
         assert_eq!(resolved_target, target_dir);
 
         let _ = std::fs::remove_dir_all(&scratch_dir);
@@ -399,8 +396,14 @@ mod tests {
         })
         .expect("materialize must succeed");
 
-        assert!(workspace_dir.exists(), "workspace directory must be created");
-        assert_eq!(workspace_file_path, workspace_dir.join("nro.code-workspace"));
+        assert!(
+            workspace_dir.exists(),
+            "workspace directory must be created"
+        );
+        assert_eq!(
+            workspace_file_path,
+            workspace_dir.join("nro.code-workspace")
+        );
         assert!(
             workspace_file_path.exists(),
             ".code-workspace file must be written inside workspace dir",
@@ -412,8 +415,7 @@ mod tests {
             ("charlie", &repo_charlie),
         ] {
             let link_path = workspace_dir.join(link_name);
-            let metadata =
-                std::fs::symlink_metadata(&link_path).expect("link metadata must exist");
+            let metadata = std::fs::symlink_metadata(&link_path).expect("link metadata must exist");
             #[cfg(unix)]
             assert!(
                 metadata.file_type().is_symlink(),
@@ -427,8 +429,7 @@ mod tests {
             let _ = metadata;
             #[cfg(unix)]
             {
-                let resolved =
-                    std::fs::read_link(&link_path).expect("link must be readable");
+                let resolved = std::fs::read_link(&link_path).expect("link must be readable");
                 assert_eq!(&resolved, expected_target);
             }
             let _ = expected_target;
@@ -483,8 +484,7 @@ mod tests {
         })
         .expect("first run must succeed");
 
-        let resolved_after_first =
-            std::fs::read_link(&stale_link_path).expect("link must resolve");
+        let resolved_after_first = std::fs::read_link(&stale_link_path).expect("link must resolve");
         assert_eq!(
             resolved_after_first, real_target,
             "stale link must have been replaced with the real target",
@@ -519,8 +519,11 @@ mod tests {
 
         // Pre-populate a real file at the link path.
         let occupied_link_path = workspace_dir.join("alpha");
-        std::fs::write(&occupied_link_path, b"user data the tool must not destroy\n")
-            .expect("scratch file must be writable");
+        std::fs::write(
+            &occupied_link_path,
+            b"user data the tool must not destroy\n",
+        )
+        .expect("scratch file must be writable");
 
         let member_links = vec![WorkspaceLinkSpec {
             link_name: "alpha".to_owned(),
@@ -558,6 +561,9 @@ mod tests {
     fn workspace_file_path_inside_dir_composes_expected_name() {
         let workspace_dir = PathBuf::from("/workspaces/nro");
         let file_path = workspace_file_path_inside_dir(&workspace_dir, "nro");
-        assert_eq!(file_path, PathBuf::from("/workspaces/nro/nro.code-workspace"));
+        assert_eq!(
+            file_path,
+            PathBuf::from("/workspaces/nro/nro.code-workspace")
+        );
     }
 }

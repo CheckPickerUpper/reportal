@@ -1,8 +1,8 @@
 //! CLI args for `rep web`.
 
-use clap::Args;
-use crate::reportal_config::TagFilter;
 use super::repository_selection_arguments::RepositorySelectionArguments;
+use crate::reportal_config::TagFilter;
+use clap::Args;
 
 /// Arguments for the `rep web` subcommand.
 ///

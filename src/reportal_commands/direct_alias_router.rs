@@ -63,17 +63,10 @@ impl<'config> DirectAliasRouter<'config> {
     ///
     /// Returns any non-NotFound error surfaced by the underlying
     /// `get_repo` or `resolve_workspace_canonical_name` calls.
-    pub fn classify(
-        &self,
-        alias: &str,
-    ) -> Result<DirectAliasRouterOutcome, ReportalError> {
+    pub fn classify(&self, alias: &str) -> Result<DirectAliasRouterOutcome, ReportalError> {
         match self.loaded_config.get_repo(alias) {
-            Ok(_repo_found_for_classification) => {
-                Ok(DirectAliasRouterOutcome::RegisteredRepo)
-            }
-            Err(ReportalError::RepoNotFound { .. }) => {
-                self.classify_workspace_branch(alias)
-            }
+            Ok(_repo_found_for_classification) => Ok(DirectAliasRouterOutcome::RegisteredRepo),
+            Err(ReportalError::RepoNotFound { .. }) => self.classify_workspace_branch(alias),
             Err(other_repo_error) => Err(other_repo_error),
         }
     }
@@ -93,12 +86,10 @@ impl<'config> DirectAliasRouter<'config> {
         alias: &str,
     ) -> Result<DirectAliasRouterOutcome, ReportalError> {
         match self.loaded_config.resolve_workspace_canonical_name(alias) {
-            Ok(canonical_workspace_name) => {
-                Ok(DirectAliasRouterOutcome::Workspace(canonical_workspace_name))
-            }
-            Err(ReportalError::WorkspaceNotFound { .. }) => {
-                Ok(DirectAliasRouterOutcome::Unknown)
-            }
+            Ok(canonical_workspace_name) => Ok(DirectAliasRouterOutcome::Workspace(
+                canonical_workspace_name,
+            )),
+            Err(ReportalError::WorkspaceNotFound { .. }) => Ok(DirectAliasRouterOutcome::Unknown),
             Err(other_workspace_error) => Err(other_workspace_error),
         }
     }

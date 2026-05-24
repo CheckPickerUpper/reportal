@@ -55,9 +55,7 @@ impl WorkspaceMember {
     #[must_use]
     pub fn registered_repo_alias(&self) -> WorkspaceMemberAliasLookup<'_> {
         match self {
-            Self::RegisteredRepo(alias) => {
-                WorkspaceMemberAliasLookup::Matches(alias.as_str())
-            }
+            Self::RegisteredRepo(alias) => WorkspaceMemberAliasLookup::Matches(alias.as_str()),
             Self::InlinePath { .. } => WorkspaceMemberAliasLookup::NotARepoReference,
         }
     }

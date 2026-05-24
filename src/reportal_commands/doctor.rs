@@ -142,8 +142,7 @@ impl DiagnosticSummary {
         &mut self,
         parameters: &DiagnosticSummaryRepositoryEntryParameters<'_>,
     ) {
-        let resolved_path =
-            parameters.registered_repository_entry.resolved_path();
+        let resolved_path = parameters.registered_repository_entry.resolved_path();
         let path_display = resolved_path.display().to_string();
         let styled_alias = parameters
             .registered_alias
@@ -198,10 +197,7 @@ impl DiagnosticSummary {
     /// function, so doctor reports it here even though
     /// configuration-load tolerates legacy entries that pre-date
     /// the system-shadow validation.
-    fn check_shell_alias_emission_health(
-        &mut self,
-        loaded_configuration: &ReportalConfig,
-    ) {
+    fn check_shell_alias_emission_health(&mut self, loaded_configuration: &ReportalConfig) {
         terminal_style::write_stdout("\n");
         terminal_style::write_stdout(&format!(
             "  {}\n",
@@ -216,19 +212,15 @@ impl DiagnosticSummary {
                 ShellAliasExport::Disabled => continue,
                 ShellAliasExport::Enabled => {
                     probed_any_opted_in_name = true;
-                    self.probe_one_emitted_name(
-                        &DiagnosticSummaryShadowProbeParameters {
-                            candidate_emitted_name: repository_canonical_key,
-                            emitted_kind_label: "repository canonical",
-                        },
-                    );
+                    self.probe_one_emitted_name(&DiagnosticSummaryShadowProbeParameters {
+                        candidate_emitted_name: repository_canonical_key,
+                        emitted_kind_label: "repository canonical",
+                    });
                     for declared_alias in repository_entry.aliases() {
-                        self.probe_one_emitted_name(
-                            &DiagnosticSummaryShadowProbeParameters {
-                                candidate_emitted_name: declared_alias,
-                                emitted_kind_label: "repository alias",
-                            },
-                        );
+                        self.probe_one_emitted_name(&DiagnosticSummaryShadowProbeParameters {
+                            candidate_emitted_name: declared_alias,
+                            emitted_kind_label: "repository alias",
+                        });
                     }
                 }
             }
@@ -240,19 +232,15 @@ impl DiagnosticSummary {
                 ShellAliasExport::Disabled => continue,
                 ShellAliasExport::Enabled => {
                     probed_any_opted_in_name = true;
-                    self.probe_one_emitted_name(
-                        &DiagnosticSummaryShadowProbeParameters {
-                            candidate_emitted_name: workspace_canonical_name,
-                            emitted_kind_label: "workspace canonical",
-                        },
-                    );
+                    self.probe_one_emitted_name(&DiagnosticSummaryShadowProbeParameters {
+                        candidate_emitted_name: workspace_canonical_name,
+                        emitted_kind_label: "workspace canonical",
+                    });
                     for declared_alias in workspace_entry.aliases() {
-                        self.probe_one_emitted_name(
-                            &DiagnosticSummaryShadowProbeParameters {
-                                candidate_emitted_name: declared_alias,
-                                emitted_kind_label: "workspace alias",
-                            },
-                        );
+                        self.probe_one_emitted_name(&DiagnosticSummaryShadowProbeParameters {
+                            candidate_emitted_name: declared_alias,
+                            emitted_kind_label: "workspace alias",
+                        });
                     }
                 }
             }
@@ -262,12 +250,10 @@ impl DiagnosticSummary {
                 ShellAliasExport::Disabled => continue,
                 ShellAliasExport::Enabled => {
                     probed_any_opted_in_name = true;
-                    self.probe_one_emitted_name(
-                        &DiagnosticSummaryShadowProbeParameters {
-                            candidate_emitted_name: command_key,
-                            emitted_kind_label: "command",
-                        },
-                    );
+                    self.probe_one_emitted_name(&DiagnosticSummaryShadowProbeParameters {
+                        candidate_emitted_name: command_key,
+                        emitted_kind_label: "command",
+                    });
                 }
             }
         }
@@ -336,10 +322,7 @@ pub fn run_doctor() {
     terminal_style::write_stdout("\n");
     match summary.failed {
         0 => {
-            terminal_style::print_success(&format!(
-                "All {} checks passed",
-                summary.passed,
-            ));
+            terminal_style::print_success(&format!("All {} checks passed", summary.passed,));
         }
         _failure_count => {
             terminal_style::write_stdout(&format!(

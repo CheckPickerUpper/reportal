@@ -9,9 +9,7 @@
 use crate::cli_args::InitializeShell;
 use crate::reportal_config::ReportalConfig;
 
-use super::shell_alias_emit::{
-    self, ShellAliasEmissionParameters,
-};
+use super::shell_alias_emit::{self, ShellAliasEmissionParameters};
 use super::shell_integration::{bash_integration_content, powershell_integration_content};
 use super::shell_prompt_badge::prompt_badge_integration_snippet;
 
@@ -40,12 +38,10 @@ pub fn run_initialize(shell: InitializeShell) {
 fn build_alias_snippet_or_empty_on_failure(shell: InitializeShell) -> String {
     match ReportalConfig::load_or_initialize() {
         Ok(loaded_configuration) => {
-            shell_alias_emit::shell_alias_export_snippet(
-                &ShellAliasEmissionParameters {
-                    target_shell: shell,
-                    configuration: &loaded_configuration,
-                },
-            )
+            shell_alias_emit::shell_alias_export_snippet(&ShellAliasEmissionParameters {
+                target_shell: shell,
+                configuration: &loaded_configuration,
+            })
         }
         Err(_load_error_swallowed_to_keep_shell_init_safe) => String::new(),
     }

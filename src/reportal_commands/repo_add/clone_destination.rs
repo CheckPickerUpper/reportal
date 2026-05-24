@@ -19,10 +19,13 @@ pub enum CloneDestination {
 }
 
 /// Asks the user what kind of placement they want, then which repo to place relative to.
-pub fn prompt_clone_destination(loaded_config: &ReportalConfig) -> Result<CloneDestination, ReportalError> {
+pub fn prompt_clone_destination(
+    loaded_config: &ReportalConfig,
+) -> Result<CloneDestination, ReportalError> {
     let prompt_theme = terminal_style::reportal_prompt_theme();
 
-    let mut sibling_directories = clone_placement::collect_registered_parent_directories(loaded_config);
+    let mut sibling_directories =
+        clone_placement::collect_registered_parent_directories(loaded_config);
     let mut child_directories = clone_placement::collect_registered_repo_directories(loaded_config);
 
     let mut placement_labels: Vec<String> = vec!["Custom path".to_owned()];

@@ -189,10 +189,8 @@ impl<'config_lifetime> WorkspaceRegenerator<'config_lifetime> {
 /// component (e.g. a bare `/`), which is unlikely in practice but
 /// keeps the materializer from ever emitting an empty link name.
 fn inline_path_link_name(target_path: &std::path::Path) -> String {
-    target_path
-        .file_name()
-        .map_or_else(
-            || "inline".to_owned(),
-            |os_str| os_str.to_string_lossy().into_owned(),
-        )
+    target_path.file_name().map_or_else(
+        || "inline".to_owned(),
+        |os_str| os_str.to_string_lossy().into_owned(),
+    )
 }

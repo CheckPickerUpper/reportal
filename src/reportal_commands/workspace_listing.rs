@@ -62,7 +62,10 @@ pub fn run_workspace_list() -> Result<(), ReportalError> {
             terminal_style::write_stdout(&format!(
                 "     {} {}\n",
                 "Aliases:".style(terminal_style::LABEL_STYLE),
-                workspace_entry.aliases().join(", ").style(terminal_style::ALIAS_STYLE),
+                workspace_entry
+                    .aliases()
+                    .join(", ")
+                    .style(terminal_style::ALIAS_STYLE),
             ));
         }
 
@@ -70,7 +73,10 @@ pub fn run_workspace_list() -> Result<(), ReportalError> {
             terminal_style::write_stdout(&format!(
                 "     {} {}\n",
                 "Dir:".style(terminal_style::LABEL_STYLE),
-                workspace_directory.display().to_string().style(terminal_style::PATH_STYLE),
+                workspace_directory
+                    .display()
+                    .to_string()
+                    .style(terminal_style::PATH_STYLE),
             ));
         }
 
@@ -86,7 +92,9 @@ pub fn run_workspace_list() -> Result<(), ReportalError> {
 
     terminal_style::write_stdout(&format!(
         "  {} workspaces total\n\n",
-        registered_workspaces.len().style(terminal_style::EMPHASIS_STYLE),
+        registered_workspaces
+            .len()
+            .style(terminal_style::EMPHASIS_STYLE),
     ));
     Ok(())
 }

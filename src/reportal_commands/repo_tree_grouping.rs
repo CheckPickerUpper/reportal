@@ -167,9 +167,7 @@ impl<'config> RepoTreeGroupingParameters<'config> {
     /// Returns [`ReportalError::RepoNotFound`] when a workspace
     /// member alias does not resolve, which should not happen
     /// after a successful `validate_workspace_references` pass.
-    fn collect_workspace_sections(
-        &self,
-    ) -> Result<Vec<WorkspaceSection<'config>>, ReportalError> {
+    fn collect_workspace_sections(&self) -> Result<Vec<WorkspaceSection<'config>>, ReportalError> {
         let workspace_restriction_target = self.workspace_restriction_target();
         let workspace_restriction_active = !workspace_restriction_target.is_empty();
         let mut workspace_sections: Vec<WorkspaceSection<'config>> = Vec::new();
@@ -247,8 +245,9 @@ impl<'config> RepoTreeGroupingParameters<'config> {
             if !repo_survives_tag {
                 continue;
             }
-            let containing_workspaces =
-                self.loaded_config.workspaces_containing_repo(repository_alias);
+            let containing_workspaces = self
+                .loaded_config
+                .workspaces_containing_repo(repository_alias);
             if containing_workspaces.is_empty() {
                 unassigned_repos.push((repository_alias.as_str(), repo_entry));
             }
@@ -311,8 +310,8 @@ mod tests {
         );
         let tag_filter = TagFilter::All;
         let workspace_filter = WorkspaceFilter::All;
-        let tree_grouping = build_tree(&test_config, &tag_filter, &workspace_filter)
-            .expect("build must succeed");
+        let tree_grouping =
+            build_tree(&test_config, &tag_filter, &workspace_filter).expect("build must succeed");
         assert_eq!(tree_grouping.unassigned_repos().len(), 1);
         assert_eq!(tree_grouping.unassigned_repos()[0].0, "lonely");
         assert!(tree_grouping.workspace_sections().is_empty());
@@ -335,8 +334,8 @@ mod tests {
         );
         let tag_filter = TagFilter::All;
         let workspace_filter = WorkspaceFilter::All;
-        let tree_grouping = build_tree(&test_config, &tag_filter, &workspace_filter)
-            .expect("build must succeed");
+        let tree_grouping =
+            build_tree(&test_config, &tag_filter, &workspace_filter).expect("build must succeed");
         assert_eq!(
             tree_grouping.workspace_sections().len(),
             2,
@@ -371,8 +370,8 @@ mod tests {
         );
         let tag_filter = TagFilter::All;
         let workspace_filter = WorkspaceFilter::ByName("frontend".to_owned());
-        let tree_grouping = build_tree(&test_config, &tag_filter, &workspace_filter)
-            .expect("build must succeed");
+        let tree_grouping =
+            build_tree(&test_config, &tag_filter, &workspace_filter).expect("build must succeed");
         assert_eq!(tree_grouping.workspace_sections().len(), 1);
         assert_eq!(
             tree_grouping.workspace_sections()[0].workspace_name(),
@@ -419,10 +418,13 @@ mod tests {
         );
         let tag_filter = TagFilter::ByTag("work".to_owned());
         let workspace_filter = WorkspaceFilter::All;
-        let tree_grouping = build_tree(&test_config, &tag_filter, &workspace_filter)
-            .expect("build must succeed");
+        let tree_grouping =
+            build_tree(&test_config, &tag_filter, &workspace_filter).expect("build must succeed");
         assert_eq!(tree_grouping.workspace_sections().len(), 1);
-        assert_eq!(tree_grouping.workspace_sections()[0].member_repos().len(), 1);
+        assert_eq!(
+            tree_grouping.workspace_sections()[0].member_repos().len(),
+            1
+        );
         assert_eq!(
             tree_grouping.workspace_sections()[0].member_repos()[0].0,
             "api",
@@ -443,8 +445,8 @@ mod tests {
         );
         let tag_filter = TagFilter::ByTag("work".to_owned());
         let workspace_filter = WorkspaceFilter::All;
-        let tree_grouping = build_tree(&test_config, &tag_filter, &workspace_filter)
-            .expect("build must succeed");
+        let tree_grouping =
+            build_tree(&test_config, &tag_filter, &workspace_filter).expect("build must succeed");
         assert!(
             tree_grouping.workspace_sections().is_empty(),
             "workspaces with zero surviving members must be hidden",
@@ -473,8 +475,8 @@ mod tests {
         );
         let tag_filter = TagFilter::All;
         let workspace_filter = WorkspaceFilter::All;
-        let tree_grouping = build_tree(&test_config, &tag_filter, &workspace_filter)
-            .expect("build must succeed");
+        let tree_grouping =
+            build_tree(&test_config, &tag_filter, &workspace_filter).expect("build must succeed");
         let observed_member_order: Vec<&str> = tree_grouping.workspace_sections()[0]
             .member_repos()
             .iter()
@@ -510,8 +512,8 @@ mod tests {
         );
         let tag_filter = TagFilter::ByTag("work".to_owned());
         let workspace_filter = WorkspaceFilter::ByName("backend".to_owned());
-        let tree_grouping = build_tree(&test_config, &tag_filter, &workspace_filter)
-            .expect("build must succeed");
+        let tree_grouping =
+            build_tree(&test_config, &tag_filter, &workspace_filter).expect("build must succeed");
         assert_eq!(tree_grouping.workspace_sections().len(), 1);
         assert_eq!(
             tree_grouping.workspace_sections()[0].member_repos().len(),
@@ -521,4 +523,3 @@ mod tests {
         assert_eq!(tree_grouping.distinct_repo_count(), 2);
     }
 }
-

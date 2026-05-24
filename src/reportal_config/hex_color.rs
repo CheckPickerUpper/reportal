@@ -25,7 +25,9 @@ impl HexColor {
             });
         }
         let hex_digits = &trimmed[1..];
-        let all_hex = hex_digits.chars().all(|character| character.is_ascii_hexdigit());
+        let all_hex = hex_digits
+            .chars()
+            .all(|character| character.is_ascii_hexdigit());
         if !all_hex {
             return Err(ReportalError::InvalidColor {
                 value: raw.to_owned(),
@@ -48,10 +50,9 @@ impl HexColor {
     pub fn as_rgb_bytes(&self) -> Result<(u8, u8, u8), ReportalError> {
         let hex_digits = &self.value[1..];
         let parse_hex_pair = |slice: &str| -> Result<u8, ReportalError> {
-            u8::from_str_radix(slice, 16)
-                .map_err(|parse_error| ReportalError::InvalidColor {
-                    value: format!("{}: {parse_error}", self.value),
-                })
+            u8::from_str_radix(slice, 16).map_err(|parse_error| ReportalError::InvalidColor {
+                value: format!("{}: {parse_error}", self.value),
+            })
         };
         let red = parse_hex_pair(&hex_digits[0..2])?;
         let green = parse_hex_pair(&hex_digits[2..4])?;
@@ -68,9 +69,7 @@ impl HexColor {
         let red_hex = &hex_digits[0..2];
         let green_hex = &hex_digits[2..4];
         let blue_hex = &hex_digits[4..6];
-        format!(
-            "\x1b]4;264;rgb:{red_hex}/{green_hex}/{blue_hex}\x07"
-        )
+        format!("\x1b]4;264;rgb:{red_hex}/{green_hex}/{blue_hex}\x07")
     }
 }
 

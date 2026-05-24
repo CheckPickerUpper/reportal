@@ -40,6 +40,10 @@ pub fn run_remove(repository_alias: &str) -> Result<(), ReportalError> {
 
     let removed_entry = loaded_config.remove_repo(repository_alias)?;
     loaded_config.save_to_disk()?;
-    terminal_style::print_success(&format!("Removed '{}' ({})", repository_alias, removed_entry.raw_path()));
+    terminal_style::print_success(&format!(
+        "Removed '{}' ({})",
+        repository_alias,
+        removed_entry.raw_path()
+    ));
     Ok(())
 }

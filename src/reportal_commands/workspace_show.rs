@@ -35,7 +35,9 @@ pub fn run_workspace_show(alias_or_canonical: &str) -> Result<(), ReportalError>
     terminal_style::write_stdout("\n");
     terminal_style::write_stdout(&format!(
         "  {}\n",
-        canonical_name.to_uppercase().style(terminal_style::ALIAS_STYLE),
+        canonical_name
+            .to_uppercase()
+            .style(terminal_style::ALIAS_STYLE),
     ));
 
     if !target_workspace.description().is_empty() {
@@ -50,14 +52,20 @@ pub fn run_workspace_show(alias_or_canonical: &str) -> Result<(), ReportalError>
         terminal_style::write_stdout(&format!(
             "     {} {}\n",
             "Aliases:".style(terminal_style::LABEL_STYLE),
-            target_workspace.aliases().join(", ").style(terminal_style::ALIAS_STYLE),
+            target_workspace
+                .aliases()
+                .join(", ")
+                .style(terminal_style::ALIAS_STYLE),
         ));
     }
 
     terminal_style::write_stdout(&format!(
         "     {} {}\n",
         "Dir:".style(terminal_style::LABEL_STYLE),
-        workspace_directory.display().to_string().style(terminal_style::PATH_STYLE),
+        workspace_directory
+            .display()
+            .to_string()
+            .style(terminal_style::PATH_STYLE),
     ));
     if !workspace_directory.exists() {
         terminal_style::write_stdout(&format!(
@@ -75,7 +83,10 @@ pub fn run_workspace_show(alias_or_canonical: &str) -> Result<(), ReportalError>
     terminal_style::write_stdout(&format!(
         "     {} {}\n",
         "File:".style(terminal_style::LABEL_STYLE),
-        workspace_file_path.display().to_string().style(terminal_style::PATH_STYLE),
+        workspace_file_path
+            .display()
+            .to_string()
+            .style(terminal_style::PATH_STYLE),
     ));
 
     terminal_style::write_stdout(&format!(
@@ -103,9 +114,10 @@ pub fn run_workspace_show(alias_or_canonical: &str) -> Result<(), ReportalError>
             WorkspaceMember::InlinePath { path } => {
                 let expanded = shellexpand::tilde(path);
                 let inline_target = std::path::PathBuf::from(expanded.as_ref());
-                let link_name = inline_target
-                    .file_name()
-                    .map_or_else(|| "inline".to_owned(), |os| os.to_string_lossy().into_owned());
+                let link_name = inline_target.file_name().map_or_else(
+                    || "inline".to_owned(),
+                    |os| os.to_string_lossy().into_owned(),
+                );
                 let link_path = workspace_directory.join(&link_name);
                 let link_status_text = link_existence_marker(&link_path);
                 terminal_style::write_stdout(&format!(

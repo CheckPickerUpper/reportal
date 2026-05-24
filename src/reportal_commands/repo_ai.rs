@@ -1,12 +1,10 @@
 //! Fuzzy-selects a repo and launches an AI coding CLI in it.
 
 use crate::error::ReportalError;
+use crate::reportal_commands::repo_selection::{self, SelectedRepoParameters};
+use crate::reportal_commands::terminal_identity_emit::{self, TerminalIdentityEmitParameters};
 use crate::reportal_config::{ReportalConfig, TagFilter};
 use crate::terminal_style;
-use crate::reportal_commands::repo_selection::{self, SelectedRepoParameters};
-use crate::reportal_commands::terminal_identity_emit::{
-    self, TerminalIdentityEmitParameters,
-};
 use owo_colors::OwoColorize;
 use std::process::Command;
 
@@ -29,12 +27,19 @@ pub fn run_ai(ai_params: &AiCommandParameters<'_>) -> Result<(), ReportalError> 
     let loaded_config = ReportalConfig::load_or_initialize()?;
 
     let ai_cli_entries = loaded_config.ai_cli_registry();
-    if ai_cli_entries.is_empty() { return Err(ReportalError::NoAiToolsConfigured) }
+    if ai_cli_entries.is_empty() {
+        return Err(ReportalError::NoAiToolsConfigured);
+    }
 
     let tool_name = if ai_params.tool_override.is_empty() {
         let default_tool = loaded_config.default_ai_tool();
-        if default_tool.is_empty() { return Err(ReportalError::NoDefaultAiTool) }        default_tool
-    } else { ai_params.tool_override };
+        if default_tool.is_empty() {
+            return Err(ReportalError::NoDefaultAiTool);
+        }
+        default_tool
+    } else {
+        ai_params.tool_override
+    };
     let ai_tool = loaded_config.get_ai_tool(tool_name)?;
 
     let prompt_label = format!("Launch {tool_name} in");
@@ -57,7 +62,9 @@ pub fn run_ai(ai_params: &AiCommandParameters<'_>) -> Result<(), ReportalError> 
     terminal_style::print_success(&format!(
         "Launching {} in {}",
         tool_name.style(terminal_style::ALIAS_STYLE),
-        loaded_config.path_display_format().format_path(&resolved_repo_path)
+        loaded_config
+            .path_display_format()
+            .format_path(&resolved_repo_path)
             .style(terminal_style::PATH_STYLE),
     ));
 
@@ -86,9 +93,11 @@ pub fn run_ai(ai_params: &AiCommandParameters<'_>) -> Result<(), ReportalError> 
             reason: format!("{}: {spawn_error}", ai_tool.cli_command()),
         })?;
 
-    spawned_process.wait().map_err(|wait_error| ReportalError::AiToolLaunchFailure {
-        reason: format!("process exited unexpectedly: {wait_error}"),
-    })?;
+    spawned_process
+        .wait()
+        .map_err(|wait_error| ReportalError::AiToolLaunchFailure {
+            reason: format!("process exited unexpectedly: {wait_error}"),
+        })?;
 
     Ok(())
 }

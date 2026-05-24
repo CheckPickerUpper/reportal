@@ -1,12 +1,10 @@
 //! Fuzzy-selects a repo and opens its remote URL in the default browser.
 
 use crate::error::ReportalError;
+use crate::reportal_commands::repo_selection::{self, SelectedRepoParameters};
+use crate::reportal_commands::terminal_identity_emit::{self, TerminalIdentityEmitParameters};
 use crate::reportal_config::{ReportalConfig, TagFilter};
 use crate::terminal_style;
-use crate::reportal_commands::repo_selection::{self, SelectedRepoParameters};
-use crate::reportal_commands::terminal_identity_emit::{
-    self, TerminalIdentityEmitParameters,
-};
 use owo_colors::OwoColorize;
 use std::process::Command;
 
@@ -36,14 +34,19 @@ enum RemoteResolution {
 /// Strips the trailing `.git` suffix for a cleaner browser URL.
 fn remote_url_to_browser_url(remote_url: &str) -> String {
     let https_url = remote_url.strip_prefix("git@").map_or_else(
-        || remote_url.strip_prefix("ssh://").map_or_else(
-            || remote_url.to_owned(),
-            |without_scheme| {
-                let without_user = without_scheme.find('@')
-                    .map_or(without_scheme, |at_position| &without_scheme[at_position + 1..]);
-                format!("https://{without_user}")
-            },
-        ),
+        || {
+            remote_url.strip_prefix("ssh://").map_or_else(
+                || remote_url.to_owned(),
+                |without_scheme| {
+                    let without_user = without_scheme
+                        .find('@')
+                        .map_or(without_scheme, |at_position| {
+                            &without_scheme[at_position + 1..]
+                        });
+                    format!("https://{without_user}")
+                },
+            )
+        },
         |without_prefix| {
             let normalized = without_prefix.replacen(':', "/", 1);
             format!("https://{normalized}")
@@ -68,10 +71,18 @@ fn detect_git_remote(repo_path: &std::path::Path) -> RemoteResolution {
         .output();
 
     match git_output {
-        Ok(output) => if output.status.success() {
-            let trimmed = String::from_utf8_lossy(&output.stdout).trim().to_owned();
-            if trimmed.is_empty() { RemoteResolution::NotFound } else { RemoteResolution::Resolved(trimmed) }
-        } else { RemoteResolution::NotFound },
+        Ok(output) => {
+            if output.status.success() {
+                let trimmed = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+                if trimmed.is_empty() {
+                    RemoteResolution::NotFound
+                } else {
+                    RemoteResolution::Resolved(trimmed)
+                }
+            } else {
+                RemoteResolution::NotFound
+            }
+        }
         Err(_git_error) => RemoteResolution::NotFound,
     }
 }
@@ -99,14 +110,18 @@ pub fn run_web(web_params: &WebCommandParameters<'_>) -> Result<(), ReportalErro
         title_override: "",
     });
 
-    let raw_remote_url = if selected.repo_config().remote().is_empty() { match detect_git_remote(&selected.repo_config().resolved_path()) {
-        RemoteResolution::Resolved(detected_url) => detected_url,
-        RemoteResolution::NotFound => {
-            return Err(ReportalError::NoRemoteUrl {
-                alias: selected.repository_alias().to_owned(),
-            });
+    let raw_remote_url = if selected.repo_config().remote().is_empty() {
+        match detect_git_remote(&selected.repo_config().resolved_path()) {
+            RemoteResolution::Resolved(detected_url) => detected_url,
+            RemoteResolution::NotFound => {
+                return Err(ReportalError::NoRemoteUrl {
+                    alias: selected.repository_alias().to_owned(),
+                });
+            }
         }
-    } } else { selected.repo_config().remote().to_owned() };
+    } else {
+        selected.repo_config().remote().to_owned()
+    };
 
     let browser_url = remote_url_to_browser_url(&raw_remote_url);
 

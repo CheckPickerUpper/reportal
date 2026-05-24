@@ -47,8 +47,7 @@ pub fn run_workspace_rebuild(alias_or_canonical: &str) -> Result<(), ReportalErr
             .resolve_default_workspace_root()?
             .join(&canonical_name);
         let target_workspace = loaded_config.get_workspace_mut(&canonical_name)?;
-        target_workspace
-            .set_workspace_directory_path(new_directory_path.display().to_string());
+        target_workspace.set_workspace_directory_path(new_directory_path.display().to_string());
         loaded_config.save_to_disk()?;
     }
 
@@ -59,11 +58,17 @@ pub fn run_workspace_rebuild(alias_or_canonical: &str) -> Result<(), ReportalErr
     terminal_style::print_success(&format!(
         "Rebuilt workspace {} at {}",
         canonical_name.style(terminal_style::ALIAS_STYLE),
-        workspace_directory.display().to_string().style(terminal_style::PATH_STYLE),
+        workspace_directory
+            .display()
+            .to_string()
+            .style(terminal_style::PATH_STYLE),
     ));
     terminal_style::write_stdout(&format!(
         "   workspace file: {}\n",
-        workspace_file_path.display().to_string().style(terminal_style::PATH_STYLE),
+        workspace_file_path
+            .display()
+            .to_string()
+            .style(terminal_style::PATH_STYLE),
     ));
     Ok(())
 }

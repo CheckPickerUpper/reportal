@@ -63,9 +63,7 @@ pub fn select_workspace(loaded_config: &ReportalConfig) -> Result<String, Report
         None => return Err(ReportalError::SelectionCancelled),
     };
     match registered_workspaces.get(chosen_index) {
-        Some((chosen_workspace_name, _chosen_entry)) => {
-            Ok((*chosen_workspace_name).clone())
-        }
+        Some((chosen_workspace_name, _chosen_entry)) => Ok((*chosen_workspace_name).clone()),
         None => Err(ReportalError::SelectionCancelled),
     }
 }

@@ -1,7 +1,7 @@
 //! CLI args for `rep color`.
 
-use clap::Args;
 use crate::reportal_commands::ColorCommandMode;
+use clap::Args;
 
 /// Arguments for the `rep color` subcommand.
 ///

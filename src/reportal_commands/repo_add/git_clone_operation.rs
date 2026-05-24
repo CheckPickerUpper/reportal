@@ -31,9 +31,15 @@ impl GitCloneOperation<'_> {
             .status();
 
         match clone_result {
-            Ok(exit_status) => if exit_status.success() { Ok(()) } else { Err(ReportalError::ConfigIoFailure {
-                reason: format!("git clone exited with status {exit_status}"),
-            }) },
+            Ok(exit_status) => {
+                if exit_status.success() {
+                    Ok(())
+                } else {
+                    Err(ReportalError::ConfigIoFailure {
+                        reason: format!("git clone exited with status {exit_status}"),
+                    })
+                }
+            }
             Err(git_spawn_error) => Err(ReportalError::ConfigIoFailure {
                 reason: format!("Failed to run git: {git_spawn_error}"),
             }),

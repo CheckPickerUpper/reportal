@@ -2,8 +2,8 @@
 
 use crate::error::ReportalError;
 use crate::reportal_config::hex_color::HexColor;
-use crate::reportal_config::repository_color::RepoColor;
 use crate::reportal_config::repo_entry::RepoEntry;
+use crate::reportal_config::repository_color::RepoColor;
 use crate::reportal_config::shell_alias_export::ShellAliasExport;
 use crate::reportal_config::tab_title::TabTitle;
 use crate::system_executable_lookup::SystemExecutableLookupOutcome;
@@ -115,7 +115,9 @@ impl RepoRegistrationBuilder {
         }
         match SystemExecutableLookupOutcome::for_candidate_name(self.alias.trim()) {
             SystemExecutableLookupOutcome::NotFound => {}
-            SystemExecutableLookupOutcome::ShadowsExisting { existing_executable } => {
+            SystemExecutableLookupOutcome::ShadowsExisting {
+                existing_executable,
+            } => {
                 return Err(ReportalError::ValidationFailure {
                     field: "alias".to_owned(),
                     reason: format!(

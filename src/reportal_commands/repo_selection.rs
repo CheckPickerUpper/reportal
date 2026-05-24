@@ -56,9 +56,13 @@ fn push_formatted(target: &mut String, format_payload: std::fmt::Arguments<'_>) 
 /// with the given `prompt_label`. Repos are sorted by their first tag
 /// so same-tag repos cluster visually. Each item shows a color swatch,
 /// the alias, aliases, description, and tags.
-pub fn select_repo<'a>(selection_params: &'a SelectedRepoParameters<'a>) -> Result<SelectedRepo<'a>, ReportalError> {
+pub fn select_repo<'a>(
+    selection_params: &'a SelectedRepoParameters<'a>,
+) -> Result<SelectedRepo<'a>, ReportalError> {
     if !selection_params.direct_alias.is_empty() {
-        let found_repo = selection_params.loaded_config.get_repo(selection_params.direct_alias)?;
+        let found_repo = selection_params
+            .loaded_config
+            .get_repo(selection_params.direct_alias)?;
         return Ok(SelectedRepo {
             repository_alias: selection_params.direct_alias,
             repo_config: found_repo,
@@ -66,62 +70,70 @@ pub fn select_repo<'a>(selection_params: &'a SelectedRepoParameters<'a>) -> Resu
     }
 
     {
-            let mut matching_repos = selection_params.loaded_config.repos_matching_tag_filter(selection_params.tag_filter);
-            if matching_repos.is_empty() {
-                return Err(ReportalError::NoReposMatchFilter);
-            }
+        let mut matching_repos = selection_params
+            .loaded_config
+            .repos_matching_tag_filter(selection_params.tag_filter);
+        if matching_repos.is_empty() {
+            return Err(ReportalError::NoReposMatchFilter);
+        }
 
-            matching_repos.sort_by(|(alias_a, repo_a), (alias_b, repo_b)| {
-                let first_tag_a = repo_a.tags().first().map(String::as_str);
-                let first_tag_b = repo_b.tags().first().map(String::as_str);
-                first_tag_a.cmp(&first_tag_b).then(alias_a.cmp(alias_b))
-            });
+        matching_repos.sort_by(|(alias_a, repo_a), (alias_b, repo_b)| {
+            let first_tag_a = repo_a.tags().first().map(String::as_str);
+            let first_tag_b = repo_b.tags().first().map(String::as_str);
+            first_tag_a.cmp(&first_tag_b).then(alias_a.cmp(alias_b))
+        });
 
-            let display_labels: Vec<String> = matching_repos
-                .iter()
-                .map(|(alias, repo)| {
-                    let swatch_style = match terminal_style::swatch_style_for_repo_color(repo.repo_color()) {
+        let display_labels: Vec<String> = matching_repos
+            .iter()
+            .map(|(alias, repo)| {
+                let swatch_style =
+                    match terminal_style::swatch_style_for_repo_color(repo.repo_color()) {
                         Ok(resolved_style) => resolved_style,
                         Err(_color_error) => terminal_style::DEFAULT_SWATCH_STYLE,
                     };
-                    let swatch = "██".style(swatch_style);
+                let swatch = "██".style(swatch_style);
 
-                    let mut label = format!("{swatch} {alias}");
+                let mut label = format!("{swatch} {alias}");
 
-                    if !repo.aliases().is_empty() {
-                        let aliases_joined = repo.aliases().join(", ");
-                        push_formatted(&mut label, format_args!(" ({aliases_joined})"));
-                    }
+                if !repo.aliases().is_empty() {
+                    let aliases_joined = repo.aliases().join(", ");
+                    push_formatted(&mut label, format_args!(" ({aliases_joined})"));
+                }
 
-                    if !repo.description().is_empty() {
-                        push_formatted(&mut label, format_args!(" — {}", repo.description()));
-                    }
+                if !repo.description().is_empty() {
+                    push_formatted(&mut label, format_args!(" — {}", repo.description()));
+                }
 
-                    if !repo.tags().is_empty() {
-                        let tags_display = repo.tags().join(", ");
-                        push_formatted(&mut label, format_args!(" [{tags_display}]"));
-                    }
+                if !repo.tags().is_empty() {
+                    let tags_display = repo.tags().join(", ");
+                    push_formatted(&mut label, format_args!(" [{tags_display}]"));
+                }
 
-                    label
+                label
+            })
+            .collect();
+
+        let prompt_theme = terminal_style::reportal_prompt_theme();
+        let selected_index = FuzzySelect::with_theme(&prompt_theme)
+            .with_prompt(selection_params.prompt_label)
+            .items(&display_labels)
+            .highlight_matches(false)
+            .interact_opt()
+            .map_err(|select_error| ReportalError::ConfigIoFailure {
+                reason: select_error.to_string(),
+            })?;
+
+        let Some(chosen_index) = selected_index else {
+            return Err(ReportalError::SelectionCancelled);
+        };
+        matching_repos.get(chosen_index).map_or(
+            Err(ReportalError::SelectionCancelled),
+            |(chosen_alias, chosen_repo)| {
+                Ok(SelectedRepo {
+                    repository_alias: chosen_alias.as_str(),
+                    repo_config: chosen_repo,
                 })
-                .collect();
-
-            let prompt_theme = terminal_style::reportal_prompt_theme();
-            let selected_index = FuzzySelect::with_theme(&prompt_theme)
-                .with_prompt(selection_params.prompt_label)
-                .items(&display_labels)
-                .highlight_matches(false)
-                .interact_opt()
-                .map_err(|select_error| ReportalError::ConfigIoFailure {
-                    reason: select_error.to_string(),
-                })?;
-
-            let Some(chosen_index) = selected_index else {
-                return Err(ReportalError::SelectionCancelled);
-            };
-            matching_repos.get(chosen_index).map_or(Err(ReportalError::SelectionCancelled), |(chosen_alias, chosen_repo)| Ok(SelectedRepo {
-                repository_alias: chosen_alias.as_str(),
-                repo_config: chosen_repo,
-            }))
+            },
+        )
     }
 }

@@ -1,9 +1,7 @@
 //! Interactive metadata collection and repo registration flow.
 
 use crate::error::ReportalError;
-use crate::reportal_commands::prompts::{
-    self, ColorPromptResult, TextPromptParameters,
-};
+use crate::reportal_commands::prompts::{self, ColorPromptResult, TextPromptParameters};
 use crate::reportal_config::{RepoRegistrationBuilder, ReportalConfig};
 use crate::terminal_style;
 use owo_colors::OwoColorize;
@@ -63,23 +61,51 @@ impl RegistrationContext<'_> {
         let repo_color = prompts::prompt_for_color(&prompt_theme)?;
 
         terminal_style::write_stdout("\n");
-        terminal_style::write_stdout(&format!("  {} {}\n", "Alias:".style(terminal_style::LABEL_STYLE), repository_alias.style(terminal_style::ALIAS_STYLE)));
-        terminal_style::write_stdout(&format!("  {} {}\n", "Path:".style(terminal_style::LABEL_STYLE), self.filesystem_path.style(terminal_style::PATH_STYLE)));
+        terminal_style::write_stdout(&format!(
+            "  {} {}\n",
+            "Alias:".style(terminal_style::LABEL_STYLE),
+            repository_alias.style(terminal_style::ALIAS_STYLE)
+        ));
+        terminal_style::write_stdout(&format!(
+            "  {} {}\n",
+            "Path:".style(terminal_style::LABEL_STYLE),
+            self.filesystem_path.style(terminal_style::PATH_STYLE)
+        ));
         if !repo_description.is_empty() {
-            terminal_style::write_stdout(&format!("  {} {}\n", "Desc:".style(terminal_style::LABEL_STYLE), repo_description));
+            terminal_style::write_stdout(&format!(
+                "  {} {}\n",
+                "Desc:".style(terminal_style::LABEL_STYLE),
+                repo_description
+            ));
         }
         if !parsed_tags.is_empty() {
-            terminal_style::write_stdout(&format!("  {} {}\n", "Tags:".style(terminal_style::LABEL_STYLE), parsed_tags.join(", ").style(terminal_style::TAG_STYLE)));
+            terminal_style::write_stdout(&format!(
+                "  {} {}\n",
+                "Tags:".style(terminal_style::LABEL_STYLE),
+                parsed_tags.join(", ").style(terminal_style::TAG_STYLE)
+            ));
         }
         if !repo_remote.is_empty() {
-            terminal_style::write_stdout(&format!("  {} {}\n", "Remote:".style(terminal_style::LABEL_STYLE), repo_remote.style(terminal_style::PATH_STYLE)));
+            terminal_style::write_stdout(&format!(
+                "  {} {}\n",
+                "Remote:".style(terminal_style::LABEL_STYLE),
+                repo_remote.style(terminal_style::PATH_STYLE)
+            ));
         }
         if !tab_title.is_empty() {
-            terminal_style::write_stdout(&format!("  {} {}\n", "Title:".style(terminal_style::LABEL_STYLE), tab_title.style(terminal_style::ALIAS_STYLE)));
+            terminal_style::write_stdout(&format!(
+                "  {} {}\n",
+                "Title:".style(terminal_style::LABEL_STYLE),
+                tab_title.style(terminal_style::ALIAS_STYLE)
+            ));
         }
         match &repo_color {
             ColorPromptResult::Provided(hex_color) => {
-                terminal_style::write_stdout(&format!("  {} {}\n", "Color:".style(terminal_style::LABEL_STYLE), hex_color.raw_value()));
+                terminal_style::write_stdout(&format!(
+                    "  {} {}\n",
+                    "Color:".style(terminal_style::LABEL_STYLE),
+                    hex_color.raw_value()
+                ));
             }
             ColorPromptResult::Skipped => {}
         }

@@ -1,11 +1,11 @@
 //! Top-level CLI parser and subcommand dispatch enum.
 
-use clap::{Parser, Subcommand};
 use super::{
     AiArguments, ColorArguments, EditArguments, InitializeArguments, JumpArguments, ListArguments,
     OpenArguments, PromptArguments, RemoveArguments, RunArguments, StatusArguments, SyncArguments,
     WebArguments, WorkspaceArguments,
 };
+use clap::{Parser, Subcommand};
 
 /// A fast CLI tool for jumping between and managing your dev repos.
 #[derive(Parser)]

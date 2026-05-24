@@ -11,8 +11,8 @@ mod list_arguments;
 mod open_arguments;
 mod prompt_arguments;
 mod remove_arguments;
-mod repository_selection_arguments;
 mod reportal_cli;
+mod repository_selection_arguments;
 mod run_arguments;
 mod status_arguments;
 mod sync_arguments;
@@ -36,6 +36,6 @@ pub use status_arguments::StatusArguments;
 pub use sync_arguments::SyncArguments;
 pub use web_arguments::WebArguments;
 pub use workspace_arguments::{
-    WorkspaceArguments, WorkspaceArgumentsCreateParts, WorkspaceArgumentsDeleteParts, WorkspaceArgumentsMemberEditParts,
-    WorkspaceArgumentsSubcommand,
+    WorkspaceArguments, WorkspaceArgumentsCreateParts, WorkspaceArgumentsDeleteParts,
+    WorkspaceArgumentsMemberEditParts, WorkspaceArgumentsSubcommand,
 };

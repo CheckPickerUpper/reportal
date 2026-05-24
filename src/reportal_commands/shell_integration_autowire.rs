@@ -129,8 +129,7 @@ impl AutoWireOperationLoadedState {
         let Some(parent_process_id) = rustix::process::getppid() else {
             return Self::NotLoadedInCurrentShell;
         };
-        let parent_pid_string =
-            parent_process_id.as_raw_nonzero().get().to_string();
+        let parent_pid_string = parent_process_id.as_raw_nonzero().get().to_string();
         if parent_pid_string == stamped_marker_value {
             Self::LoadedInCurrentShell
         } else {
@@ -150,10 +149,8 @@ impl AutoWireOperationLoadedState {
     fn classify_against_actual_parent_pid(stamped_marker_value: &str) -> Self {
         let mut system_snapshot = sysinfo::System::new();
         let self_process_id = sysinfo::Pid::from_u32(std::process::id());
-        system_snapshot.refresh_processes(
-            sysinfo::ProcessesToUpdate::Some(&[self_process_id]),
-            true,
-        );
+        system_snapshot
+            .refresh_processes(sysinfo::ProcessesToUpdate::Some(&[self_process_id]), true);
         let Some(self_process) = system_snapshot.process(self_process_id) else {
             return Self::NotLoadedInCurrentShell;
         };
@@ -234,10 +231,10 @@ impl AutoWireOperation {
     /// Windows when `$SHELL` is unset so the binary still picks
     /// the right rc file when invoked from `cmd.exe`.
     fn shell_from_environment() -> Option<InitializeShell> {
-        Self::shell_basename_from_environment_variable().map_or_else(
-            Self::default_shell_when_environment_unset,
-            |name| Self::interpret_shell_basename(&name),
-        )
+        Self::shell_basename_from_environment_variable()
+            .map_or_else(Self::default_shell_when_environment_unset, |name| {
+                Self::interpret_shell_basename(&name)
+            })
     }
 
     /// Reads `$SHELL` and returns its lowercase basename, or `None`
@@ -277,12 +274,8 @@ impl AutoWireOperation {
     /// shell.
     fn rc_file_for(shell: InitializeShell) -> Option<PathBuf> {
         match shell {
-            InitializeShell::Zsh => {
-                directories::home_dir().map(|home| home.join(".zshrc"))
-            }
-            InitializeShell::Bash => {
-                directories::home_dir().map(|home| home.join(".bashrc"))
-            }
+            InitializeShell::Zsh => directories::home_dir().map(|home| home.join(".zshrc")),
+            InitializeShell::Bash => directories::home_dir().map(|home| home.join(".bashrc")),
             InitializeShell::Powershell => Self::powershell_profile_path(),
         }
     }
@@ -327,18 +320,14 @@ impl AutoWireOperation {
         match self.shell {
             InitializeShell::Zsh => "eval \"$(rep init zsh)\"",
             InitializeShell::Bash => "eval \"$(rep init bash)\"",
-            InitializeShell::Powershell => {
-                "Invoke-Expression (& rep init powershell | Out-String)"
-            }
+            InitializeShell::Powershell => "Invoke-Expression (& rep init powershell | Out-String)",
         }
     }
 
     /// Appends the fenced integration block to the rc file iff the
     /// marker is absent. Branches on whether the file already
     /// exists so each branch handles one focused concern.
-    fn install_if_missing(
-        &self,
-    ) -> Result<AutoWireOperationOutcome, AutoWireOperationRcFileError> {
+    fn install_if_missing(&self) -> Result<AutoWireOperationOutcome, AutoWireOperationRcFileError> {
         if self.rc_file.exists() {
             return self.install_into_existing_rc_file();
         }
@@ -356,8 +345,7 @@ impl AutoWireOperation {
         if existing_rc_file_content.contains(MARKER_START) {
             return Ok(AutoWireOperationOutcome::AlreadyPresent);
         }
-        let leading_newline_policy =
-            Self::leading_newline_policy_for(&existing_rc_file_content);
+        let leading_newline_policy = Self::leading_newline_policy_for(&existing_rc_file_content);
         self.write_fenced_block(leading_newline_policy)?;
         Ok(AutoWireOperationOutcome::Appended)
     }
@@ -377,12 +365,10 @@ impl AutoWireOperation {
     /// typed error so callers don't have to handle
     /// `std::io::Error` directly.
     fn read_rc_file_content(&self) -> Result<String, AutoWireOperationRcFileError> {
-        std::fs::read_to_string(&self.rc_file).map_err(|source| {
-            AutoWireOperationRcFileError {
-                operation_kind: AutoWireOperationRcFileOperationKind::Read,
-                rc_file_path: self.rc_file.display().to_string(),
-                source,
-            }
+        std::fs::read_to_string(&self.rc_file).map_err(|source| AutoWireOperationRcFileError {
+            operation_kind: AutoWireOperationRcFileOperationKind::Read,
+            rc_file_path: self.rc_file.display().to_string(),
+            source,
         })
     }
 
@@ -393,9 +379,7 @@ impl AutoWireOperation {
     fn leading_newline_policy_for(
         existing_rc_file_content: &str,
     ) -> AutoWireOperationLeadingNewlinePolicy {
-        if existing_rc_file_content.is_empty()
-            || existing_rc_file_content.ends_with('\n')
-        {
+        if existing_rc_file_content.is_empty() || existing_rc_file_content.ends_with('\n') {
             AutoWireOperationLeadingNewlinePolicy::NoSeparator
         } else {
             AutoWireOperationLeadingNewlinePolicy::InsertSeparator
@@ -405,15 +389,11 @@ impl AutoWireOperation {
     /// Creates the rc file's parent directory tree if it doesn't
     /// already exist. No-op when the rc file's path has no parent
     /// component or the parent already exists.
-    fn create_parent_directory_if_needed(
-        &self,
-    ) -> Result<(), AutoWireOperationRcFileError> {
+    fn create_parent_directory_if_needed(&self) -> Result<(), AutoWireOperationRcFileError> {
         let Some(rc_file_parent_directory) = self.rc_file.parent() else {
             return Ok(());
         };
-        if rc_file_parent_directory.as_os_str().is_empty()
-            || rc_file_parent_directory.exists()
-        {
+        if rc_file_parent_directory.as_os_str().is_empty() || rc_file_parent_directory.exists() {
             return Ok(());
         }
         std::fs::create_dir_all(rc_file_parent_directory).map_err(|source| {
@@ -540,7 +520,5 @@ pub fn current_shell_integration_loaded_state() -> AutoWireOperationLoadedState 
     if stamped_marker_value == "1" {
         return AutoWireOperationLoadedState::LoadedInCurrentShell;
     }
-    AutoWireOperationLoadedState::classify_against_actual_parent_pid(
-        &stamped_marker_value,
-    )
+    AutoWireOperationLoadedState::classify_against_actual_parent_pid(&stamped_marker_value)
 }

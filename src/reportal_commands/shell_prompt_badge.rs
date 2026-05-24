@@ -21,15 +21,12 @@
 //!    framework already rewrote it) and prepend a freshly
 //!    resolved badge.
 //!
-//! 2. **Run-last self-registration.** The hook moves itself to
-//!    the end of the shell's prompt-hook chain every time it
-//!    runs. For zsh that means re-appending to
-//!    `precmd_functions`; for bash it means rewriting
-//!    `PROMPT_COMMAND` so our entry is last. Whoever else
-//!    registered a prompt hook still runs, but rep always runs
-//!    *after* them, so the strip-and-prepend sees the
-//!    framework's final prompt content and lays the badge on
-//!    top.
+//! 2. **Run-last registration.** Bash rewrites `PROMPT_COMMAND`
+//!    on every hook run so our entry stays last. Zsh registers
+//!    the hook once through `add-zsh-hook`; mutating
+//!    `precmd_functions` from inside a `precmd` hook can make
+//!    zsh keep invoking the same hook before it ever draws the
+//!    prompt.
 //!
 //! For `PowerShell`, we wrap the `prompt` function. Wrapping
 //! composes: if a framework also wraps the function after us,
@@ -88,7 +85,6 @@ _reportal_prompt_badge_hook() {{
     else
         _REPORTAL_LAST_BADGE_ZSH=""
     fi
-    precmd_functions=(${{precmd_functions:#_reportal_prompt_badge_hook}} _reportal_prompt_badge_hook)
 }}
 autoload -Uz add-zsh-hook 2>{null_device} || true
 if typeset -f add-zsh-hook >{null_device} 2>&1; then add-zsh-hook precmd _reportal_prompt_badge_hook; fi

@@ -5,8 +5,10 @@ use crate::error::ReportalError;
 use crate::reportal_config::ai_tool_entry::AiToolEntry;
 use crate::reportal_config::alias_collision_query::AliasCollisionQuery;
 use crate::reportal_config::command_entry::CommandEntry;
-use crate::reportal_config::global_settings::{PathDisplayFormat, PathVisibility, ReportalSettings};
-use crate::reportal_config::has_aliases::{HasAliases, resolve_canonical_key};
+use crate::reportal_config::global_settings::{
+    PathDisplayFormat, PathVisibility, ReportalSettings,
+};
+use crate::reportal_config::has_aliases::{resolve_canonical_key, HasAliases};
 use crate::reportal_config::repo_entry::RepoEntry;
 use crate::reportal_config::tag_filter::TagFilter;
 use crate::reportal_config::workspace_entry::WorkspaceEntry;
@@ -148,7 +150,11 @@ impl ReportalConfig {
             });
         }
         for (repo_key, repo_entry) in &self.repos {
-            if repo_entry.aliases().iter().any(|declared| declared == workspace_name) {
+            if repo_entry
+                .aliases()
+                .iter()
+                .any(|declared| declared == workspace_name)
+            {
                 return Err(ReportalError::WorkspaceAliasConflict {
                     workspace_name: workspace_name.to_owned(),
                     conflicting_value: workspace_name.to_owned(),
@@ -250,16 +256,17 @@ impl ReportalConfig {
         let file_path = Self::config_file_path()?;
         let parent_directory = Self::config_directory()?;
         if !parent_directory.exists() {
-            std::fs::create_dir_all(&parent_directory).map_err(|io_error| ReportalError::ConfigIoFailure {
-                reason: io_error.to_string(),
-            })?;
-        }
-        let serialized_toml =
-            toml::to_string_pretty(self).map_err(|serialize_error| {
+            std::fs::create_dir_all(&parent_directory).map_err(|io_error| {
                 ReportalError::ConfigIoFailure {
-                    reason: serialize_error.to_string(),
+                    reason: io_error.to_string(),
                 }
             })?;
+        }
+        let serialized_toml = toml::to_string_pretty(self).map_err(|serialize_error| {
+            ReportalError::ConfigIoFailure {
+                reason: serialize_error.to_string(),
+            }
+        })?;
         std::fs::write(&file_path, serialized_toml).map_err(|io_error| {
             ReportalError::ConfigIoFailure {
                 reason: io_error.to_string(),
@@ -332,11 +339,12 @@ impl ReportalConfig {
     /// Returns [`ReportalError::RepoNotFound`] if neither the
     /// canonical key nor any repo's alias list matches.
     pub fn get_repo(&self, alias_or_canonical: &str) -> Result<&RepoEntry, ReportalError> {
-        let canonical_key = resolve_canonical_key(&self.repos, alias_or_canonical).ok_or_else(
-            || ReportalError::RepoNotFound {
-                alias: alias_or_canonical.to_owned(),
-            },
-        )?;
+        let canonical_key =
+            resolve_canonical_key(&self.repos, alias_or_canonical).ok_or_else(|| {
+                ReportalError::RepoNotFound {
+                    alias: alias_or_canonical.to_owned(),
+                }
+            })?;
         self.repos
             .get(canonical_key)
             .ok_or_else(|| ReportalError::RepoNotFound {
@@ -370,7 +378,10 @@ impl ReportalConfig {
     /// Registers a new repo from a validated builder result.
     ///
     /// Returns `RepoAlreadyExists` if the alias is already taken.
-    pub fn add_repo(&mut self, validated_registration: (String, RepoEntry)) -> Result<(), ReportalError> {
+    pub fn add_repo(
+        &mut self,
+        validated_registration: (String, RepoEntry),
+    ) -> Result<(), ReportalError> {
         let (repository_alias, repo_entry) = validated_registration;
         if self.repos.contains_key(&repository_alias) {
             return Err(ReportalError::RepoAlreadyExists {
@@ -383,9 +394,11 @@ impl ReportalConfig {
 
     /// Removes a repo by alias. Returns `RepoNotFound` if missing.
     pub fn remove_repo(&mut self, alias: &str) -> Result<RepoEntry, ReportalError> {
-        self.repos.remove(alias).ok_or_else(|| ReportalError::RepoNotFound {
-            alias: alias.to_owned(),
-        })
+        self.repos
+            .remove(alias)
+            .ok_or_else(|| ReportalError::RepoNotFound {
+                alias: alias.to_owned(),
+            })
     }
 
     /// Returns all registered workspaces with their names, for iteration.
@@ -481,9 +494,7 @@ impl ReportalConfig {
     ) -> Result<(), ReportalError> {
         let (workspace_name, workspace_entry) = validated_registration;
         if self.workspaces.contains_key(&workspace_name) {
-            return Err(ReportalError::WorkspaceAlreadyExists {
-                workspace_name,
-            });
+            return Err(ReportalError::WorkspaceAlreadyExists { workspace_name });
         }
         for member_alias in workspace_entry.repo_aliases() {
             if !self.repos.contains_key(member_alias) {
@@ -514,9 +525,11 @@ impl ReportalConfig {
         &mut self,
         workspace_name: &str,
     ) -> Result<WorkspaceEntry, ReportalError> {
-        self.workspaces.remove(workspace_name).ok_or_else(|| ReportalError::WorkspaceNotFound {
-            workspace_name: workspace_name.to_owned(),
-        })
+        self.workspaces
+            .remove(workspace_name)
+            .ok_or_else(|| ReportalError::WorkspaceNotFound {
+                workspace_name: workspace_name.to_owned(),
+            })
     }
 
     /// Returns every workspace that contains the given repo alias.
@@ -538,9 +551,11 @@ impl ReportalConfig {
 
     /// Looks up an AI tool by name. Returns `AiToolNotFound` if missing.
     pub fn get_ai_tool(&self, tool_name: &str) -> Result<&AiToolEntry, ReportalError> {
-        self.ai_tools.get(tool_name).ok_or_else(|| ReportalError::AiToolNotFound {
-            tool_name: tool_name.to_owned(),
-        })
+        self.ai_tools
+            .get(tool_name)
+            .ok_or_else(|| ReportalError::AiToolNotFound {
+                tool_name: tool_name.to_owned(),
+            })
     }
 
     /// Returns all registered AI CLI executables with their names,
@@ -569,9 +584,10 @@ impl ReportalConfig {
             commands: BTreeMap::new(),
             workspaces: BTreeMap::new(),
             ai_tools: BTreeMap::from([
-                ("aider".to_owned(), AiToolEntry::with_executable("aider".to_owned())),
-                ("aider".to_owned(), AiToolEntry::with_executable("aider".to_owned())),
-                ("aider".to_owned(), AiToolEntry::with_executable("aider".to_owned())),
+                (
+                    "aider".to_owned(),
+                    AiToolEntry::with_executable("aider".to_owned()),
+                ),
             ]),
         }
     }
@@ -615,10 +631,13 @@ mod tests {
         workspace_aliases: Vec<String>,
     ) -> Result<ReportalConfig, ReportalError> {
         let mut config = ReportalConfig::create_default();
-        config.repos.insert(repo_canonical.to_owned(), make_repo(repo_aliases));
-        let workspace_entry =
-            make_workspace(vec![repo_canonical.to_owned()], workspace_aliases)?;
-        config.workspaces.insert(workspace_canonical.to_owned(), workspace_entry);
+        config
+            .repos
+            .insert(repo_canonical.to_owned(), make_repo(repo_aliases));
+        let workspace_entry = make_workspace(vec![repo_canonical.to_owned()], workspace_aliases)?;
+        config
+            .workspaces
+            .insert(workspace_canonical.to_owned(), workspace_entry);
         Ok(config)
     }
 
@@ -632,7 +651,10 @@ mod tests {
         )?;
         assert_eq!(config.resolve_workspace_canonical_name("vn")?, "venoble");
         assert_eq!(config.resolve_workspace_canonical_name("noble")?, "venoble");
-        assert_eq!(config.resolve_workspace_canonical_name("venoble")?, "venoble");
+        assert_eq!(
+            config.resolve_workspace_canonical_name("venoble")?,
+            "venoble"
+        );
         Ok(())
     }
 
@@ -640,18 +662,17 @@ mod tests {
     fn resolve_workspace_canonical_name_unknown_fails() -> Result<(), ReportalError> {
         let config = config_with_repo_and_workspace("app", vec![], "venoble", vec![])?;
         let outcome = config.resolve_workspace_canonical_name("ghost");
-        assert!(matches!(outcome, Err(ReportalError::WorkspaceNotFound { .. })));
+        assert!(matches!(
+            outcome,
+            Err(ReportalError::WorkspaceNotFound { .. })
+        ));
         Ok(())
     }
 
     #[test]
     fn get_workspace_resolves_via_alias() -> Result<(), ReportalError> {
-        let config = config_with_repo_and_workspace(
-            "app",
-            vec![],
-            "venoble",
-            vec!["vn".to_owned()],
-        )?;
+        let config =
+            config_with_repo_and_workspace("app", vec![], "venoble", vec!["vn".to_owned()])?;
         let resolved = config.get_workspace("vn")?;
         assert_eq!(resolved.repo_aliases(), vec!["app"]);
         Ok(())
@@ -659,12 +680,8 @@ mod tests {
 
     #[test]
     fn get_workspace_mut_resolves_via_alias() -> Result<(), ReportalError> {
-        let mut config = config_with_repo_and_workspace(
-            "app",
-            vec![],
-            "venoble",
-            vec!["vn".to_owned()],
-        )?;
+        let mut config =
+            config_with_repo_and_workspace("app", vec![], "venoble", vec!["vn".to_owned()])?;
         let resolved_mut = config.get_workspace_mut("vn")?;
         resolved_mut.set_members(vec![
             WorkspaceMember::RegisteredRepo("app".to_owned()),
@@ -678,10 +695,9 @@ mod tests {
     #[test]
     fn get_repo_mut_now_resolves_via_alias() -> Result<(), ReportalError> {
         let mut config = ReportalConfig::create_default();
-        config.repos.insert(
-            "venoble-app".to_owned(),
-            make_repo(vec!["vna".to_owned()]),
-        );
+        config
+            .repos
+            .insert("venoble-app".to_owned(), make_repo(vec!["vna".to_owned()]));
         let resolved_mut = config.get_repo_mut("vna")?;
         resolved_mut.set_description("mutated".to_owned());
         assert_eq!(config.get_repo("venoble-app")?.description(), "mutated");
@@ -702,13 +718,15 @@ mod tests {
             make_workspace(vec!["app".to_owned()], vec![])?,
         );
         let outcome = config.validate_alias_collisions();
-        assert!(matches!(outcome, Err(ReportalError::WorkspaceAliasConflict { .. })));
+        assert!(matches!(
+            outcome,
+            Err(ReportalError::WorkspaceAliasConflict { .. })
+        ));
         Ok(())
     }
 
     #[test]
-    fn alias_collision_workspace_alias_equals_repo_canonical_key(
-    ) -> Result<(), ReportalError> {
+    fn alias_collision_workspace_alias_equals_repo_canonical_key() -> Result<(), ReportalError> {
         let mut config = ReportalConfig::create_default();
         config.repos.insert("app".to_owned(), make_repo(vec![]));
         config.repos.insert("vn".to_owned(), make_repo(vec![]));
@@ -717,29 +735,33 @@ mod tests {
             make_workspace(vec!["app".to_owned()], vec!["vn".to_owned()])?,
         );
         let outcome = config.validate_alias_collisions();
-        assert!(matches!(outcome, Err(ReportalError::WorkspaceAliasConflict { .. })));
+        assert!(matches!(
+            outcome,
+            Err(ReportalError::WorkspaceAliasConflict { .. })
+        ));
         Ok(())
     }
 
     #[test]
     fn alias_collision_workspace_alias_equals_repo_alias() -> Result<(), ReportalError> {
         let mut config = ReportalConfig::create_default();
-        config.repos.insert(
-            "venoble-app".to_owned(),
-            make_repo(vec!["vna".to_owned()]),
-        );
+        config
+            .repos
+            .insert("venoble-app".to_owned(), make_repo(vec!["vna".to_owned()]));
         config.workspaces.insert(
             "venoble".to_owned(),
             make_workspace(vec!["venoble-app".to_owned()], vec!["vna".to_owned()])?,
         );
         let outcome = config.validate_alias_collisions();
-        assert!(matches!(outcome, Err(ReportalError::WorkspaceAliasConflict { .. })));
+        assert!(matches!(
+            outcome,
+            Err(ReportalError::WorkspaceAliasConflict { .. })
+        ));
         Ok(())
     }
 
     #[test]
-    fn alias_collision_workspace_name_equals_repo_canonical_key(
-    ) -> Result<(), ReportalError> {
+    fn alias_collision_workspace_name_equals_repo_canonical_key() -> Result<(), ReportalError> {
         let mut config = ReportalConfig::create_default();
         config.repos.insert("venoble".to_owned(), make_repo(vec![]));
         config.repos.insert("app".to_owned(), make_repo(vec![]));
@@ -748,7 +770,10 @@ mod tests {
             make_workspace(vec!["app".to_owned()], vec![])?,
         );
         let outcome = config.validate_alias_collisions();
-        assert!(matches!(outcome, Err(ReportalError::WorkspaceAliasConflict { .. })));
+        assert!(matches!(
+            outcome,
+            Err(ReportalError::WorkspaceAliasConflict { .. })
+        ));
         Ok(())
     }
 
@@ -769,15 +794,21 @@ mod tests {
     #[test]
     fn inline_path_member_skips_dangling_repo_check() {
         let mut config = ReportalConfig::create_default();
-        config.workspaces.insert("inline-only".to_owned(), make_inline_only_workspace());
+        config
+            .workspaces
+            .insert("inline-only".to_owned(), make_inline_only_workspace());
         assert!(config.validate_workspace_references().is_ok());
     }
 
     #[test]
     fn inline_path_member_does_not_block_repo_removal() {
         let mut config = ReportalConfig::create_default();
-        config.repos.insert("standalone".to_owned(), make_repo(vec![]));
-        config.workspaces.insert("inline-only".to_owned(), make_inline_only_workspace());
+        config
+            .repos
+            .insert("standalone".to_owned(), make_repo(vec![]));
+        config
+            .workspaces
+            .insert("inline-only".to_owned(), make_inline_only_workspace());
         let containing = config.workspaces_containing_repo("standalone");
         assert!(
             containing.is_empty(),

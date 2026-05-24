@@ -69,8 +69,7 @@ impl NonPrintingEscapeWrapper {
         accent_hex_color: &HexColor,
     ) -> Result<String, ReportalError> {
         let (red_channel, green_channel, blue_channel) = accent_hex_color.as_rgb_bytes()?;
-        let sgr_foreground =
-            format!("\x1b[38;2;{red_channel};{green_channel};{blue_channel}m");
+        let sgr_foreground = format!("\x1b[38;2;{red_channel};{green_channel};{blue_channel}m");
         let sgr_reset = "\x1b[0m";
         Ok(format!(
             "{open}{sgr_foreground}{close}{display_label}{open}{sgr_reset}{close}",
@@ -83,10 +82,7 @@ impl NonPrintingEscapeWrapper {
     /// either set or absent. When absent, the label is returned
     /// unwrapped so the shell's current prompt color shows
     /// through.
-    fn render_identity(
-        &self,
-        resolved_identity: &PromptIdentity,
-    ) -> Result<String, ReportalError> {
+    fn render_identity(&self, resolved_identity: &PromptIdentity) -> Result<String, ReportalError> {
         let Some(hex_color) = resolved_identity.accent_color.as_ref() else {
             return Ok(resolved_identity.display_label.clone());
         };

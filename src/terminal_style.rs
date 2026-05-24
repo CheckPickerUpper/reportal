@@ -50,15 +50,15 @@ pub fn reportal_prompt_theme() -> dialoguer::theme::ColorfulTheme {
 /// Builds an owo-colors `Style` for the swatch block (`██`) based on
 /// the repo's configured color. Returns a truecolor foreground style
 /// for themed repos, or the default gray for repos with no color.
-pub fn swatch_style_for_repo_color(repo_color: &crate::reportal_config::RepoColor) -> Result<Style, crate::error::ReportalError> {
+pub fn swatch_style_for_repo_color(
+    repo_color: &crate::reportal_config::RepoColor,
+) -> Result<Style, crate::error::ReportalError> {
     match repo_color {
         crate::reportal_config::RepoColor::Themed(hex_color) => {
             let (red, green, blue) = hex_color.as_rgb_bytes()?;
             Ok(Style::new().truecolor(red, green, blue))
         }
-        crate::reportal_config::RepoColor::ResetToDefault => {
-            Ok(DEFAULT_SWATCH_STYLE)
-        }
+        crate::reportal_config::RepoColor::ResetToDefault => Ok(DEFAULT_SWATCH_STYLE),
     }
 }
 
@@ -74,12 +74,20 @@ pub fn write_stderr(text: &str) {
 
 /// Prints an error message with a red "Error:" prefix.
 pub fn print_error(error_message: &str) {
-    write_stderr(&format!("{} {}\n", "Error:".style(FAILURE_STYLE), error_message));
+    write_stderr(&format!(
+        "{} {}\n",
+        "Error:".style(FAILURE_STYLE),
+        error_message
+    ));
 }
 
 /// Prints a success message with a green prefix.
 pub fn print_success(success_message: &str) {
-    write_stdout(&format!("{} {}\n", ">>".style(SUCCESS_STYLE), success_message));
+    write_stdout(&format!(
+        "{} {}\n",
+        ">>".style(SUCCESS_STYLE),
+        success_message
+    ));
 }
 
 /// Returns the OSC 2 escape sequence that sets the terminal tab title.
@@ -146,14 +154,10 @@ pub fn write_to_console(text: &str) {
     use std::io::Write;
 
     #[cfg(target_os = "windows")]
-    let console_handle = std::fs::OpenOptions::new()
-        .write(true)
-        .open("CONOUT$");
+    let console_handle = std::fs::OpenOptions::new().write(true).open("CONOUT$");
 
     #[cfg(not(target_os = "windows"))]
-    let console_handle = std::fs::OpenOptions::new()
-        .write(true)
-        .open("/dev/tty");
+    let console_handle = std::fs::OpenOptions::new().write(true).open("/dev/tty");
 
     match console_handle {
         Ok(mut console) => {
@@ -174,14 +178,10 @@ pub fn emit_terminal_identity_to_console(identity: &TerminalIdentity) {
     use std::io::Write;
 
     #[cfg(target_os = "windows")]
-    let console_handle = std::fs::OpenOptions::new()
-        .write(true)
-        .open("CONOUT$");
+    let console_handle = std::fs::OpenOptions::new().write(true).open("CONOUT$");
 
     #[cfg(not(target_os = "windows"))]
-    let console_handle = std::fs::OpenOptions::new()
-        .write(true)
-        .open("/dev/tty");
+    let console_handle = std::fs::OpenOptions::new().write(true).open("/dev/tty");
 
     match console_handle {
         Ok(mut console) => {

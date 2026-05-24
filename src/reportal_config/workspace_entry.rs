@@ -5,9 +5,7 @@ use crate::reportal_config::has_aliases::HasAliases;
 use crate::reportal_config::repository_color::RepoColor;
 use crate::reportal_config::shell_alias_export::ShellAliasExport;
 use crate::reportal_config::tab_title::TabTitle;
-use crate::reportal_config::workspace_member::{
-    WorkspaceMember, WorkspaceMemberAliasLookup,
-};
+use crate::reportal_config::workspace_member::{WorkspaceMember, WorkspaceMemberAliasLookup};
 use serde::{Deserialize, Serialize};
 
 /// A single registered VSCode/Cursor workspace definition.

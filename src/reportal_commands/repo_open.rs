@@ -1,17 +1,11 @@
 //! Fuzzy-selects a repo and opens it in the configured editor.
 
 use crate::error::ReportalError;
-use crate::reportal_commands::direct_alias_router::{
-    DirectAliasRouter, DirectAliasRouterOutcome,
-};
+use crate::reportal_commands::direct_alias_router::{DirectAliasRouter, DirectAliasRouterOutcome};
 use crate::reportal_commands::repo_selection::{self, SelectedRepoParameters};
 use crate::reportal_commands::run_workspace_open;
-use crate::reportal_commands::target_selection::{
-    self, SelectedTarget, SelectedTargetParameters,
-};
-use crate::reportal_commands::terminal_identity_emit::{
-    self, TerminalIdentityEmitParameters,
-};
+use crate::reportal_commands::target_selection::{self, SelectedTarget, SelectedTargetParameters};
+use crate::reportal_commands::terminal_identity_emit::{self, TerminalIdentityEmitParameters};
 use crate::reportal_config::{PathVisibility, ReportalConfig, TagFilter};
 use crate::terminal_style;
 use owo_colors::OwoColorize;
@@ -66,9 +60,7 @@ pub fn run_open(open_params: &OpenCommandParameters<'_>) -> Result<(), ReportalE
     } else {
         let router = DirectAliasRouter::for_config(&loaded_config);
         match router.classify(open_params.direct_alias)? {
-            DirectAliasRouterOutcome::RegisteredRepo => {
-                open_params.direct_alias.to_owned()
-            }
+            DirectAliasRouterOutcome::RegisteredRepo => open_params.direct_alias.to_owned(),
             DirectAliasRouterOutcome::Workspace(canonical_workspace_name) => {
                 return run_workspace_open(&canonical_workspace_name);
             }
@@ -96,7 +88,11 @@ pub fn run_open(open_params: &OpenCommandParameters<'_>) -> Result<(), ReportalE
 
     let resolved_repo_path = selected.repo_config().resolved_path();
 
-    let editor_command = if open_params.editor_override.is_empty() { loaded_config.default_editor() } else { open_params.editor_override };
+    let editor_command = if open_params.editor_override.is_empty() {
+        loaded_config.default_editor()
+    } else {
+        open_params.editor_override
+    };
 
     #[cfg(target_os = "windows")]
     let spawn_result = Command::new("cmd")
@@ -116,8 +112,9 @@ pub fn run_open(open_params: &OpenCommandParameters<'_>) -> Result<(), ReportalE
 
     match loaded_config.path_on_select() {
         PathVisibility::Show => {
-            let formatted_path =
-                loaded_config.path_display_format().format_path(&resolved_repo_path);
+            let formatted_path = loaded_config
+                .path_display_format()
+                .format_path(&resolved_repo_path);
             terminal_style::print_success(&format!(
                 "Opened {} in {}",
                 formatted_path.style(terminal_style::PATH_STYLE),
