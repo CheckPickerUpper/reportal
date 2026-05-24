@@ -31,7 +31,7 @@ For daily shell use, prefer the shell installer, Homebrew, or Scoop. Those route
 ### Shell installer (macOS / Linux)
 
 ```bash
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/CheckPickerUpper/reportal/releases/latest/download/reportal-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/CheckPickerUpper/reportal/releases/latest/download/reportal-installer.sh | bash
 ```
 
 Installs to `~/.local/bin` and writes a guarded shell integration block. If `rep` later disappears from `PATH`, shell startup stays quiet and running `rep` prints the reinstall command.
@@ -92,7 +92,7 @@ if command -v rep >/dev/null 2>&1; then
 elif command -v reportal >/dev/null 2>&1; then
     eval "$(reportal init zsh)"
 else
-    rep() { printf '%s\n' "RePortal: rep is not on PATH. Reinstall with: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/CheckPickerUpper/reportal/releases/latest/download/reportal-installer.sh | sh" >&2; return 127; }
+    rep() { printf '%s\n' "RePortal: rep is not on PATH. Reinstall with: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/CheckPickerUpper/reportal/releases/latest/download/reportal-installer.sh | bash" >&2; return 127; }
 fi
 ```
 
@@ -104,7 +104,7 @@ if command -v rep >/dev/null 2>&1; then
 elif command -v reportal >/dev/null 2>&1; then
     eval "$(reportal init bash)"
 else
-    rep() { printf '%s\n' "RePortal: rep is not on PATH. Reinstall with: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/CheckPickerUpper/reportal/releases/latest/download/reportal-installer.sh | sh" >&2; return 127; }
+    rep() { printf '%s\n' "RePortal: rep is not on PATH. Reinstall with: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/CheckPickerUpper/reportal/releases/latest/download/reportal-installer.sh | bash" >&2; return 127; }
 fi
 ```
 
