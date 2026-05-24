@@ -38,17 +38,28 @@ pub struct ShellAliasEmissionParameters<'configuration> {
 /// expected `rj`/`ro`/`rjw`/`row`/`rw`/`rr` behavior.
 const BUILTIN_SHELL_FUNCTION_NAMES: &[&str] = &["rj", "ro", "rjw", "row", "rw", "rr"];
 
+/// Builds the shell code for opted-in aliases declared in the
+/// `RePortal` config.
+///
+/// Returns an empty string when no repo, workspace, or command has
+/// `shell_alias = true`; otherwise returns function definitions for
+/// the requested shell. The generated jump functions stop before
+/// changing directory if the underlying `rep` command cannot resolve
+/// a target path.
 /// @why Builds the per-shell snippet that defines a top-level
 /// function for every opted-in repo, workspace, and command so
 /// users invoke their config entries directly from the prompt
 /// without typing `rj`, `rjw`, or `rep run --cmd` first.
 #[must_use]
-pub fn shell_alias_export_snippet(parameters: &ShellAliasEmissionParameters<'_>) -> String {
-    let exported_dispatch_entries = collect_exported_dispatch_entries(parameters.configuration);
+pub fn shell_alias_export_snippet(
+    shell_alias_parameters: &ShellAliasEmissionParameters<'_>,
+) -> String {
+    let exported_dispatch_entries =
+        collect_exported_dispatch_entries(shell_alias_parameters.configuration);
     if exported_dispatch_entries.is_empty() {
         return String::new();
     }
-    match parameters.target_shell {
+    match shell_alias_parameters.target_shell {
         InitializeShell::Zsh | InitializeShell::Bash => {
             render_bash_snippet(&exported_dispatch_entries)
         }
@@ -96,19 +107,24 @@ struct ExportedDispatchEntry {
 /// `ExportedDispatchEntry`. Skips names that collide with the
 /// base integration's built-in functions and names that are not
 /// usable as bare shell identifiers.
-fn collect_exported_dispatch_entries(configuration: &ReportalConfig) -> Vec<ExportedDispatchEntry> {
+fn collect_exported_dispatch_entries(
+    reportal_configuration: &ReportalConfig,
+) -> Vec<ExportedDispatchEntry> {
     let mut collected: Vec<ExportedDispatchEntry> = Vec::new();
-    for (command_key, command_entry) in configuration.global_commands() {
+    for (command_key, command_entry) in reportal_configuration.global_commands() {
         append_command_dispatch_entry(&mut collected, command_key, command_entry);
     }
-    for (repository_canonical_key, repository_entry) in configuration.repos_with_aliases() {
+    for (repository_canonical_key, repository_entry) in reportal_configuration.repos_with_aliases()
+    {
         append_repository_dispatch_entries(
             &mut collected,
             repository_canonical_key,
             repository_entry,
         );
     }
-    for (workspace_canonical_name, workspace_entry) in configuration.workspaces_with_names() {
+    for (workspace_canonical_name, workspace_entry) in
+        reportal_configuration.workspaces_with_names()
+    {
         append_workspace_dispatch_entries(
             &mut collected,
             workspace_canonical_name,
@@ -297,14 +313,14 @@ fn render_bash_snippet(exported_entries: &[ExportedDispatchEntry]) -> String {
         match exported_entry.dispatch_kind {
             ExportedDispatchKind::RepositoryJump => {
                 rendered_block.push_str(&format!(
-                    "function {name}() {{ cd \"$(rep jump {arg})\"; rep color; }}\n",
+                    "function {name}() {{ local _target; _target=$(rep jump {arg}) || return; cd \"$_target\" || return; rep color; }}\n",
                     name = exported_entry.function_name,
                     arg = exported_entry.dispatch_argument,
                 ));
             }
             ExportedDispatchKind::WorkspaceJump => {
                 rendered_block.push_str(&format!(
-                    "function {name}() {{ cd \"$(rep workspace jump {arg})\"; rep color; }}\n",
+                    "function {name}() {{ local _target; _target=$(rep workspace jump {arg}) || return; cd \"$_target\" || return; rep color; }}\n",
                     name = exported_entry.function_name,
                     arg = exported_entry.dispatch_argument,
                 ));
@@ -327,7 +343,7 @@ fn render_bash_snippet(exported_entries: &[ExportedDispatchEntry]) -> String {
 /// integration script was loaded.
 ///
 /// Each function definition is preceded by a silent
-/// `Remove-Item Alias:<name>` so a pre-existing PowerShell alias
+/// `Remove-Item Alias:<name>` so a pre-existing `PowerShell` alias
 /// (auto-loaded modules, the user's profile, etc.) does not
 /// shadow the reportal function that the user explicitly opted
 /// into.
@@ -339,14 +355,14 @@ fn render_powershell_snippet(exported_entries: &[ExportedDispatchEntry]) -> Stri
         match exported_entry.dispatch_kind {
             ExportedDispatchKind::RepositoryJump => {
                 rendered_block.push_str(&format!(
-                    "Remove-Item Alias:{name} -ErrorAction SilentlyContinue; function global:{name} {{ Set-Location (rep jump {arg}); rep color }}\n",
+                    "Remove-Item Alias:{name} -ErrorAction SilentlyContinue; function global:{name} {{ $target = rep jump {arg}; if ($target) {{ Set-Location $target; rep color }} }}\n",
                     name = exported_entry.function_name,
                     arg = exported_entry.dispatch_argument,
                 ));
             }
             ExportedDispatchKind::WorkspaceJump => {
                 rendered_block.push_str(&format!(
-                    "Remove-Item Alias:{name} -ErrorAction SilentlyContinue; function global:{name} {{ Set-Location (rep workspace jump {arg}); rep color }}\n",
+                    "Remove-Item Alias:{name} -ErrorAction SilentlyContinue; function global:{name} {{ $target = rep workspace jump {arg}; if ($target) {{ Set-Location $target; rep color }} }}\n",
                     name = exported_entry.function_name,
                     arg = exported_entry.dispatch_argument,
                 ));
