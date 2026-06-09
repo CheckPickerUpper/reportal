@@ -20,7 +20,7 @@
 
 ---
 
-RePortal is a single-binary CLI that keeps a registry of your dev repos and lets you fuzzy-jump between them, open them in your editor, and clone missing repos on a new machine.
+RePortal is a single-binary CLI that keeps a registry of your dev repos and lets you fuzzy-jump between them, open them in your editor, clone and register repos, and keep local checkouts in sync.
 
 ## Install
 
@@ -159,6 +159,7 @@ ro
 | `rep open --title "Debug"` | | Override the terminal tab title for this session |
 | `rep color` | | Emit tab title + background color for current directory (for shell hooks) |
 | `rep color --repo my-api` | | Emit tab title + background color for a specific repo |
+| `rep prompt --shell zsh` | | Emit a shell-wrapped colored prompt badge for the current repo/workspace |
 | `rep status` | `rep s` | Show git status (branch, dirty, upstream, last commit) across all repos |
 | `rep status --tag work` | | Filter status by tag |
 | `rep sync` | | Pull latest changes across all repos (skips dirty repos) |
@@ -183,7 +184,8 @@ ro
 | `rep workspace rebuild <name>` | | Recreate the workspace directory's symlinks and `.code-workspace` file from config |
 | `rep workspace add-repo <name> <alias>` | | Add a repo to a workspace and rebuild its directory |
 | `rep workspace remove-repo <name> <alias>` | | Remove a repo from a workspace and rebuild its directory |
-| `rep workspace open <name>` | | Open a workspace in your default editor |
+| `rep workspace open [name]` | | Open a workspace in your default editor; fuzzy-selects when no name is given |
+| `rep workspace jump [name]` | | Print a workspace directory path for shell `cd`; fuzzy-selects when no name is given |
 | `rep doctor` | | Diagnose config, shell integration, and repo path issues |
 
 ## Shell integration
@@ -203,7 +205,7 @@ ro
 | `rr` | Fuzzy-select a repo and run a configured command in it |
 | `rr my-api` | Skip repo selection, fuzzy-select a command |
 
-Supports Zsh, Bash, and PowerShell. No re-init needed on upgrade — the `eval` in your rc file fetches fresh code from the newly-installed binary on every shell startup.
+Supports Zsh, Bash, and PowerShell. No re-init needed on upgrade — the `eval` in your rc file fetches fresh code from the newly-installed binary on every shell startup. Entries with `shell_alias = true` also get top-level functions emitted by `rep init <shell>`: repos dispatch like `rj <name>`, workspaces dispatch like `rjw <name>`, and global commands dispatch like `rep run --cmd <name>`.
 
 ## Config
 
@@ -224,6 +226,7 @@ tags = ["work", "backend"]
 remote = "git@github.com:org/api.git"
 title = "API"              # custom terminal tab title (defaults to alias)
 color = "#1a1a2e"          # terminal background color on jump (hex)
+shell_alias = true         # optional: emit repo key/aliases as shell functions
 
 [repos.website]
 path = "~/dev/personal/site"
@@ -251,6 +254,8 @@ tags = ["personal", "frontend"]
 | `aliases` | no | `[]` | Alternative names for direct jump (e.g. `rj ninja` instead of `rj nro`) |
 | `title` | no | repo alias | Terminal tab title on jump/open |
 | `color` | no | reset to default | Terminal tab color (`#RRGGBB`) on jump/open |
+| `commands` | no | `{}` | Per-repo command table used by `rep run`; repo commands override same-named global commands |
+| `shell_alias` | no | `false` | Whether `rep init <shell>` emits top-level shell functions for the repo key and aliases |
 
 ### AI tools
 
@@ -296,6 +301,9 @@ repos = [
 description = "Jakuta backend services"
 path = ""                                     # empty = <default_workspace_root>/backend/
 aliases = ["be", "back"]                      # short names accepted by rep workspace <sub>
+title = "Backend"                             # prompt/editor label (defaults to workspace name)
+color = "#5b5ea6"                             # prompt/editor/terminal accent color
+shell_alias = true                            # optional: emit workspace aliases as shell functions
 ```
 
 | Field | Required | Default | What it controls |
@@ -304,6 +312,9 @@ aliases = ["be", "back"]                      # short names accepted by rep work
 | `description` | no | `""` | Human-readable description shown in `rep workspace list` |
 | `path` | no | `""` | Filesystem path for the workspace directory (the one containing the symlinks and the `.code-workspace` file). Empty falls back to `<default_workspace_root>/<name>/`. Pre-v0.15.2 configs may still store a `.code-workspace` file path here — those are auto-migrated on first `rep workspace jump` / `rebuild` |
 | `aliases` | no | `[]` | Short names that resolve to this workspace in `rep workspace` subcommands. Must not collide with any repo name/alias or another workspace's name/alias — enforced at config load |
+| `title` | no | workspace name | Label used for the prompt badge, terminal title, and generated editor workspace identity |
+| `color` | no | reset to default | Workspace accent color for prompt badge, terminal tab, and generated editor title-bar color |
+| `shell_alias` | no | `false` | Whether `rep init <shell>` emits top-level shell functions for the workspace name and aliases |
 
 **Platform-specific linking is transparent.** On Unix the member entries are symlinks (`ln -s`); on Windows they are directory junctions (via the `junction` crate, no elevation required). `cd`, `ls`, and every build tool follow both transparently — the user doesn't need to know which form is used.
 
@@ -321,7 +332,7 @@ Define reusable commands that can be run in any repo via `rep run`:
 
 ```toml
 [commands]
-test  = { command = "cargo test",          description = "Run tests" }
+test  = { command = "cargo test",          description = "Run tests", shell_alias = true }
 serve = { command = "npm run dev",         description = "Start dev server" }
 build = { command = "cargo build --release", description = "Production build" }
 ```
@@ -330,6 +341,7 @@ build = { command = "cargo build --release", description = "Production build" }
 |-------|----------|---------|-----------------|
 | `command` | yes | — | The shell command to execute |
 | `description` | no | `""` | Shown in the fuzzy picker alongside the command name |
+| `shell_alias` | no | `false` | Whether `rep init <shell>` emits a top-level shell function that runs `rep run --cmd <name>` |
 
 Per-repo commands go under `[repos.<alias>.commands]` and can override global commands with the same name, or add repo-specific ones:
 
@@ -341,28 +353,33 @@ migrate = { command = "python manage.py migrate",   description = "Run database 
 
 ## Terminal personalization
 
-When you jump to or open a repo, RePortal automatically sets:
+When you jump to or open a repo or workspace, RePortal automatically sets:
 
-1. **Tab title** — uses the `title` config field, falling back to the repo alias
-2. **Tab color** — uses the `color` config field; repos without a color reset to the terminal default
+1. **Tab title** — uses the `title` config field, falling back to the repo/workspace name
+2. **Tab color** — uses the `color` config field; entries without a color reset to the terminal default
 
 The `--title` flag on `jump`/`open` lets you override the tab title for a single session without changing config.
 
 ### Shell hook for new terminals
 
-Terminals opened directly into a repo (e.g. VS Code integrated terminal) won't go through `rj`, so they won't get the color/title automatically. Add `rep color` to your prompt to fix that:
+Terminals opened directly into a repo or workspace (e.g. VS Code integrated terminal) won't go through `rj`/`rjw`, so they won't get the color/title automatically. Add `rep color --mode prompt-hook` to your prompt to refresh the terminal title and color on each prompt:
 
 **PowerShell:**
 ```powershell
-function prompt { rep color 2>$null; "PS> " }
+function prompt { rep color --mode prompt-hook 2>$null; "PS> " }
 ```
 
-**Bash / Zsh:**
+**Bash:**
 ```bash
-PROMPT_COMMAND='rep color 2>/dev/null'
+PROMPT_COMMAND='rep color --mode prompt-hook 2>/dev/null'
 ```
 
-`rep color` matches your current directory against registered repos (longest prefix wins) and emits the right sequences.
+**Zsh:**
+```zsh
+precmd() { rep color --mode prompt-hook 2>/dev/null }
+```
+
+`rep color` matches your current directory against registered workspaces and repos and emits the right terminal sequences. Use `rep prompt --shell <bash|zsh|powershell>` when you want an inline colored prompt badge instead of only terminal title/color updates.
 
 ## Roadmap
 
