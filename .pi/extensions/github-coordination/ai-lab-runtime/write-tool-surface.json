@@ -1,0 +1,86 @@
+{
+  "_doc": "Canonical declarative list of write-tool surfaces across every AI client. Single source for: Claude Code per-plugin hooks.json matchers, Codex compiler matcher + runtime translator, OpenCode compiler matcher + runtime translator, and the JS hook-input-parser normalizer. Adding a new MCP write surface = one entry here + regen pass; nothing else should ever hand-list write tools.",
+  "builtin": [
+    "Edit",
+    "Write",
+    "MultiEdit"
+  ],
+  "native": [
+    {
+      "client": "codex",
+      "name": "apply_patch",
+      "kind": "ApplyPatch",
+      "tool_names": [
+        "apply_patch",
+        "functions.apply_patch"
+      ],
+      "text_fields": [
+        "input",
+        "command",
+        "patch",
+        "patchText"
+      ]
+    },
+    {
+      "client": "opencode",
+      "name": "apply_patch",
+      "kind": "ApplyPatch",
+      "tool_names": [
+        "patch",
+        "apply_patch"
+      ],
+      "text_fields": [
+        "patchText",
+        "patch",
+        "command",
+        "input"
+      ]
+    }
+  ],
+  "mcp": [
+    {
+      "name": "mcp__filesystem__write_file",
+      "kind": "Write",
+      "path_field": "path",
+      "content_field": "content"
+    },
+    {
+      "name": "mcp__filesystem__edit_file",
+      "kind": "MultiEdit",
+      "path_field": "path",
+      "edits_field": "edits",
+      "edit_old_field": "oldText",
+      "edit_new_field": "newText"
+    },
+    {
+      "name": "mcp__serena__replace_symbol_body",
+      "kind": "FragmentWrite",
+      "operation": "replace_symbol_body",
+      "path_field": "relative_path",
+      "name_path_field": "name_path",
+      "body_field": "body"
+    },
+    {
+      "name": "mcp__serena__insert_after_symbol",
+      "kind": "FragmentWrite",
+      "operation": "insert_after_symbol",
+      "path_field": "relative_path",
+      "name_path_field": "name_path",
+      "body_field": "body"
+    },
+    {
+      "name": "mcp__serena__insert_before_symbol",
+      "kind": "FragmentWrite",
+      "operation": "insert_before_symbol",
+      "path_field": "relative_path",
+      "name_path_field": "name_path",
+      "body_field": "body"
+    },
+    {
+      "name": "mcp__serena__replace_content",
+      "kind": "Write",
+      "path_field": "relative_path",
+      "content_field": "content"
+    }
+  ]
+}

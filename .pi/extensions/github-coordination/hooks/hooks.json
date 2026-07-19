@@ -1,0 +1,17 @@
+{
+  "description": "GitHub coordination hooks: warn on missing bot issue CLI setup.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/agent-issue-cli-status.js",
+            "timeout": 20
+          }
+        ]
+      }
+    ]
+  }
+}
