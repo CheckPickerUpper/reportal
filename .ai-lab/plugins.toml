@@ -1,0 +1,10 @@
+# Which ai-lab rule packs judge writes in this repository.
+# A repository with no selection is judged by the universal packs only,
+# and the language packs stay silent, which reads exactly like clean code.
+[install]
+sets = [
+  "typescript",
+  "rust",
+]
+extra = []
+omit = []
