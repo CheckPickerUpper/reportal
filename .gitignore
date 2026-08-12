@@ -5,7 +5,14 @@
 DEV_TOOLS.md
 SPEC-*.md
 
-# Claude Code
+# Local agent tooling (machine-specific, never published)
+.claude/
+.opencode/
+.pi/
+.ai-lab/
+.serena/
+AGENTS.md
+CLAUDE.md
 
 # OS
 .DS_Store
@@ -15,10 +22,8 @@ Desktop.ini
 # IDE
 .idea/
 .vscode/
-.serena/
 *.swp
 *.swo
 
-# MCP / Puppeteer logs
+# Logs
 logs/
-.serena/
