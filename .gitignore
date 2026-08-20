@@ -22,3 +22,10 @@ Desktop.ini
 # MCP / Puppeteer logs
 logs/
 .serena/
+
+# sample-project7 project manifest plus rendered per-machine install state
+!.ai-*/
+!.ai-*/plugins.toml
+.ai-*/composed-plugins.json
+.ai-*/runtime-manifest.json
+.claude/settings.local.json
