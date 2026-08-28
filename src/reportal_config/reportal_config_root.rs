@@ -79,6 +79,7 @@ impl ReportalConfig {
     /// default config cannot be written, `ConfigParseFailure` if
     /// the TOML is malformed, `WorkspaceHasDanglingRepo` if a
     /// workspace references an unknown repo alias, or
+    /// `RepoAliasConflict` if repository aliases are ambiguous, or
     /// `WorkspaceAliasConflict` if any workspace's name or alias
     /// collides with another entry.
     pub fn load_or_initialize() -> Result<Self, ReportalError> {
@@ -103,8 +104,8 @@ impl ReportalConfig {
         Ok(parsed_config)
     }
 
-    /// Validates that every workspace alias is globally unambiguous
-    /// across both the workspace and repo namespaces.
+    /// Validates that repository and workspace aliases are globally
+    /// unambiguous across their supported namespaces.
     ///
     /// The resolver in `resolve_canonical_key` returns the first
     /// match it finds, so a config where two entries declare the
@@ -115,9 +116,11 @@ impl ReportalConfig {
     ///
     /// # Errors
     ///
-    /// Returns [`ReportalError::WorkspaceAliasConflict`] at the
-    /// first collision encountered.
+    /// Returns [`ReportalError::RepoAliasConflict`] or
+    /// [`ReportalError::WorkspaceAliasConflict`] at the first
+    /// collision encountered.
     pub fn validate_alias_collisions(&self) -> Result<(), ReportalError> {
+        self.validate_repo_alias_collisions()?;
         for (workspace_name, workspace_entry) in &self.workspaces {
             self.check_workspace_canonical_name_repo_collision(workspace_name)?;
             for declared_alias in workspace_entry.aliases() {
@@ -127,6 +130,58 @@ impl ReportalConfig {
                 ))?;
             }
         }
+        Ok(())
+    }
+
+    /// Rejects repository aliases that are repeated by another repo
+    /// or collide with a peer repository's canonical key. A repo may
+    /// list its own canonical key as a redundant alias because that
+    /// does not make lookup ambiguous; every other collision is
+    /// rejected before the resolver can depend on map ordering.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ReportalError::RepoAliasConflict`] when a declared
+    /// repository alias has more than one owner.
+    fn validate_repo_alias_collisions(&self) -> Result<(), ReportalError> {
+        let mut declared_alias_owners: BTreeMap<String, String> = BTreeMap::new();
+        for (repository_name, repository_entry) in &self.repos {
+            for declared_alias in repository_entry.aliases() {
+                self.validate_repository_alias_ownership(
+                    repository_name,
+                    declared_alias,
+                    &mut declared_alias_owners,
+                )?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Checks one repository alias against peer canonical keys and
+    /// aliases, keeping the outer validation loop shallow.
+    fn validate_repository_alias_ownership(
+        &self,
+        repository_name: &str,
+        declared_alias: &str,
+        declared_alias_owners: &mut BTreeMap<String, String>,
+    ) -> Result<(), ReportalError> {
+        if self.repos.contains_key(declared_alias) && declared_alias != repository_name {
+            return Err(ReportalError::RepoAliasConflict {
+                repository_name: repository_name.to_owned(),
+                conflicting_value: declared_alias.to_owned(),
+                conflicting_entity_description: format!(
+                    "repo '{declared_alias}' as its canonical key"
+                ),
+            });
+        }
+        if let Some(previous_owner) = declared_alias_owners.get(declared_alias) {
+            return Err(ReportalError::RepoAliasConflict {
+                repository_name: repository_name.to_owned(),
+                conflicting_value: declared_alias.to_owned(),
+                conflicting_entity_description: format!("repo '{previous_owner}' as an alias"),
+            });
+        }
+        declared_alias_owners.insert(declared_alias.to_owned(), repository_name.to_owned());
         Ok(())
     }
 
@@ -583,12 +638,10 @@ impl ReportalConfig {
             repos: BTreeMap::new(),
             commands: BTreeMap::new(),
             workspaces: BTreeMap::new(),
-            ai_tools: BTreeMap::from([
-                (
-                    "aider".to_owned(),
-                    AiToolEntry::with_executable("aider".to_owned()),
-                ),
-            ]),
+            ai_tools: BTreeMap::from([(
+                "aider".to_owned(),
+                AiToolEntry::with_executable("aider".to_owned()),
+            )]),
         }
     }
 }
@@ -774,6 +827,50 @@ mod tests {
             outcome,
             Err(ReportalError::WorkspaceAliasConflict { .. })
         ));
+        Ok(())
+    }
+
+    #[test]
+    fn duplicate_repository_aliases_are_rejected() {
+        let mut config = ReportalConfig::create_default();
+        config
+            .repos
+            .insert("alpha".to_owned(), make_repo(vec!["shared".to_owned()]));
+        config
+            .repos
+            .insert("bravo".to_owned(), make_repo(vec!["shared".to_owned()]));
+
+        let outcome = config.validate_alias_collisions();
+        assert!(
+            outcome.is_err(),
+            "two repositories declaring the same alias must be rejected, got {outcome:?}",
+        );
+    }
+
+    #[test]
+    fn repository_alias_matching_peer_canonical_key_is_rejected() {
+        let mut config = ReportalConfig::create_default();
+        config
+            .repos
+            .insert("alpha".to_owned(), make_repo(vec!["bravo".to_owned()]));
+        config.repos.insert("bravo".to_owned(), make_repo(vec![]));
+
+        let outcome = config.validate_alias_collisions();
+        assert!(
+            outcome.is_err(),
+            "a repository alias matching a peer canonical key must be rejected, got {outcome:?}",
+        );
+    }
+
+    #[test]
+    fn unique_repository_alias_still_resolves() -> Result<(), ReportalError> {
+        let mut config = ReportalConfig::create_default();
+        config
+            .repos
+            .insert("alpha".to_owned(), make_repo(vec!["a".to_owned()]));
+
+        config.validate_alias_collisions()?;
+        assert_eq!(config.get_repo("a")?.raw_path(), "C:/fake");
         Ok(())
     }
 
