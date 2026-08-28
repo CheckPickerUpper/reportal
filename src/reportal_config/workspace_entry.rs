@@ -155,22 +155,6 @@ impl WorkspaceEntry {
         self.path = new_directory_path;
     }
 
-    /// Whether the given repo alias is a registered-repo member of
-    /// this workspace.
-    ///
-    /// Used by the reverse-index lookup `workspaces_containing_repo`
-    /// and the `rep remove` guard. Inline-path members never match
-    /// because they carry no repo alias by construction.
-    #[must_use]
-    pub fn contains_repo(&self, repository_alias: &str) -> bool {
-        self.repos.iter().any(|member| {
-            matches!(
-                member.registered_repo_alias(),
-                WorkspaceMemberAliasLookup::Matches(alias) if alias == repository_alias
-            )
-        })
-    }
-
     /// @why Exposes the workspace's prompt-badge / window-title
     /// label so `rep prompt` and `rep workspace rebuild` can render
     /// the same identity without re-reading the raw field.

@@ -240,7 +240,7 @@ impl ReportalConfig {
     pub fn validate_workspace_references(&self) -> Result<(), ReportalError> {
         for (workspace_name, workspace) in &self.workspaces {
             for member_alias in workspace.repo_aliases() {
-                if !self.repos.contains_key(member_alias) {
+                if resolve_canonical_key(&self.repos, member_alias).is_none() {
                     return Err(ReportalError::WorkspaceHasDanglingRepo {
                         workspace_name: workspace_name.to_owned(),
                         missing_alias: member_alias.to_owned(),
@@ -375,6 +375,28 @@ impl ReportalConfig {
             })
     }
 
+    /// Resolves a user-supplied repository name or alias to its
+    /// canonical config key.
+    ///
+    /// Commands that persist workspace membership or inspect the
+    /// repo reverse index use this boundary so every spelling of a
+    /// registered repo refers to the same repository entry.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ReportalError::RepoNotFound`] if neither the
+    /// canonical key nor any declared repository alias matches.
+    pub fn resolve_repo_canonical_name(
+        &self,
+        alias_or_canonical: &str,
+    ) -> Result<String, ReportalError> {
+        resolve_canonical_key(&self.repos, alias_or_canonical)
+            .map(str::to_owned)
+            .ok_or_else(|| ReportalError::RepoNotFound {
+                alias: alias_or_canonical.to_owned(),
+            })
+    }
+
     /// Registers a new repo from a validated builder result.
     ///
     /// Returns `RepoAlreadyExists` if the alias is already taken.
@@ -392,13 +414,16 @@ impl ReportalConfig {
         Ok(())
     }
 
-    /// Removes a repo by alias. Returns `RepoNotFound` if missing.
+    /// Removes a repo by canonical key or declared alias. Returns
+    /// `RepoNotFound` if missing.
     pub fn remove_repo(&mut self, alias: &str) -> Result<RepoEntry, ReportalError> {
-        self.repos
-            .remove(alias)
-            .ok_or_else(|| ReportalError::RepoNotFound {
+        let canonical_key = self.resolve_repo_canonical_name(alias)?;
+        match self.repos.remove(&canonical_key) {
+            Some(removed_entry) => Ok(removed_entry),
+            None => Err(ReportalError::RepoNotFound {
                 alias: alias.to_owned(),
-            })
+            }),
+        }
     }
 
     /// Returns all registered workspaces with their names, for iteration.
@@ -497,7 +522,7 @@ impl ReportalConfig {
             return Err(ReportalError::WorkspaceAlreadyExists { workspace_name });
         }
         for member_alias in workspace_entry.repo_aliases() {
-            if !self.repos.contains_key(member_alias) {
+            if resolve_canonical_key(&self.repos, member_alias).is_none() {
                 return Err(ReportalError::WorkspaceHasDanglingRepo {
                     workspace_name,
                     missing_alias: member_alias.to_owned(),
@@ -538,10 +563,35 @@ impl ReportalConfig {
         &self,
         repository_alias: &str,
     ) -> Vec<(&String, &WorkspaceEntry)> {
+        let Some(canonical_repository_name) = resolve_canonical_key(&self.repos, repository_alias)
+        else {
+            return Vec::new();
+        };
         self.workspaces
             .iter()
-            .filter(|(_, workspace)| workspace.contains_repo(repository_alias))
+            .filter(|(_, workspace)| {
+                self.workspace_contains_repo_canonical(workspace, canonical_repository_name)
+            })
             .collect()
+    }
+
+    /// Checks whether any registered-repo member of a workspace
+    /// resolves to the requested canonical repository key.
+    fn workspace_contains_repo_canonical(
+        &self,
+        workspace: &WorkspaceEntry,
+        canonical_repository_name: &str,
+    ) -> bool {
+        for member_alias in workspace.repo_aliases() {
+            let Some(member_canonical_name) = resolve_canonical_key(&self.repos, member_alias)
+            else {
+                continue;
+            };
+            if member_canonical_name == canonical_repository_name {
+                return true;
+            }
+        }
+        false
     }
 
     /// Returns the configured default AI tool name, if set.
@@ -701,6 +751,79 @@ mod tests {
         let resolved_mut = config.get_repo_mut("vna")?;
         resolved_mut.set_description("mutated".to_owned());
         assert_eq!(config.get_repo("venoble-app")?.description(), "mutated");
+        Ok(())
+    }
+
+    #[test]
+    fn workspace_reference_resolves_registered_repository_alias() -> Result<(), ReportalError> {
+        let mut config = ReportalConfig::create_default();
+        config
+            .repos
+            .insert("venoble-app".to_owned(), make_repo(vec!["vna".to_owned()]));
+        config.workspaces.insert(
+            "backend".to_owned(),
+            make_workspace(vec!["vna".to_owned()], vec![])?,
+        );
+
+        let outcome = config.validate_workspace_references();
+        assert!(
+            outcome.is_ok(),
+            "a workspace member may use a registered repository alias, got {outcome:?}",
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn add_workspace_accepts_registered_repository_alias() -> Result<(), ReportalError> {
+        let mut config = ReportalConfig::create_default();
+        config
+            .repos
+            .insert("venoble-app".to_owned(), make_repo(vec!["vna".to_owned()]));
+        let workspace_registration = (
+            "backend".to_owned(),
+            make_workspace(vec!["vna".to_owned()], vec![])?,
+        );
+
+        let outcome = config.add_workspace(workspace_registration);
+        assert!(
+            outcome.is_ok(),
+            "workspace creation by repository alias must succeed, got {outcome:?}",
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn reverse_index_finds_workspace_member_written_with_repository_alias(
+    ) -> Result<(), ReportalError> {
+        let mut config = ReportalConfig::create_default();
+        config
+            .repos
+            .insert("venoble-app".to_owned(), make_repo(vec!["vna".to_owned()]));
+        config.workspaces.insert(
+            "backend".to_owned(),
+            make_workspace(vec!["vna".to_owned()], vec![])?,
+        );
+
+        let containing_by_canonical = config.workspaces_containing_repo("venoble-app");
+        let containing_by_alias = config.workspaces_containing_repo("vna");
+        assert_eq!(containing_by_canonical.len(), 1);
+        assert_eq!(containing_by_alias.len(), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn remove_repo_accepts_declared_repository_alias() -> Result<(), ReportalError> {
+        let mut config = ReportalConfig::create_default();
+        config
+            .repos
+            .insert("venoble-app".to_owned(), make_repo(vec!["vna".to_owned()]));
+
+        let removed_entry = config.remove_repo("vna")?;
+        assert_eq!(removed_entry.raw_path(), "C:/fake");
+        assert!(matches!(
+            config.get_repo("venoble-app"),
+            Err(ReportalError::RepoNotFound { .. })
+        ));
         Ok(())
     }
 

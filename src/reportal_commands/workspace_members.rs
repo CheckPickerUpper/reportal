@@ -27,12 +27,16 @@ pub fn run_workspace_add_repo(
     member_edit: &WorkspaceArgumentsMemberEditParts,
 ) -> Result<(), ReportalError> {
     let mut loaded_config = ReportalConfig::load_or_initialize()?;
-    loaded_config.get_repo(member_edit.repository_alias())?;
+    let canonical_repository_name =
+        loaded_config.resolve_repo_canonical_name(member_edit.repository_alias())?;
     let canonical_workspace_name =
         loaded_config.resolve_workspace_canonical_name(member_edit.workspace_name())?;
 
-    let target_workspace = loaded_config.get_workspace_mut(&canonical_workspace_name)?;
-    if target_workspace.contains_repo(member_edit.repository_alias()) {
+    let already_member = loaded_config
+        .workspaces_containing_repo(&canonical_repository_name)
+        .iter()
+        .any(|(workspace_name, _workspace)| workspace_name.as_str() == canonical_workspace_name);
+    if already_member {
         return Err(ReportalError::ValidationFailure {
             field: "workspace member".to_owned(),
             reason: format!(
@@ -41,10 +45,10 @@ pub fn run_workspace_add_repo(
             ),
         });
     }
+
+    let target_workspace = loaded_config.get_workspace_mut(&canonical_workspace_name)?;
     let mut updated_members = target_workspace.members().to_vec();
-    updated_members.push(WorkspaceMember::RegisteredRepo(
-        member_edit.repository_alias().to_owned(),
-    ));
+    updated_members.push(WorkspaceMember::RegisteredRepo(canonical_repository_name));
     target_workspace.set_members(updated_members);
     loaded_config.save_to_disk()?;
 
@@ -83,10 +87,20 @@ pub fn run_workspace_remove_repo(
     member_edit: &WorkspaceArgumentsMemberEditParts,
 ) -> Result<(), ReportalError> {
     let mut loaded_config = ReportalConfig::load_or_initialize()?;
+    let canonical_repository_name =
+        loaded_config.resolve_repo_canonical_name(member_edit.repository_alias())?;
     let canonical_workspace_name =
         loaded_config.resolve_workspace_canonical_name(member_edit.workspace_name())?;
-    let target_workspace = loaded_config.get_workspace_mut(&canonical_workspace_name)?;
-    if !target_workspace.contains_repo(member_edit.repository_alias()) {
+
+    let current_members = loaded_config
+        .get_workspace(&canonical_workspace_name)?
+        .members()
+        .to_vec();
+    let workspace_contains_repo = loaded_config
+        .workspaces_containing_repo(&canonical_repository_name)
+        .iter()
+        .any(|(workspace_name, _workspace)| workspace_name.as_str() == canonical_workspace_name);
+    if !workspace_contains_repo {
         return Err(ReportalError::ValidationFailure {
             field: "workspace member".to_owned(),
             reason: format!(
@@ -95,16 +109,11 @@ pub fn run_workspace_remove_repo(
             ),
         });
     }
-    let remaining_members: Vec<WorkspaceMember> = target_workspace
-        .members()
-        .iter()
-        .filter(|member| match member.registered_repo_alias() {
-            WorkspaceMemberAliasLookup::Matches(existing_alias) => {
-                existing_alias != member_edit.repository_alias()
-            }
-            WorkspaceMemberAliasLookup::NotARepoReference => true,
+    let remaining_members: Vec<WorkspaceMember> = current_members
+        .into_iter()
+        .filter(|member| {
+            !workspace_member_targets_repo(&loaded_config, member, &canonical_repository_name)
         })
-        .cloned()
         .collect();
     if remaining_members.is_empty() {
         return Err(ReportalError::ValidationFailure {
@@ -115,6 +124,7 @@ pub fn run_workspace_remove_repo(
             ),
         });
     }
+    let target_workspace = loaded_config.get_workspace_mut(&canonical_workspace_name)?;
     target_workspace.set_members(remaining_members);
     loaded_config.save_to_disk()?;
 
@@ -129,4 +139,24 @@ pub fn run_workspace_remove_repo(
         canonical_workspace_name.style(terminal_style::ALIAS_STYLE),
     ));
     Ok(())
+}
+
+/// Returns whether a workspace member refers to a given canonical
+/// repository key, resolving both canonical names and declared
+/// repository aliases. Invalid references are retained by removal
+/// operations rather than being silently discarded.
+fn workspace_member_targets_repo(
+    loaded_config: &ReportalConfig,
+    member: &WorkspaceMember,
+    canonical_repository_name: &str,
+) -> bool {
+    match member.registered_repo_alias() {
+        WorkspaceMemberAliasLookup::Matches(member_alias) => {
+            match loaded_config.resolve_repo_canonical_name(member_alias) {
+                Ok(member_canonical_name) => member_canonical_name == canonical_repository_name,
+                Err(_not_found) => false,
+            }
+        }
+        WorkspaceMemberAliasLookup::NotARepoReference => false,
+    }
 }

@@ -24,8 +24,10 @@ use crate::terminal_style;
 /// and save paths surface.
 pub fn run_remove(repository_alias: &str) -> Result<(), ReportalError> {
     let mut loaded_config = ReportalConfig::load_or_initialize()?;
+    let canonical_repository_name = loaded_config.resolve_repo_canonical_name(repository_alias)?;
 
-    let containing_workspaces = loaded_config.workspaces_containing_repo(repository_alias);
+    let containing_workspaces =
+        loaded_config.workspaces_containing_repo(&canonical_repository_name);
     if !containing_workspaces.is_empty() {
         let joined_workspace_names = containing_workspaces
             .iter()
@@ -38,7 +40,7 @@ pub fn run_remove(repository_alias: &str) -> Result<(), ReportalError> {
         });
     }
 
-    let removed_entry = loaded_config.remove_repo(repository_alias)?;
+    let removed_entry = loaded_config.remove_repo(&canonical_repository_name)?;
     loaded_config.save_to_disk()?;
     terminal_style::print_success(&format!(
         "Removed '{}' ({})",
