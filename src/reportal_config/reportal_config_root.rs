@@ -638,10 +638,12 @@ impl ReportalConfig {
             repos: BTreeMap::new(),
             commands: BTreeMap::new(),
             workspaces: BTreeMap::new(),
-            ai_tools: BTreeMap::from([(
-                "aider".to_owned(),
-                AiToolEntry::with_executable("aider".to_owned()),
-            )]),
+            ai_tools: BTreeMap::from([
+                (
+                    "aider".to_owned(),
+                    AiToolEntry::with_executable("aider".to_owned()),
+                ),
+            ]),
         }
     }
 }
