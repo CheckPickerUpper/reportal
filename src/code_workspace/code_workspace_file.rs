@@ -3,7 +3,7 @@
 use crate::code_workspace::code_workspace_folder_entry::CodeWorkspaceFolderEntry;
 use crate::code_workspace::folder_parsing::FolderParsingContext;
 use crate::error::ReportalError;
-use jsonc_parser::cst::{CstInputValue, CstRootNode};
+use jsonc_parser::cst::{CstInputValue, CstObject, CstRootNode};
 use jsonc_parser::ParseOptions;
 use std::path::{Path, PathBuf};
 
@@ -42,9 +42,8 @@ pub struct CodeWorkspaceFile {
     /// `window.title` setting.
     ///
     /// `None` leaves the file's `settings` block untouched on
-    /// write (the previous behavior). `Some(label)` replaces
-    /// the `settings` object with a reportal-managed shape that
-    /// carries this title plus the title-bar accent color.
+    /// write. `Some(label)` updates only the RePortal-owned
+    /// identity keys inside the existing settings object.
     window_title_override: Option<String>,
     /// Workspace-identity accent color, stored as the raw
     /// `#RRGGBB` string for direct insertion into
@@ -192,13 +191,7 @@ impl CodeWorkspaceFile {
             }
         }
         if self.window_title_override.is_some() {
-            let settings_value = self.build_identity_settings_cst_value();
-            match root_object.get("settings") {
-                Some(existing_settings_prop) => existing_settings_prop.set_value(settings_value),
-                None => {
-                    root_object.append("settings", settings_value);
-                }
-            }
+            self.merge_workspace_identity_settings(&root_object);
         }
         let serialized_text = cst_root.to_string();
         std::fs::write(file_path, serialized_text).map_err(|io_error| {
@@ -210,54 +203,89 @@ impl CodeWorkspaceFile {
         Ok(())
     }
 
-    /// Builds the `settings` object value reportal writes when a
-    /// workspace identity is set: a `window.title` string and,
-    /// when the accent color is present, a
-    /// `workbench.colorCustomizations` nested object that paints
-    /// the active title bar.
-    ///
-    /// Lives as a method (rather than a free function) to keep
-    /// this file's free-function count at the project budget of
-    /// two (`ensure_parent_directory_exists` and
-    /// `build_folders_cst_value`). The method reads directly
-    /// from `self` so the caller does not have to thread the
-    /// two fields through a temporary params struct.
-    fn build_identity_settings_cst_value(&self) -> CstInputValue {
-        let window_title = self
-            .window_title_override
-            .as_deref()
-            .unwrap_or_default()
-            .to_owned();
-        let mut settings_properties: Vec<(String, CstInputValue)> = Vec::new();
-        settings_properties.push((
-            "window.title".to_owned(),
-            CstInputValue::String(format!("{window_title} — ${{activeEditorShort}}")),
-        ));
-        if let Some(title_bar_hex) = self.title_bar_color_hex.as_deref() {
-            let color_customizations: Vec<(String, CstInputValue)> = vec![
-                (
-                    "titleBar.activeBackground".to_owned(),
-                    CstInputValue::String(title_bar_hex.to_owned()),
-                ),
-                (
-                    "titleBar.activeForeground".to_owned(),
-                    CstInputValue::String("#ffffff".to_owned()),
-                ),
-                (
-                    "titleBar.inactiveBackground".to_owned(),
-                    CstInputValue::String(title_bar_hex.to_owned()),
-                ),
-                (
-                    "titleBar.inactiveForeground".to_owned(),
-                    CstInputValue::String("#ffffff".to_owned()),
-                ),
-            ];
-            settings_properties.push((
-                "workbench.colorCustomizations".to_owned(),
-                CstInputValue::Object(color_customizations),
-            ));
+    /// Merges the current `RePortal` workspace identity into the
+    /// existing `settings` object. Keeping the mutation at property
+    /// level preserves user settings, nested color customizations,
+    /// and comments that are unrelated to `RePortal`'s identity.
+    fn merge_workspace_identity_settings(&self, root_object: &CstObject) {
+        let Some(window_title) = self.window_title_override.as_deref() else {
+            return;
+        };
+        let settings_object = root_object.object_value_or_set("settings");
+        let window_title_value =
+            CstInputValue::String(format!("{window_title} — ${{activeEditorShort}}"));
+        Self::set_or_append_cst_property(&settings_object, "window.title", window_title_value);
+
+        match self.title_bar_color_hex.as_deref() {
+            Some(title_bar_hex) => {
+                Self::merge_title_bar_color_customizations(&settings_object, title_bar_hex);
+            }
+            None => Self::remove_reportal_title_bar_customizations(&settings_object),
         }
-        CstInputValue::Object(settings_properties)
+    }
+
+    /// Sets an existing CST property in place or appends it when
+    /// the property is not present, keeping unrelated sibling
+    /// properties and their comments intact.
+    fn set_or_append_cst_property(
+        target_object: &CstObject,
+        property_name: &str,
+        property_value: CstInputValue,
+    ) {
+        match target_object.get(property_name) {
+            Some(existing_property) => existing_property.set_value(property_value),
+            None => {
+                target_object.append(property_name, property_value);
+            }
+        }
+    }
+
+    /// Updates the four title-bar properties owned by `RePortal`
+    /// while leaving all other editor color customizations intact.
+    fn merge_title_bar_color_customizations(settings_object: &CstObject, title_bar_hex: &str) {
+        let color_customizations =
+            settings_object.object_value_or_set("workbench.colorCustomizations");
+        let color_properties = [
+            (
+                "titleBar.activeBackground",
+                CstInputValue::String(title_bar_hex.to_owned()),
+            ),
+            (
+                "titleBar.activeForeground",
+                CstInputValue::String("#ffffff".to_owned()),
+            ),
+            (
+                "titleBar.inactiveBackground",
+                CstInputValue::String(title_bar_hex.to_owned()),
+            ),
+            (
+                "titleBar.inactiveForeground",
+                CstInputValue::String("#ffffff".to_owned()),
+            ),
+        ];
+        for (property_name, property_value) in color_properties {
+            Self::set_or_append_cst_property(&color_customizations, property_name, property_value);
+        }
+    }
+
+    /// Removes only title-bar properties previously owned by
+    /// `RePortal` when the current workspace has no accent color.
+    fn remove_reportal_title_bar_customizations(settings_object: &CstObject) {
+        let Some(color_customizations) =
+            settings_object.object_value("workbench.colorCustomizations")
+        else {
+            return;
+        };
+        for property_name in [
+            "titleBar.activeBackground",
+            "titleBar.activeForeground",
+            "titleBar.inactiveBackground",
+            "titleBar.inactiveForeground",
+        ] {
+            if let Some(existing_property) = color_customizations.get(property_name) {
+                existing_property.remove();
+            }
+        }
     }
 }
 
@@ -433,6 +461,82 @@ mod tests {
         assert!(
             rewritten_text.contains("User-authored settings below"),
             "settings JSONC comment was stripped. Rewritten:\n{rewritten_text}",
+        );
+        let _ = std::fs::remove_file(&workspace_file_path);
+    }
+
+    #[test]
+    fn workspace_identity_preserves_user_settings_and_nested_colors() {
+        let workspace_file_path = unique_temp_path();
+        let original_text = r##"{
+            // Workspace-level user note
+            "folders": [
+                { "path": "./old/api" }
+            ],
+            "settings": {
+                // Keep the user's editor preference
+                "editor.fontSize": 14,
+                "window.title": "Old title",
+                "workbench.colorCustomizations": {
+                    // Keep the user's editor color
+                    "editor.background": "#123456",
+                    "titleBar.activeBackground": "#000000"
+                }
+            },
+            "extensions": {
+                "recommendations": ["rust-lang.rust-analyzer"]
+            },
+            "launch": {
+                "version": "0.2.0",
+                "configurations": []
+            }
+        }"##;
+        write_fixture(&workspace_file_path, original_text);
+
+        let mut loaded_doc =
+            CodeWorkspaceFile::load_or_empty(&workspace_file_path).expect("load must succeed");
+        loaded_doc.set_folder_paths(&[PathBuf::from("./new/api")]);
+        loaded_doc.set_workspace_identity("Backend".to_owned(), Some("#abcdef".to_owned()));
+        loaded_doc
+            .write_to_disk(&workspace_file_path)
+            .expect("write must succeed");
+
+        let rewritten_text = read_back(&workspace_file_path);
+        assert!(
+            rewritten_text.contains("./new/api"),
+            "folder paths must still be regenerated. Rewritten:\n{rewritten_text}",
+        );
+        assert!(
+            rewritten_text.contains("editor.fontSize"),
+            "unrelated user settings must survive identity regeneration. Rewritten:\n{rewritten_text}",
+        );
+        assert!(
+            rewritten_text.contains("editor.background"),
+            "unrelated nested color customizations must survive identity regeneration. Rewritten:\n{rewritten_text}",
+        );
+        assert!(
+            rewritten_text.contains("Workspace-level user note"),
+            "top-level JSONC comments must survive identity regeneration. Rewritten:\n{rewritten_text}",
+        );
+        assert!(
+            rewritten_text.contains("Keep the user's editor preference"),
+            "settings comments must survive identity regeneration. Rewritten:\n{rewritten_text}",
+        );
+        assert!(
+            rewritten_text.contains("rust-lang.rust-analyzer") && rewritten_text.contains("launch"),
+            "unrelated top-level fields must survive identity regeneration. Rewritten:\n{rewritten_text}",
+        );
+        assert!(
+            rewritten_text.contains("Backend — ${activeEditorShort}"),
+            "RePortal must refresh the workspace title. Rewritten:\n{rewritten_text}",
+        );
+        assert!(
+            rewritten_text.contains("#abcdef"),
+            "RePortal must refresh its title-bar colors. Rewritten:\n{rewritten_text}",
+        );
+        assert!(
+            !rewritten_text.contains("#000000"),
+            "the previous RePortal-owned title-bar color must be replaced. Rewritten:\n{rewritten_text}",
         );
         let _ = std::fs::remove_file(&workspace_file_path);
     }
