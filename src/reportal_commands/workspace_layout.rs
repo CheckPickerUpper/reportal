@@ -15,6 +15,7 @@
 
 use crate::code_workspace::CodeWorkspaceFile;
 use crate::error::ReportalError;
+use std::ffi::OsStr;
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -116,7 +117,9 @@ pub struct WorkspaceLayoutParameters<'caller> {
 /// updates links whose targets have changed, leaves already-correct
 /// links untouched, and refuses to clobber non-link entries at the
 /// link paths so a user who drops a real file into the workspace
-/// directory cannot lose it to a silent overwrite.
+/// directory cannot lose it to a silent overwrite. It also removes
+/// stale generated symlinks or junctions that no longer correspond
+/// to a current member.
 ///
 /// The `.code-workspace` file is written with relative `./<link>`
 /// folder entries so opening it in Cursor / `VSCode` surfaces the
@@ -138,6 +141,7 @@ pub fn materialize_workspace_layout(
     for link_spec in layout_params.member_links {
         ensure_member_link(layout_params.workspace_directory, link_spec)?;
     }
+    prune_stale_generated_links(layout_params)?;
     let workspace_file_path = workspace_file_path_inside_dir(
         layout_params.workspace_directory,
         layout_params.workspace_name,
@@ -157,6 +161,106 @@ pub fn materialize_workspace_layout(
     }
     code_workspace_document.write_to_disk(&workspace_file_path)?;
     Ok(workspace_file_path)
+}
+
+/// Removes stale symlinks or junctions left behind when a workspace
+/// member is removed from configuration. Real files and directories
+/// are intentionally ignored, so user-authored data is never part
+/// of the reconciliation delete set.
+fn prune_stale_generated_links(
+    layout_params: &WorkspaceLayoutParameters<'_>,
+) -> Result<(), ReportalError> {
+    let workspace_file_path = workspace_file_path_inside_dir(
+        layout_params.workspace_directory,
+        layout_params.workspace_name,
+    );
+    let directory_entries =
+        std::fs::read_dir(layout_params.workspace_directory).map_err(|read_error| {
+            ReportalError::CodeWorkspaceIoFailure {
+                file_path: layout_params.workspace_directory.display().to_string(),
+                reason: read_error.to_string(),
+            }
+        })?;
+    for directory_entry in directory_entries {
+        let directory_entry =
+            directory_entry.map_err(|read_error| ReportalError::CodeWorkspaceIoFailure {
+                file_path: layout_params.workspace_directory.display().to_string(),
+                reason: read_error.to_string(),
+            })?;
+        let entry_path = directory_entry.path();
+        let entry_name = directory_entry.file_name();
+        let is_current_member = layout_params
+            .member_links
+            .iter()
+            .any(|link_spec| entry_name == OsStr::new(link_spec.link_name.as_str()));
+        if entry_path == workspace_file_path || is_current_member {
+            continue;
+        }
+        let is_generated_link = is_workspace_generated_link(&entry_path).map_err(|link_error| {
+            ReportalError::CodeWorkspaceIoFailure {
+                file_path: entry_path.display().to_string(),
+                reason: link_error.to_string(),
+            }
+        })?;
+        if is_generated_link {
+            remove_workspace_generated_link(&entry_path).map_err(|remove_error| {
+                ReportalError::CodeWorkspaceIoFailure {
+                    file_path: entry_path.display().to_string(),
+                    reason: remove_error.to_string(),
+                }
+            })?;
+        }
+    }
+    Ok(())
+}
+
+/// Reports whether a filesystem entry is a reportal-generated link
+/// on the current platform.
+fn is_workspace_generated_link(entry_path: &Path) -> io::Result<bool> {
+    #[cfg(unix)]
+    {
+        std::fs::symlink_metadata(entry_path).map(|metadata| metadata.file_type().is_symlink())
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+
+        const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x0400;
+        let metadata = std::fs::symlink_metadata(entry_path)?;
+        if metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT == 0 {
+            return Ok(false);
+        }
+        junction::exists(entry_path)
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
+        let _ = entry_path;
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "workspace link pruning is not supported on this platform",
+        ))
+    }
+}
+
+/// Removes a reportal-generated link without following it to the
+/// member repository.
+fn remove_workspace_generated_link(entry_path: &Path) -> io::Result<()> {
+    #[cfg(unix)]
+    {
+        std::fs::remove_file(entry_path)
+    }
+    #[cfg(windows)]
+    {
+        junction::delete(entry_path)
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
+        let _ = entry_path;
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "workspace link pruning is not supported on this platform",
+        ))
+    }
 }
 
 /// Computes the canonical `.code-workspace` file path inside a
@@ -503,6 +607,77 @@ mod tests {
         let resolved_after_second =
             std::fs::read_link(&stale_link_path).expect("link must still resolve");
         assert_eq!(resolved_after_second, real_target);
+
+        let _ = std::fs::remove_dir_all(&scratch_dir);
+    }
+
+    #[test]
+    #[cfg(any(unix, windows))]
+    fn materialize_layout_prunes_stale_generated_links_and_preserves_user_entries() {
+        let scratch_dir = unique_temp_dir("prune-stale");
+        let current_target = scratch_dir.join("repos").join("current");
+        let stale_target = scratch_dir.join("repos").join("stale");
+        std::fs::create_dir_all(&current_target).expect("current target must be creatable");
+        std::fs::create_dir_all(&stale_target).expect("stale target must be creatable");
+
+        let workspace_dir = scratch_dir.join("workspaces").join("sample-workspace");
+        std::fs::create_dir_all(&workspace_dir).expect("workspace dir must be creatable");
+        let stale_link_path = workspace_dir.join("removed");
+        create_workspace_link(&stale_target, &stale_link_path)
+            .expect("stale generated link must be creatable");
+
+        let user_file_path = workspace_dir.join("notes.txt");
+        std::fs::write(&user_file_path, b"keep this file\n").expect("user file must be writable");
+        let user_directory_path = workspace_dir.join("keep-directory");
+        std::fs::create_dir_all(&user_directory_path).expect("user directory must be creatable");
+        let user_nested_file_path = user_directory_path.join("readme.txt");
+        std::fs::write(&user_nested_file_path, b"keep this directory\n")
+            .expect("nested user file must be writable");
+
+        let member_links = vec![WorkspaceLinkSpec {
+            link_name: "current".to_owned(),
+            target_absolute_path: current_target,
+        }];
+        let workspace_file_path = materialize_workspace_layout(&WorkspaceLayoutParameters {
+            workspace_directory: &workspace_dir,
+            workspace_name: "sample-workspace",
+            member_links: &member_links,
+            window_title_override: None,
+            title_bar_color_hex: None,
+        })
+        .expect("materialize must succeed");
+
+        assert!(
+            !stale_link_path.exists(),
+            "stale generated link must be removed when membership is gone",
+        );
+        assert!(
+            workspace_dir.join("current").exists(),
+            "current generated link must remain",
+        );
+        assert!(user_file_path.exists(), "real user file must be preserved");
+        assert_eq!(
+            std::fs::read(&user_file_path).expect("user file must remain readable"),
+            b"keep this file\n",
+        );
+        assert!(
+            user_directory_path.is_dir(),
+            "real user directory must be preserved",
+        );
+        assert_eq!(
+            std::fs::read(&user_nested_file_path).expect("nested user file must remain readable"),
+            b"keep this directory\n",
+        );
+        let workspace_file_contents =
+            std::fs::read_to_string(workspace_file_path).expect("workspace file must be readable");
+        assert!(
+            workspace_file_contents.contains("./current"),
+            "folders[] must contain current membership",
+        );
+        assert!(
+            !workspace_file_contents.contains("./removed"),
+            "folders[] must omit removed membership",
+        );
 
         let _ = std::fs::remove_dir_all(&scratch_dir);
     }
