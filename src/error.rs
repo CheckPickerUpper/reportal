@@ -37,6 +37,20 @@ pub enum ReportalError {
         alias: String,
     },
 
+    /// A repository alias collides with another repository's
+    /// canonical key or declared alias.
+    #[error(
+        "Repo alias conflict: '{conflicting_value}' is declared by repo '{repository_name}' but also by {conflicting_entity_description}"
+    )]
+    RepoAliasConflict {
+        /// The repository declaring the conflicting alias.
+        repository_name: String,
+        /// The alias or canonical key claimed more than once.
+        conflicting_value: String,
+        /// Human-readable description of the other repository claim.
+        conflicting_entity_description: String,
+    },
+
     /// The editor process failed to launch.
     #[error("Failed to open editor: {reason}")]
     EditorLaunchFailure {
