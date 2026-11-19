@@ -284,8 +284,10 @@ impl<'config> RepoTreeGroupingParameters<'config> {
 mod tests {
     use super::*;
 
-    fn parse_test_config(toml_text: &str) -> ReportalConfig {
-        toml::from_str(toml_text).expect("test fixture must parse as valid config")
+    fn parse_test_config(toml_text: &str) -> Result<ReportalConfig, ReportalError> {
+        toml::from_str(toml_text).map_err(|error| ReportalError::ConfigParseFailure {
+            reason: error.to_string(),
+        })
     }
 
     fn build_tree<'config>(
@@ -301,25 +303,25 @@ mod tests {
     }
 
     #[test]
-    fn unassigned_repo_lands_in_unassigned_section() {
+    fn unassigned_repo_lands_in_unassigned_section() -> Result<(), ReportalError> {
         let test_config = parse_test_config(
             r#"
             [repos.lonely]
             path = "/tmp/lonely"
             "#,
-        );
+        )?;
         let tag_filter = TagFilter::All;
         let workspace_filter = WorkspaceFilter::All;
-        let tree_grouping =
-            build_tree(&test_config, &tag_filter, &workspace_filter).expect("build must succeed");
+        let tree_grouping = build_tree(&test_config, &tag_filter, &workspace_filter)?;
         assert_eq!(tree_grouping.unassigned_repos().len(), 1);
         assert_eq!(tree_grouping.unassigned_repos()[0].0, "lonely");
         assert!(tree_grouping.workspace_sections().is_empty());
         assert_eq!(tree_grouping.distinct_repo_count(), 1);
+        Ok(())
     }
 
     #[test]
-    fn multi_workspace_repo_renders_in_every_section() {
+    fn multi_workspace_repo_renders_in_every_section() -> Result<(), ReportalError> {
         let test_config = parse_test_config(
             r#"
             [repos.shared]
@@ -331,11 +333,10 @@ mod tests {
             [workspaces.backend]
             repos = ["shared"]
             "#,
-        );
+        )?;
         let tag_filter = TagFilter::All;
         let workspace_filter = WorkspaceFilter::All;
-        let tree_grouping =
-            build_tree(&test_config, &tag_filter, &workspace_filter).expect("build must succeed");
+        let tree_grouping = build_tree(&test_config, &tag_filter, &workspace_filter)?;
         assert_eq!(
             tree_grouping.workspace_sections().len(),
             2,
@@ -350,10 +351,11 @@ mod tests {
             tree_grouping.unassigned_repos().is_empty(),
             "a repo that IS in workspaces must not appear as unassigned",
         );
+        Ok(())
     }
 
     #[test]
-    fn workspace_filter_by_name_scopes_to_one_section() {
+    fn workspace_filter_by_name_scopes_to_one_section() -> Result<(), ReportalError> {
         let test_config = parse_test_config(
             r#"
             [repos.alpha]
@@ -367,11 +369,10 @@ mod tests {
             [workspaces.backend]
             repos = ["bravo"]
             "#,
-        );
+        )?;
         let tag_filter = TagFilter::All;
         let workspace_filter = WorkspaceFilter::ByName("frontend".to_owned());
-        let tree_grouping =
-            build_tree(&test_config, &tag_filter, &workspace_filter).expect("build must succeed");
+        let tree_grouping = build_tree(&test_config, &tag_filter, &workspace_filter)?;
         assert_eq!(tree_grouping.workspace_sections().len(), 1);
         assert_eq!(
             tree_grouping.workspace_sections()[0].workspace_name(),
@@ -381,16 +382,17 @@ mod tests {
             tree_grouping.unassigned_repos().is_empty(),
             "unassigned section must be suppressed when workspace filter is scoped",
         );
+        Ok(())
     }
 
     #[test]
-    fn workspace_filter_unknown_name_errors() {
+    fn workspace_filter_unknown_name_errors() -> Result<(), ReportalError> {
         let test_config = parse_test_config(
             r#"
             [repos.alpha]
             path = "/tmp/alpha"
             "#,
-        );
+        )?;
         let tag_filter = TagFilter::All;
         let workspace_filter = WorkspaceFilter::ByName("nonexistent".to_owned());
         let build_outcome = build_tree(&test_config, &tag_filter, &workspace_filter);
@@ -398,10 +400,11 @@ mod tests {
             matches!(build_outcome, Err(ReportalError::WorkspaceNotFound { .. })),
             "unknown workspace name must error loudly, not yield empty output: {build_outcome:?}",
         );
+        Ok(())
     }
 
     #[test]
-    fn tag_filter_restricts_members_within_workspaces() {
+    fn tag_filter_restricts_members_within_workspaces() -> Result<(), ReportalError> {
         let test_config = parse_test_config(
             r#"
             [repos.api]
@@ -415,11 +418,10 @@ mod tests {
             [workspaces.combined]
             repos = ["api", "hobby"]
             "#,
-        );
+        )?;
         let tag_filter = TagFilter::ByTag("work".to_owned());
         let workspace_filter = WorkspaceFilter::All;
-        let tree_grouping =
-            build_tree(&test_config, &tag_filter, &workspace_filter).expect("build must succeed");
+        let tree_grouping = build_tree(&test_config, &tag_filter, &workspace_filter)?;
         assert_eq!(tree_grouping.workspace_sections().len(), 1);
         assert_eq!(
             tree_grouping.workspace_sections()[0].member_repos().len(),
@@ -429,10 +431,11 @@ mod tests {
             tree_grouping.workspace_sections()[0].member_repos()[0].0,
             "api",
         );
+        Ok(())
     }
 
     #[test]
-    fn workspace_with_no_surviving_members_is_omitted() {
+    fn workspace_with_no_surviving_members_is_omitted() -> Result<(), ReportalError> {
         let test_config = parse_test_config(
             r#"
             [repos.personal_only]
@@ -442,11 +445,10 @@ mod tests {
             [workspaces.personal_ws]
             repos = ["personal_only"]
             "#,
-        );
+        )?;
         let tag_filter = TagFilter::ByTag("work".to_owned());
         let workspace_filter = WorkspaceFilter::All;
-        let tree_grouping =
-            build_tree(&test_config, &tag_filter, &workspace_filter).expect("build must succeed");
+        let tree_grouping = build_tree(&test_config, &tag_filter, &workspace_filter)?;
         assert!(
             tree_grouping.workspace_sections().is_empty(),
             "workspaces with zero surviving members must be hidden",
@@ -456,10 +458,11 @@ mod tests {
             "the only repo was filtered out by tag",
         );
         assert!(tree_grouping.is_empty());
+        Ok(())
     }
 
     #[test]
-    fn member_order_matches_declared_order() {
+    fn member_order_matches_declared_order() -> Result<(), ReportalError> {
         let test_config = parse_test_config(
             r#"
             [repos.alpha]
@@ -472,11 +475,10 @@ mod tests {
             [workspaces.ordered]
             repos = ["charlie", "alpha", "bravo"]
             "#,
-        );
+        )?;
         let tag_filter = TagFilter::All;
         let workspace_filter = WorkspaceFilter::All;
-        let tree_grouping =
-            build_tree(&test_config, &tag_filter, &workspace_filter).expect("build must succeed");
+        let tree_grouping = build_tree(&test_config, &tag_filter, &workspace_filter)?;
         let observed_member_order: Vec<&str> = tree_grouping.workspace_sections()[0]
             .member_repos()
             .iter()
@@ -487,10 +489,11 @@ mod tests {
             vec!["charlie", "alpha", "bravo"],
             "sidebar ordering from declared `repos` field must round-trip into the tree",
         );
+        Ok(())
     }
 
     #[test]
-    fn tag_and_workspace_filters_intersect() {
+    fn tag_and_workspace_filters_intersect() -> Result<(), ReportalError> {
         let test_config = parse_test_config(
             r#"
             [repos.api]
@@ -509,11 +512,10 @@ mod tests {
             [workspaces.play]
             repos = ["game"]
             "#,
-        );
+        )?;
         let tag_filter = TagFilter::ByTag("work".to_owned());
         let workspace_filter = WorkspaceFilter::ByName("backend".to_owned());
-        let tree_grouping =
-            build_tree(&test_config, &tag_filter, &workspace_filter).expect("build must succeed");
+        let tree_grouping = build_tree(&test_config, &tag_filter, &workspace_filter)?;
         assert_eq!(tree_grouping.workspace_sections().len(), 1);
         assert_eq!(
             tree_grouping.workspace_sections()[0].member_repos().len(),
@@ -521,5 +523,6 @@ mod tests {
             "both backend members carry the work tag",
         );
         assert_eq!(tree_grouping.distinct_repo_count(), 2);
+        Ok(())
     }
 }

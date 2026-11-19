@@ -140,7 +140,7 @@ mod tests {
     }
 
     #[test]
-    fn extracts_folder_paths_in_declared_order() {
+    fn extracts_folder_paths_in_declared_order() -> Result<(), ReportalError> {
         let input_text = r#"{
             "folders": [
                 { "path": "/alpha" },
@@ -148,21 +148,23 @@ mod tests {
                 { "path": "/charlie" }
             ]
         }"#;
-        let parsed_folder_entries = parse(input_text).expect("valid input must parse");
+        let parsed_folder_entries = parse(input_text)?;
         let folder_path_list: Vec<&str> = parsed_folder_entries
             .iter()
             .map(CodeWorkspaceFolderEntry::folder_path)
             .collect();
         assert_eq!(folder_path_list, vec!["/alpha", "/bravo", "/charlie"]);
+        Ok(())
     }
 
     #[test]
-    fn missing_folders_property_yields_empty_vec() {
+    fn missing_folders_property_yields_empty_vec() -> Result<(), ReportalError> {
         let input_text = r#"{
             "settings": { "editor.fontSize": 14 }
         }"#;
-        let parsed_folder_entries = parse(input_text).expect("non-folder objects must still parse");
+        let parsed_folder_entries = parse(input_text)?;
         assert!(parsed_folder_entries.is_empty());
+        Ok(())
     }
 
     #[test]
@@ -213,7 +215,7 @@ mod tests {
     }
 
     #[test]
-    fn jsonc_comments_in_source_do_not_break_parse() {
+    fn jsonc_comments_in_source_do_not_break_parse() -> Result<(), ReportalError> {
         let input_text = r#"{
             // top-level comment describing this workspace
             "folders": [
@@ -221,9 +223,9 @@ mod tests {
                 { "path": "/alpha" }
             ]
         }"#;
-        let parsed_folder_entries =
-            parse(input_text).expect("JSONC comments must not break folder parse");
+        let parsed_folder_entries = parse(input_text)?;
         assert_eq!(parsed_folder_entries.len(), 1);
         assert_eq!(parsed_folder_entries[0].folder_path(), "/alpha");
+        Ok(())
     }
 }

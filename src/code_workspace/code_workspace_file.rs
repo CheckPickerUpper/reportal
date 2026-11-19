@@ -324,31 +324,38 @@ mod tests {
         ))
     }
 
-    fn write_fixture(file_path: &Path, file_contents: &str) {
-        std::fs::write(file_path, file_contents).expect("fixture write must succeed");
+    fn write_fixture(file_path: &Path, file_contents: &str) -> Result<(), ReportalError> {
+        std::fs::write(file_path, file_contents).map_err(|error| {
+            ReportalError::CodeWorkspaceIoFailure {
+                file_path: file_path.display().to_string(),
+                reason: error.to_string(),
+            }
+        })
     }
 
-    fn read_back(file_path: &Path) -> String {
-        std::fs::read_to_string(file_path).expect("fixture read must succeed")
+    fn read_back(file_path: &Path) -> Result<String, ReportalError> {
+        std::fs::read_to_string(file_path).map_err(|error| ReportalError::CodeWorkspaceIoFailure {
+            file_path: file_path.display().to_string(),
+            reason: error.to_string(),
+        })
     }
 
     #[test]
-    fn empty_doc_writes_only_folders_property() {
+    fn empty_doc_writes_only_folders_property() -> Result<(), ReportalError> {
         let workspace_file_path = unique_temp_path();
         let mut empty_doc = CodeWorkspaceFile::empty();
         empty_doc.set_folder_paths(&[PathBuf::from("/alpha"), PathBuf::from("/bravo")]);
-        empty_doc
-            .write_to_disk(&workspace_file_path)
-            .expect("write must succeed");
-        let written_text = read_back(&workspace_file_path);
+        empty_doc.write_to_disk(&workspace_file_path)?;
+        let written_text = read_back(&workspace_file_path)?;
         assert!(written_text.contains("\"folders\""), "missing folders key");
         assert!(written_text.contains("/alpha"), "missing /alpha entry");
         assert!(written_text.contains("/bravo"), "missing /bravo entry");
         let _ = std::fs::remove_file(&workspace_file_path);
+        Ok(())
     }
 
     #[test]
-    fn round_trip_preserves_unknown_top_level_fields() {
+    fn round_trip_preserves_unknown_top_level_fields() -> Result<(), ReportalError> {
         let workspace_file_path = unique_temp_path();
         let original_text = r#"{
             "folders": [
@@ -366,16 +373,13 @@ mod tests {
                 "configurations": []
             }
         }"#;
-        write_fixture(&workspace_file_path, original_text);
+        write_fixture(&workspace_file_path, original_text)?;
 
-        let mut loaded_doc =
-            CodeWorkspaceFile::load_or_empty(&workspace_file_path).expect("load must succeed");
+        let mut loaded_doc = CodeWorkspaceFile::load_or_empty(&workspace_file_path)?;
         loaded_doc.set_folder_paths(&[PathBuf::from("/new/path")]);
-        loaded_doc
-            .write_to_disk(&workspace_file_path)
-            .expect("write must succeed");
+        loaded_doc.write_to_disk(&workspace_file_path)?;
 
-        let rewritten_text = read_back(&workspace_file_path);
+        let rewritten_text = read_back(&workspace_file_path)?;
         assert!(
             rewritten_text.contains("/new/path"),
             "folders array was not updated to /new/path. Rewritten:\n{rewritten_text}",
@@ -401,10 +405,11 @@ mod tests {
             "launch section was stripped during regeneration. Rewritten:\n{rewritten_text}",
         );
         let _ = std::fs::remove_file(&workspace_file_path);
+        Ok(())
     }
 
     #[test]
-    fn round_trip_preserves_jsonc_comments() {
+    fn round_trip_preserves_jsonc_comments() -> Result<(), ReportalError> {
         let workspace_file_path = unique_temp_path();
         let original_text = r#"{
             // Workspace for the backend services
@@ -416,16 +421,13 @@ mod tests {
                 "editor.fontSize": 14
             }
         }"#;
-        write_fixture(&workspace_file_path, original_text);
+        write_fixture(&workspace_file_path, original_text)?;
 
-        let mut loaded_doc =
-            CodeWorkspaceFile::load_or_empty(&workspace_file_path).expect("load must succeed");
+        let mut loaded_doc = CodeWorkspaceFile::load_or_empty(&workspace_file_path)?;
         loaded_doc.set_folder_paths(&[PathBuf::from("/new/api")]);
-        loaded_doc
-            .write_to_disk(&workspace_file_path)
-            .expect("write must succeed");
+        loaded_doc.write_to_disk(&workspace_file_path)?;
 
-        let rewritten_text = read_back(&workspace_file_path);
+        let rewritten_text = read_back(&workspace_file_path)?;
         assert!(
             rewritten_text.contains("Workspace for the backend services"),
             "top-level JSONC comment was stripped. Rewritten:\n{rewritten_text}",
@@ -435,13 +437,14 @@ mod tests {
             "settings JSONC comment was stripped. Rewritten:\n{rewritten_text}",
         );
         let _ = std::fs::remove_file(&workspace_file_path);
+        Ok(())
     }
 
     #[test]
-    fn load_or_empty_on_missing_file_returns_empty_doc() {
+    fn load_or_empty_on_missing_file_returns_empty_doc() -> Result<(), ReportalError> {
         let nonexistent_path = unique_temp_path();
-        let loaded_doc = CodeWorkspaceFile::load_or_empty(&nonexistent_path)
-            .expect("missing file must load as empty");
+        let loaded_doc = CodeWorkspaceFile::load_or_empty(&nonexistent_path)?;
         assert!(loaded_doc.folder_entries().is_empty());
+        Ok(())
     }
 }

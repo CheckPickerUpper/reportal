@@ -255,7 +255,7 @@ mod tests {
     }
 
     #[test]
-    fn valid_builder_produces_entry_with_ordered_members() {
+    fn valid_builder_produces_entry_with_ordered_members() -> Result<(), ReportalError> {
         let workspace_builder = WorkspaceRegistrationBuilder::start("backend".to_owned())
             .repo_aliases(vec![
                 "alpha".to_owned(),
@@ -264,39 +264,39 @@ mod tests {
             ])
             .workspace_description("Backend services".to_owned())
             .workspace_file_path("~/work.code-workspace".to_owned());
-        let (workspace_name, entry) = workspace_builder
-            .build()
-            .expect("valid builder must succeed");
+        let (workspace_name, entry) = workspace_builder.build()?;
         assert_eq!(workspace_name, "backend");
         assert_eq!(entry.repo_aliases(), &["alpha", "bravo", "charlie"]);
         assert_eq!(entry.description(), "Backend services");
         assert_eq!(entry.raw_workspace_file_path(), "~/work.code-workspace");
+        Ok(())
     }
 
     #[test]
-    fn member_order_is_preserved_verbatim() {
+    fn member_order_is_preserved_verbatim() -> Result<(), ReportalError> {
         let declared_order = vec!["zebra".to_owned(), "apple".to_owned(), "mango".to_owned()];
         let (_, entry) = WorkspaceRegistrationBuilder::start("ordered".to_owned())
             .repo_aliases(declared_order.clone())
-            .build()
-            .expect("valid builder must succeed");
+            .build()?;
         assert_eq!(
             entry.repo_aliases(),
             declared_order.as_slice(),
             "sidebar ordering is load-bearing and must match the declared input verbatim",
         );
+        Ok(())
     }
 
     #[test]
-    fn workspace_aliases_populate_into_entry() {
+    fn workspace_aliases_populate_into_entry() -> Result<(), ReportalError> {
+        use crate::reportal_config::has_aliases::HasAliases;
+
         let declared_aliases = vec!["sample".to_owned(), "example".to_owned()];
         let (_, entry) = WorkspaceRegistrationBuilder::start("example-workspace".to_owned())
             .repo_aliases(vec!["app".to_owned()])
             .workspace_aliases(declared_aliases.clone())
-            .build()
-            .expect("valid builder must succeed");
-        use crate::reportal_config::has_aliases::HasAliases;
+            .build()?;
         assert_eq!(entry.aliases(), declared_aliases.as_slice());
+        Ok(())
     }
 
     #[test]
