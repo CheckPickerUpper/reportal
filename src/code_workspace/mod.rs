@@ -2,16 +2,9 @@
 //!
 //! A `.code-workspace` file is a JSON document with a `folders`
 //! array plus optional user-authored fields like `settings`,
-//! `extensions`, and `launch`. Reportal owns the `folders` array
-//! because it is derived from the current paths of the member
-//! repos; everything else is preserved untouched across writes so
-//! regeneration cannot destroy settings the user set by hand.
-//!
-//! The round-trip invariant: reading a file and writing it back
-//! without calling `set_folder_paths` must produce a byte-stable
-//! document modulo whitespace normalization. Reading a file,
-//! calling `set_folder_paths`, and writing it back must replace
-//! only the `folders` field and leave every other key intact.
+//! `extensions`, and `launch`. RePortal writes the derived folder
+//! list and the configured title and title-bar colors. Other fields
+//! and their comments are preserved across regeneration.
 
 mod code_workspace_file;
 mod code_workspace_folder_entry;

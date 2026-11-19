@@ -100,8 +100,8 @@ pub struct WorkspaceLayoutParameters<'caller> {
     pub member_links: &'caller [WorkspaceLinkSpec],
     /// Workspace identity label stamped into the editor's
     /// `window.title` setting. `None` leaves the setting
-    /// untouched; `Some(label)` replaces the `.code-workspace`
-    /// file's `settings` object with a reportal-managed block.
+    /// untouched. A label sets the window title and title-bar colors
+    /// alongside the user's editor settings.
     pub window_title_override: Option<&'caller str>,
     /// Workspace accent color as a raw `#RRGGBB` string, used
     /// for the editor title bar when `window_title_override` is

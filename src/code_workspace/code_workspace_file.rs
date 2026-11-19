@@ -3,25 +3,15 @@
 use crate::code_workspace::code_workspace_folder_entry::CodeWorkspaceFolderEntry;
 use crate::code_workspace::folder_parsing::FolderParsingContext;
 use crate::error::ReportalError;
-use jsonc_parser::cst::{CstInputValue, CstRootNode};
+use jsonc_parser::cst::{CstInputValue, CstObject, CstRootNode};
 use jsonc_parser::ParseOptions;
 use std::path::{Path, PathBuf};
 
 /// Parsed, mutable view of a `.code-workspace` file.
 ///
-/// Stores the original file text verbatim so the parse-merge-write
-/// path can re-parse it on write and apply a surgical edit to the
-/// `folders` property, leaving every other top-level field
-/// (`settings`, `extensions`, `launch`, `tasks`, plus any future
-/// `VSCode` field and any JSONC comments) byte-identical to the
-/// original.
-///
-/// The invariant this preserves: reading a file, calling
-/// `set_folder_paths`, and writing it back mutates only the
-/// `folders` array and nothing else. This is achieved by
-/// delegating the mutation to `jsonc-parser`'s CST API, which owns
-/// the parse-and-rewrite logic for JSONC and guarantees
-/// preservation of comments and formatting for untouched fields.
+/// Preserves the original JSONC text and edits the folder list and
+/// configured editor identity in place so editor settings, other fields,
+/// and their comments are preserved.
 #[derive(Debug, Clone)]
 pub struct CodeWorkspaceFile {
     /// Raw text of the `.code-workspace` file as it was last read.
@@ -38,22 +28,12 @@ pub struct CodeWorkspaceFile {
     /// into a new `folders` array via `jsonc-parser`'s typed
     /// `CstInputValue` builder API.
     folders: Vec<CodeWorkspaceFolderEntry>,
-    /// Workspace-identity override for the editor's
-    /// `window.title` setting.
-    ///
-    /// `None` leaves the file's `settings` block untouched on
-    /// write (the previous behavior). `Some(label)` replaces
-    /// the `settings` object with a reportal-managed shape that
-    /// carries this title plus the title-bar accent color.
-    window_title_override: Option<String>,
-    /// Workspace-identity accent color, stored as the raw
-    /// `#RRGGBB` string for direct insertion into
-    /// `workbench.colorCustomizations.titleBar.activeBackground`.
-    ///
-    /// Only read on write when `window_title_override` is also
-    /// set; the title and color travel as a single logical unit
-    /// since an editor window with a custom title but the
-    /// default title-bar color looks broken.
+    identity: Option<WorkspaceEditorIdentity>,
+}
+
+#[derive(Debug, Clone)]
+struct WorkspaceEditorIdentity {
+    window_title: String,
     title_bar_color_hex: Option<String>,
 }
 
@@ -71,8 +51,7 @@ impl CodeWorkspaceFile {
         Self {
             original_file_text: String::new(),
             folders: Vec::new(),
-            window_title_override: None,
-            title_bar_color_hex: None,
+            identity: None,
         }
     }
 
@@ -106,8 +85,7 @@ impl CodeWorkspaceFile {
         Ok(Self {
             original_file_text: file_contents,
             folders: extracted_folders,
-            window_title_override: None,
-            title_bar_color_hex: None,
+            identity: None,
         })
     }
 
@@ -146,8 +124,10 @@ impl CodeWorkspaceFile {
         window_title: String,
         title_bar_color_hex: Option<String>,
     ) {
-        self.window_title_override = Some(window_title);
-        self.title_bar_color_hex = title_bar_color_hex;
+        self.identity = Some(WorkspaceEditorIdentity {
+            window_title,
+            title_bar_color_hex,
+        });
     }
 
     /// Serializes the document back to JSONC and writes it to disk.
@@ -184,21 +164,13 @@ impl CodeWorkspaceFile {
                 }
             })?;
         let root_object = cst_root.object_value_or_set();
-        let new_folders_value = build_folders_cst_value(&self.folders);
-        match root_object.get("folders") {
-            Some(existing_folders_prop) => existing_folders_prop.set_value(new_folders_value),
-            None => {
-                root_object.append("folders", new_folders_value);
-            }
-        }
-        if self.window_title_override.is_some() {
-            let settings_value = self.build_identity_settings_cst_value();
-            match root_object.get("settings") {
-                Some(existing_settings_prop) => existing_settings_prop.set_value(settings_value),
-                None => {
-                    root_object.append("settings", settings_value);
-                }
-            }
+        set_cst_property(
+            &root_object,
+            "folders",
+            build_folders_cst_value(&self.folders),
+        );
+        if let Some(identity) = &self.identity {
+            identity.write_to_settings(&root_object.object_value_or_set("settings"));
         }
         let serialized_text = cst_root.to_string();
         std::fs::write(file_path, serialized_text).map_err(|io_error| {
@@ -209,55 +181,55 @@ impl CodeWorkspaceFile {
         })?;
         Ok(())
     }
+}
 
-    /// Builds the `settings` object value reportal writes when a
-    /// workspace identity is set: a `window.title` string and,
-    /// when the accent color is present, a
-    /// `workbench.colorCustomizations` nested object that paints
-    /// the active title bar.
-    ///
-    /// Lives as a method (rather than a free function) to keep
-    /// this file's free-function count at the project budget of
-    /// two (`ensure_parent_directory_exists` and
-    /// `build_folders_cst_value`). The method reads directly
-    /// from `self` so the caller does not have to thread the
-    /// two fields through a temporary params struct.
-    fn build_identity_settings_cst_value(&self) -> CstInputValue {
-        let window_title = self
-            .window_title_override
-            .as_deref()
-            .unwrap_or_default()
-            .to_owned();
-        let mut settings_properties: Vec<(String, CstInputValue)> = Vec::new();
-        settings_properties.push((
-            "window.title".to_owned(),
-            CstInputValue::String(format!("{window_title} — ${{activeEditorShort}}")),
-        ));
-        if let Some(title_bar_hex) = self.title_bar_color_hex.as_deref() {
-            let color_customizations: Vec<(String, CstInputValue)> = vec![
-                (
-                    "titleBar.activeBackground".to_owned(),
-                    CstInputValue::String(title_bar_hex.to_owned()),
-                ),
-                (
-                    "titleBar.activeForeground".to_owned(),
-                    CstInputValue::String("#ffffff".to_owned()),
-                ),
-                (
-                    "titleBar.inactiveBackground".to_owned(),
-                    CstInputValue::String(title_bar_hex.to_owned()),
-                ),
-                (
-                    "titleBar.inactiveForeground".to_owned(),
-                    CstInputValue::String("#ffffff".to_owned()),
-                ),
-            ];
-            settings_properties.push((
-                "workbench.colorCustomizations".to_owned(),
-                CstInputValue::Object(color_customizations),
-            ));
+impl WorkspaceEditorIdentity {
+    fn write_to_settings(&self, settings: &CstObject) {
+        set_cst_property(
+            settings,
+            "window.title",
+            CstInputValue::String(format!("{} — ${{activeEditorShort}}", self.window_title)),
+        );
+
+        const COLOR_CUSTOMIZATIONS: &str = "workbench.colorCustomizations";
+        let accent = self.title_bar_color_hex.as_deref();
+        let colors = match accent {
+            Some(_) => settings.object_value_or_set(COLOR_CUSTOMIZATIONS),
+            None => {
+                let Some(existing_colors) = settings.object_value(COLOR_CUSTOMIZATIONS) else {
+                    return;
+                };
+                existing_colors
+            }
+        };
+
+        let foreground = accent.map(|_| "#ffffff");
+        for (name, value) in [
+            ("titleBar.activeBackground", accent),
+            ("titleBar.activeForeground", foreground),
+            ("titleBar.inactiveBackground", accent),
+            ("titleBar.inactiveForeground", foreground),
+        ] {
+            match value {
+                Some(color) => {
+                    set_cst_property(&colors, name, CstInputValue::String(color.to_owned()));
+                }
+                None => {
+                    if let Some(existing_color) = colors.get(name) {
+                        existing_color.remove();
+                    }
+                }
+            }
         }
-        CstInputValue::Object(settings_properties)
+    }
+}
+
+fn set_cst_property(object: &CstObject, name: &str, value: CstInputValue) {
+    match object.get(name) {
+        Some(property) => property.set_value(value),
+        None => {
+            object.append(name, value);
+        }
     }
 }
 
@@ -435,6 +407,80 @@ mod tests {
         assert!(
             rewritten_text.contains("User-authored settings below"),
             "settings JSONC comment was stripped. Rewritten:\n{rewritten_text}",
+        );
+        let _ = std::fs::remove_file(&workspace_file_path);
+        Ok(())
+    }
+
+    #[test]
+    fn workspace_identity_preserves_user_settings_and_nested_colors() -> Result<(), ReportalError> {
+        let workspace_file_path = unique_temp_path();
+        let original_text = r##"{
+            // Workspace-level user note
+            "folders": [
+                { "path": "./old/api" }
+            ],
+            "settings": {
+                // Keep the user's editor preference
+                "editor.fontSize": 14,
+                "window.title": "Old title",
+                "workbench.colorCustomizations": {
+                    // Keep the user's editor color
+                    "editor.background": "#123456",
+                    "titleBar.activeBackground": "#000000"
+                }
+            },
+            "extensions": {
+                "recommendations": ["rust-lang.rust-analyzer"]
+            },
+            "launch": {
+                "version": "0.2.0",
+                "configurations": []
+            }
+        }"##;
+        write_fixture(&workspace_file_path, original_text)?;
+
+        let mut loaded_doc = CodeWorkspaceFile::load_or_empty(&workspace_file_path)?;
+        loaded_doc.set_folder_paths(&[PathBuf::from("./new/api")]);
+        loaded_doc.set_workspace_identity("Backend".to_owned(), Some("#abcdef".to_owned()));
+        loaded_doc.write_to_disk(&workspace_file_path)?;
+
+        let rewritten_text = read_back(&workspace_file_path)?;
+        assert!(
+            rewritten_text.contains("./new/api"),
+            "folder paths must still be regenerated. Rewritten:\n{rewritten_text}",
+        );
+        assert!(
+            rewritten_text.contains("editor.fontSize"),
+            "unrelated user settings must survive identity regeneration. Rewritten:\n{rewritten_text}",
+        );
+        assert!(
+            rewritten_text.contains("editor.background"),
+            "unrelated nested color customizations must survive identity regeneration. Rewritten:\n{rewritten_text}",
+        );
+        assert!(
+            rewritten_text.contains("Workspace-level user note"),
+            "top-level JSONC comments must survive identity regeneration. Rewritten:\n{rewritten_text}",
+        );
+        assert!(
+            rewritten_text.contains("Keep the user's editor preference"),
+            "settings comments must survive identity regeneration. Rewritten:\n{rewritten_text}",
+        );
+        assert!(
+            rewritten_text.contains("rust-lang.rust-analyzer") && rewritten_text.contains("launch"),
+            "unrelated top-level fields must survive identity regeneration. Rewritten:\n{rewritten_text}",
+        );
+        assert!(
+            rewritten_text.contains("Backend — ${activeEditorShort}"),
+            "RePortal must refresh the workspace title. Rewritten:\n{rewritten_text}",
+        );
+        assert!(
+            rewritten_text.contains("#abcdef"),
+            "RePortal must refresh its title-bar colors. Rewritten:\n{rewritten_text}",
+        );
+        assert!(
+            !rewritten_text.contains("#000000"),
+            "the previous RePortal-owned title-bar color must be replaced. Rewritten:\n{rewritten_text}",
         );
         let _ = std::fs::remove_file(&workspace_file_path);
         Ok(())
