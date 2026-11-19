@@ -251,7 +251,7 @@ tags = ["personal", "frontend"]
 | `description` | no | `""` | Shown in fuzzy finder and `rep list` |
 | `tags` | no | `[]` | Filter repos with `--tag` |
 | `remote` | no | `""` | Git remote URL for cloning on other machines |
-| `aliases` | no | `[]` | Alternative names for direct jump (e.g. `rj ninja` instead of `rj sample-workspace`) |
+| `aliases` | no | `[]` | Alternative names for direct jump (e.g. `rj api` instead of `rj example-api`) |
 | `title` | no | repo alias | Terminal tab title on jump/open |
 | `color` | no | reset to default | Terminal tab color (`#RRGGBB`) on jump/open |
 | `commands` | no | `{}` | Per-repo command table used by `rep run`; repo commands override same-named global commands |

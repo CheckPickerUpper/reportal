@@ -105,8 +105,14 @@ mod tests {
     #[test]
     fn alias_falls_back_to_canonical_key_lookup() {
         let entry_map = build_entry_map();
-        assert_eq!(resolve_canonical_key(&entry_map, "sample"), Some("example-workspace"));
-        assert_eq!(resolve_canonical_key(&entry_map, "example"), Some("example-workspace"));
+        assert_eq!(
+            resolve_canonical_key(&entry_map, "sample"),
+            Some("example-workspace")
+        );
+        assert_eq!(
+            resolve_canonical_key(&entry_map, "example"),
+            Some("example-workspace")
+        );
         assert_eq!(resolve_canonical_key(&entry_map, "rep"), Some("reportal"));
     }
 

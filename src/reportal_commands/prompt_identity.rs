@@ -41,7 +41,7 @@ use std::path::Path;
 /// (icon glyph, badge shape) can be added later without breaking
 /// the call-site signature.
 pub struct PromptIdentity {
-    /// Short human-readable label — e.g. `"🥷 sample-workspace"` or
+    /// Short human-readable label — e.g. `"API"` or
     /// `"👑 ven"` — rendered inside the prompt and the editor
     /// title bar.
     pub display_label: String,

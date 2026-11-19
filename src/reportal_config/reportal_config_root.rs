@@ -583,12 +583,10 @@ impl ReportalConfig {
             repos: BTreeMap::new(),
             commands: BTreeMap::new(),
             workspaces: BTreeMap::new(),
-            ai_tools: BTreeMap::from([
-                (
-                    "aider".to_owned(),
-                    AiToolEntry::with_executable("aider".to_owned()),
-                ),
-            ]),
+            ai_tools: BTreeMap::from([(
+                "aider".to_owned(),
+                AiToolEntry::with_executable("aider".to_owned()),
+            )]),
         }
     }
 }
@@ -649,8 +647,14 @@ mod tests {
             "example-workspace",
             vec!["sample".to_owned(), "example".to_owned()],
         )?;
-        assert_eq!(config.resolve_workspace_canonical_name("sample")?, "example-workspace");
-        assert_eq!(config.resolve_workspace_canonical_name("example")?, "example-workspace");
+        assert_eq!(
+            config.resolve_workspace_canonical_name("sample")?,
+            "example-workspace"
+        );
+        assert_eq!(
+            config.resolve_workspace_canonical_name("example")?,
+            "example-workspace"
+        );
         assert_eq!(
             config.resolve_workspace_canonical_name("example-workspace")?,
             "example-workspace"
@@ -671,8 +675,12 @@ mod tests {
 
     #[test]
     fn get_workspace_resolves_via_alias() -> Result<(), ReportalError> {
-        let config =
-            config_with_repo_and_workspace("app", vec![], "example-workspace", vec!["sample".to_owned()])?;
+        let config = config_with_repo_and_workspace(
+            "app",
+            vec![],
+            "example-workspace",
+            vec!["sample".to_owned()],
+        )?;
         let resolved = config.get_workspace("sample")?;
         assert_eq!(resolved.repo_aliases(), vec!["app"]);
         Ok(())
@@ -680,8 +688,12 @@ mod tests {
 
     #[test]
     fn get_workspace_mut_resolves_via_alias() -> Result<(), ReportalError> {
-        let mut config =
-            config_with_repo_and_workspace("app", vec![], "example-workspace", vec!["sample".to_owned()])?;
+        let mut config = config_with_repo_and_workspace(
+            "app",
+            vec![],
+            "example-workspace",
+            vec!["sample".to_owned()],
+        )?;
         let resolved_mut = config.get_workspace_mut("sample")?;
         resolved_mut.set_members(vec![
             WorkspaceMember::RegisteredRepo("app".to_owned()),
@@ -695,9 +707,10 @@ mod tests {
     #[test]
     fn get_repo_mut_now_resolves_via_alias() -> Result<(), ReportalError> {
         let mut config = ReportalConfig::create_default();
-        config
-            .repos
-            .insert("example-api".to_owned(), make_repo(vec!["sample-api".to_owned()]));
+        config.repos.insert(
+            "example-api".to_owned(),
+            make_repo(vec!["sample-api".to_owned()]),
+        );
         let resolved_mut = config.get_repo_mut("sample-api")?;
         resolved_mut.set_description("mutated".to_owned());
         assert_eq!(config.get_repo("example-api")?.description(), "mutated");
@@ -745,12 +758,16 @@ mod tests {
     #[test]
     fn alias_collision_workspace_alias_equals_repo_alias() -> Result<(), ReportalError> {
         let mut config = ReportalConfig::create_default();
-        config
-            .repos
-            .insert("example-api".to_owned(), make_repo(vec!["sample-api".to_owned()]));
+        config.repos.insert(
+            "example-api".to_owned(),
+            make_repo(vec!["sample-api".to_owned()]),
+        );
         config.workspaces.insert(
             "example-workspace".to_owned(),
-            make_workspace(vec!["example-api".to_owned()], vec!["sample-api".to_owned()])?,
+            make_workspace(
+                vec!["example-api".to_owned()],
+                vec!["sample-api".to_owned()],
+            )?,
         );
         let outcome = config.validate_alias_collisions();
         assert!(matches!(
@@ -763,7 +780,9 @@ mod tests {
     #[test]
     fn alias_collision_workspace_name_equals_repo_canonical_key() -> Result<(), ReportalError> {
         let mut config = ReportalConfig::create_default();
-        config.repos.insert("example-workspace".to_owned(), make_repo(vec![]));
+        config
+            .repos
+            .insert("example-workspace".to_owned(), make_repo(vec![]));
         config.repos.insert("app".to_owned(), make_repo(vec![]));
         config.workspaces.insert(
             "example-workspace".to_owned(),
