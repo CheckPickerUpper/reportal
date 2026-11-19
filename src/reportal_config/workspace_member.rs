@@ -42,35 +42,3 @@ pub enum WorkspaceMember {
         path: String,
     },
 }
-
-/// Classification accessors for workspace members.
-impl WorkspaceMember {
-    /// Returns the referenced repo alias when this member is a
-    /// registered-repo reference, for use by the repo-rename
-    /// reverse-index and the `rep remove` guard.
-    ///
-    /// Callers pattern-match on the returned enum rather than
-    /// unwrapping, so the two member kinds never get confused at a
-    /// call site.
-    #[must_use]
-    pub fn registered_repo_alias(&self) -> WorkspaceMemberAliasLookup<'_> {
-        match self {
-            Self::RegisteredRepo(alias) => WorkspaceMemberAliasLookup::Matches(alias.as_str()),
-            Self::InlinePath { .. } => WorkspaceMemberAliasLookup::NotARepoReference,
-        }
-    }
-}
-
-/// Outcome of asking a [`WorkspaceMember`] for its registered-repo
-/// alias.
-///
-/// Named variants (not `Option<&str>`) because the absence has
-/// domain meaning: the member is an inline path, which must not be
-/// treated as a missing lookup — it is a different kind of member.
-pub enum WorkspaceMemberAliasLookup<'borrow> {
-    /// The member references a registered repo by the given alias.
-    Matches(&'borrow str),
-    /// The member is an inline filesystem path, so it has no
-    /// registered-repo alias by design.
-    NotARepoReference,
-}

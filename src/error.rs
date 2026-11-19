@@ -160,6 +160,27 @@ pub enum ReportalError {
         missing_alias: String,
     },
 
+    /// The requested repo already belongs to the workspace.
+    #[error("Repo '{repository}' is already a member of workspace '{workspace}'")]
+    WorkspaceAlreadyContainsRepo {
+        repository: String,
+        workspace: String,
+    },
+
+    /// The requested repo does not belong to the workspace.
+    #[error("Repo '{repository}' is not a member of workspace '{workspace}'")]
+    WorkspaceMemberNotFound {
+        repository: String,
+        workspace: String,
+    },
+
+    /// Removing a repository would leave the workspace empty.
+    #[error("Removing '{repository}' would empty workspace '{workspace}'. Delete the workspace instead.")]
+    WorkspaceWouldBeEmpty {
+        repository: String,
+        workspace: String,
+    },
+
     /// A workspace alias or canonical name collides with another
     /// entry in the config, either in the workspace namespace or in
     /// the repo namespace.

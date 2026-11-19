@@ -3,7 +3,7 @@
 use crate::cli_args::WorkspaceArgumentsMemberEditParts;
 use crate::error::ReportalError;
 use crate::reportal_commands::workspace_operations::WorkspaceRegenerator;
-use crate::reportal_config::{ReportalConfig, WorkspaceMember, WorkspaceMemberAliasLookup};
+use crate::reportal_config::ReportalConfig;
 use crate::terminal_style;
 use owo_colors::OwoColorize;
 
@@ -20,32 +20,17 @@ use owo_colors::OwoColorize;
 /// Returns [`ReportalError::WorkspaceNotFound`] if the workspace
 /// name or alias does not exist, [`ReportalError::RepoNotFound`]
 /// if the repo alias is not registered, or
-/// [`ReportalError::ValidationFailure`] if the member is already
+/// [`ReportalError::WorkspaceAlreadyContainsRepo`] if the member is already
 /// present in the workspace. Config I/O and file regeneration
 /// errors bubble up from the underlying calls.
 pub fn run_workspace_add_repo(
     member_edit: &WorkspaceArgumentsMemberEditParts,
 ) -> Result<(), ReportalError> {
     let mut loaded_config = ReportalConfig::load_or_initialize()?;
-    loaded_config.get_repo(member_edit.repository_alias())?;
     let canonical_workspace_name =
         loaded_config.resolve_workspace_canonical_name(member_edit.workspace_name())?;
 
-    let target_workspace = loaded_config.get_workspace_mut(&canonical_workspace_name)?;
-    if target_workspace.contains_repo(member_edit.repository_alias()) {
-        return Err(ReportalError::ValidationFailure {
-            field: "workspace member".to_owned(),
-            reason: format!(
-                "repo '{}' is already a member of workspace '{canonical_workspace_name}'",
-                member_edit.repository_alias(),
-            ),
-        });
-    }
-    let mut updated_members = target_workspace.members().to_vec();
-    updated_members.push(WorkspaceMember::RegisteredRepo(
-        member_edit.repository_alias().to_owned(),
-    ));
-    target_workspace.set_members(updated_members);
+    loaded_config.add_workspace_repo(&canonical_workspace_name, member_edit.repository_alias())?;
     loaded_config.save_to_disk()?;
 
     let regenerator = WorkspaceRegenerator::for_config(&loaded_config);
@@ -74,48 +59,16 @@ pub fn run_workspace_add_repo(
 /// # Errors
 ///
 /// Returns [`ReportalError::WorkspaceNotFound`] if the workspace
-/// name or alias does not exist, or
-/// [`ReportalError::ValidationFailure`] if the repo is not a
-/// current member or if removal would leave the workspace with
-/// zero members. Config I/O and file regeneration errors bubble up
-/// from the underlying calls.
+/// name or alias does not exist, or a membership error when the
+/// repo is absent or removal would leave the workspace empty.
 pub fn run_workspace_remove_repo(
     member_edit: &WorkspaceArgumentsMemberEditParts,
 ) -> Result<(), ReportalError> {
     let mut loaded_config = ReportalConfig::load_or_initialize()?;
     let canonical_workspace_name =
         loaded_config.resolve_workspace_canonical_name(member_edit.workspace_name())?;
-    let target_workspace = loaded_config.get_workspace_mut(&canonical_workspace_name)?;
-    if !target_workspace.contains_repo(member_edit.repository_alias()) {
-        return Err(ReportalError::ValidationFailure {
-            field: "workspace member".to_owned(),
-            reason: format!(
-                "repo '{}' is not a member of workspace '{canonical_workspace_name}'",
-                member_edit.repository_alias(),
-            ),
-        });
-    }
-    let remaining_members: Vec<WorkspaceMember> = target_workspace
-        .members()
-        .iter()
-        .filter(|member| match member.registered_repo_alias() {
-            WorkspaceMemberAliasLookup::Matches(existing_alias) => {
-                existing_alias != member_edit.repository_alias()
-            }
-            WorkspaceMemberAliasLookup::NotARepoReference => true,
-        })
-        .cloned()
-        .collect();
-    if remaining_members.is_empty() {
-        return Err(ReportalError::ValidationFailure {
-            field: "workspace member".to_owned(),
-            reason: format!(
-                "removing '{}' would leave workspace '{canonical_workspace_name}' with zero members; delete the workspace instead",
-                member_edit.repository_alias(),
-            ),
-        });
-    }
-    target_workspace.set_members(remaining_members);
+    loaded_config
+        .remove_workspace_repo(&canonical_workspace_name, member_edit.repository_alias())?;
     loaded_config.save_to_disk()?;
 
     let regenerator = WorkspaceRegenerator::for_config(&loaded_config);

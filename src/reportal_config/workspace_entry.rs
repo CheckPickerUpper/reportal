@@ -5,7 +5,7 @@ use crate::reportal_config::has_aliases::HasAliases;
 use crate::reportal_config::repository_color::RepoColor;
 use crate::reportal_config::shell_alias_export::ShellAliasExport;
 use crate::reportal_config::tab_title::TabTitle;
-use crate::reportal_config::workspace_member::{WorkspaceMember, WorkspaceMemberAliasLookup};
+use crate::reportal_config::workspace_member::WorkspaceMember;
 use serde::{Deserialize, Serialize};
 
 /// A single registered VSCode/Cursor workspace definition.
@@ -101,9 +101,9 @@ impl WorkspaceEntry {
     pub fn repo_aliases(&self) -> Vec<&str> {
         self.repos
             .iter()
-            .filter_map(|member| match member.registered_repo_alias() {
-                WorkspaceMemberAliasLookup::Matches(alias) => Some(alias),
-                WorkspaceMemberAliasLookup::NotARepoReference => None,
+            .filter_map(|member| match member {
+                WorkspaceMember::RegisteredRepo(alias) => Some(alias.as_str()),
+                WorkspaceMember::InlinePath { .. } => None,
             })
             .collect()
     }
@@ -155,22 +155,6 @@ impl WorkspaceEntry {
         self.path = new_directory_path;
     }
 
-    /// Whether the given repo alias is a registered-repo member of
-    /// this workspace.
-    ///
-    /// Used by the reverse-index lookup `workspaces_containing_repo`
-    /// and the `rep remove` guard. Inline-path members never match
-    /// because they carry no repo alias by construction.
-    #[must_use]
-    pub fn contains_repo(&self, repository_alias: &str) -> bool {
-        self.repos.iter().any(|member| {
-            matches!(
-                member.registered_repo_alias(),
-                WorkspaceMemberAliasLookup::Matches(alias) if alias == repository_alias
-            )
-        })
-    }
-
     /// @why Exposes the workspace's prompt-badge / window-title
     /// label so `rep prompt` and `rep workspace rebuild` can render
     /// the same identity without re-reading the raw field.
@@ -189,13 +173,8 @@ impl WorkspaceEntry {
 
     /// Replaces the ordered member list with a new one.
     ///
-    /// Callers that want to mutate registered-repo membership
-    /// without touching inline-path members should compose a new
-    /// list from [`Self::members`] and pass it here. The
-    /// `rep workspace add-repo` / `remove-repo` commands do exactly
-    /// that so inline-path members are preserved across alias-only
-    /// edits.
-    pub fn set_members(&mut self, new_members: Vec<WorkspaceMember>) {
+    /// Config mutations resolve repository aliases before setting the list.
+    pub(super) fn set_members(&mut self, new_members: Vec<WorkspaceMember>) {
         self.repos = new_members;
     }
 }

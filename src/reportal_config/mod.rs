@@ -34,5 +34,5 @@ pub use tab_title::TabTitle;
 pub use tag_filter::TagFilter;
 pub use workspace_entry::WorkspaceEntry;
 pub use workspace_filter::WorkspaceFilter;
-pub use workspace_member::{WorkspaceMember, WorkspaceMemberAliasLookup};
+pub use workspace_member::WorkspaceMember;
 pub use workspace_registration_builder::WorkspaceRegistrationBuilder;
