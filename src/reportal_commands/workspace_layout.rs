@@ -13,8 +13,9 @@
 //! is created per member. A single repo can therefore belong to any
 //! number of workspaces without conflict.
 
-use crate::code_workspace::CodeWorkspaceFile;
+use crate::code_workspace::{CodeWorkspaceFile, CodeWorkspaceFolderEntry};
 use crate::error::ReportalError;
+use std::ffi::OsStr;
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -26,10 +27,28 @@ use std::path::{Path, PathBuf};
 /// The target is the absolute path of the real repo on disk, which
 /// the symlink / junction points at.
 pub struct WorkspaceLinkSpec {
-    /// Short name for the link inside the workspace directory.
-    pub link_name: String,
-    /// Absolute path the link should resolve to.
-    pub target_absolute_path: PathBuf,
+    link_name: String,
+    target_absolute_path: PathBuf,
+}
+
+impl WorkspaceLinkSpec {
+    /// Plans a direct child link to the repository folder.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the link name is not a single path component.
+    pub fn new(link_name: String, target_absolute_path: PathBuf) -> Result<Self, ReportalError> {
+        if !is_workspace_link_name(&link_name) {
+            return Err(ReportalError::ValidationFailure {
+                field: "workspace member link name".to_owned(),
+                reason: format!("'{link_name}' is not a single directory name"),
+            });
+        }
+        Ok(Self {
+            link_name,
+            target_absolute_path,
+        })
+    }
 }
 
 /// Outcome of materializing a single member link, for post-op
@@ -113,10 +132,10 @@ pub struct WorkspaceLayoutParameters<'caller> {
 /// the `.code-workspace` file inside the directory.
 ///
 /// Idempotent: running against an existing workspace directory
-/// updates links whose targets have changed, leaves already-correct
-/// links untouched, and refuses to clobber non-link entries at the
-/// link paths so a user who drops a real file into the workspace
-/// directory cannot lose it to a silent overwrite.
+/// updates links whose targets have changed and removes links for
+/// members that disappeared from the generated editor folder list.
+/// It preserves other directory entries and refuses to replace an
+/// ordinary file or directory at a member link path.
 ///
 /// The `.code-workspace` file is written with relative `./<link>`
 /// folder entries so opening it in Cursor / `VSCode` surfaces the
@@ -135,19 +154,27 @@ pub fn materialize_workspace_layout(
     layout_params: &WorkspaceLayoutParameters<'_>,
 ) -> Result<PathBuf, ReportalError> {
     ensure_directory_exists(layout_params.workspace_directory)?;
-    for link_spec in layout_params.member_links {
-        ensure_member_link(layout_params.workspace_directory, link_spec)?;
-    }
     let workspace_file_path = workspace_file_path_inside_dir(
         layout_params.workspace_directory,
         layout_params.workspace_name,
     );
+    let mut code_workspace_document = CodeWorkspaceFile::load_or_empty(&workspace_file_path)?;
+    for previous_folder in code_workspace_document.folder_entries() {
+        if let Some(stale_link) = StaleWorkspaceMemberLink::from_previous_folder(
+            previous_folder,
+            layout_params.member_links,
+        ) {
+            stale_link.remove_from(layout_params.workspace_directory)?;
+        }
+    }
+    for link_spec in layout_params.member_links {
+        ensure_member_link(layout_params.workspace_directory, link_spec)?;
+    }
     let relative_folder_paths: Vec<PathBuf> = layout_params
         .member_links
         .iter()
         .map(|link_spec| PathBuf::from(format!("./{}", link_spec.link_name)))
         .collect();
-    let mut code_workspace_document = CodeWorkspaceFile::load_or_empty(&workspace_file_path)?;
     code_workspace_document.set_folder_paths(&relative_folder_paths);
     if let Some(window_title) = layout_params.window_title_override {
         code_workspace_document.set_workspace_identity(
@@ -157,6 +184,67 @@ pub fn materialize_workspace_layout(
     }
     code_workspace_document.write_to_disk(&workspace_file_path)?;
     Ok(workspace_file_path)
+}
+
+struct StaleWorkspaceMemberLink<'document> {
+    name: &'document str,
+}
+
+impl<'document> StaleWorkspaceMemberLink<'document> {
+    fn from_previous_folder(
+        folder: &'document CodeWorkspaceFolderEntry,
+        current_members: &[WorkspaceLinkSpec],
+    ) -> Option<Self> {
+        let name = folder.folder_path().strip_prefix("./")?;
+        if !is_workspace_link_name(name)
+            || current_members
+                .iter()
+                .any(|member| member.link_name == name)
+        {
+            return None;
+        }
+        Some(Self { name })
+    }
+
+    fn remove_from(self, workspace_directory: &Path) -> Result<(), ReportalError> {
+        let link_path = workspace_directory.join(self.name);
+        match remove_workspace_member_link(&link_path) {
+            Ok(()) => Ok(()),
+            Err(source) if source.kind() == io::ErrorKind::NotFound => Ok(()),
+            Err(source) => Err(ReportalError::WorkspaceLinkRemovalFailed { link_path, source }),
+        }
+    }
+}
+
+fn is_workspace_link_name(name: &str) -> bool {
+    Path::new(name).file_name() == Some(OsStr::new(name))
+}
+
+#[cfg(unix)]
+fn remove_workspace_member_link(path: &Path) -> io::Result<()> {
+    if std::fs::symlink_metadata(path)?.is_symlink() {
+        std::fs::remove_file(path)?;
+    }
+    Ok(())
+}
+
+#[cfg(windows)]
+fn remove_workspace_member_link(path: &Path) -> io::Result<()> {
+    if junction::exists(path)? {
+        junction::delete(path)?;
+    }
+    Ok(())
+}
+
+#[cfg(not(any(unix, windows)))]
+fn remove_workspace_member_link(path: &Path) -> io::Result<()> {
+    Err(io::Error::new(
+        io::ErrorKind::Unsupported,
+        format!(
+            "cannot remove workspace links on this platform: {}",
+            path.display()
+        ),
+    ))
 }
 
 /// Computes the canonical `.code-workspace` file path inside a
@@ -504,6 +592,54 @@ mod tests {
             std::fs::read_link(&stale_link_path).expect("link must still resolve");
         assert_eq!(resolved_after_second, real_target);
 
+        let _ = std::fs::remove_dir_all(&scratch_dir);
+    }
+
+    #[test]
+    #[cfg(any(unix, windows))]
+    fn rebuild_removes_only_links_from_the_previous_workspace_membership() {
+        let scratch_dir = unique_temp_dir("rebuild-membership");
+        let workspace_dir = scratch_dir.join("workspace");
+        let retained_target = scratch_dir.join("api");
+        let removed_target = scratch_dir.join("worker");
+        std::fs::create_dir_all(&retained_target).expect("create retained member");
+        std::fs::create_dir_all(&removed_target).expect("create removed member");
+        let previous_members = [
+            WorkspaceLinkSpec {
+                link_name: "api".to_owned(),
+                target_absolute_path: retained_target,
+            },
+            WorkspaceLinkSpec {
+                link_name: "worker".to_owned(),
+                target_absolute_path: removed_target.clone(),
+            },
+        ];
+        let mut layout = WorkspaceLayoutParameters {
+            workspace_directory: &workspace_dir,
+            workspace_name: "backend",
+            member_links: &previous_members,
+            window_title_override: None,
+            title_bar_color_hex: None,
+        };
+        let workspace_file = materialize_workspace_layout(&layout).expect("materialize members");
+        let manual_link = workspace_dir.join("manual");
+        create_workspace_link(&removed_target, &manual_link).expect("create user link");
+        let notes_path = workspace_dir.join("notes.txt");
+        std::fs::write(&notes_path, "notes").expect("create user file");
+
+        layout.member_links = &previous_members[..1];
+        materialize_workspace_layout(&layout).expect("rebuild with one member");
+
+        assert!(!workspace_dir.join("worker").exists());
+        assert!(removed_target.is_dir());
+        assert!(manual_link.exists());
+        assert_eq!(
+            std::fs::read_to_string(notes_path).expect("read user file"),
+            "notes"
+        );
+        let written = std::fs::read_to_string(workspace_file).expect("read regenerated workspace");
+        assert!(written.contains("\"./api\""));
+        assert!(!written.contains("\"./worker\""));
         let _ = std::fs::remove_dir_all(&scratch_dir);
     }
 

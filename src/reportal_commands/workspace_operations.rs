@@ -162,19 +162,16 @@ impl<'config_lifetime> WorkspaceRegenerator<'config_lifetime> {
             match member {
                 WorkspaceMember::RegisteredRepo(repository_alias) => {
                     let member_repo = self.config_registry.get_repo(repository_alias)?;
-                    resolved_specs.push(WorkspaceLinkSpec {
-                        link_name: repository_alias.clone(),
-                        target_absolute_path: member_repo.resolved_path(),
-                    });
+                    resolved_specs.push(WorkspaceLinkSpec::new(
+                        repository_alias.clone(),
+                        member_repo.resolved_path(),
+                    )?);
                 }
                 WorkspaceMember::InlinePath { path } => {
                     let expanded = shellexpand::tilde(path);
                     let target_path = PathBuf::from(expanded.as_ref());
                     let link_name = inline_path_link_name(&target_path);
-                    resolved_specs.push(WorkspaceLinkSpec {
-                        link_name,
-                        target_absolute_path: target_path,
-                    });
+                    resolved_specs.push(WorkspaceLinkSpec::new(link_name, target_path)?);
                 }
             }
         }

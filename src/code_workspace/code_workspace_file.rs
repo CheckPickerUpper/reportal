@@ -89,15 +89,9 @@ impl CodeWorkspaceFile {
         })
     }
 
-    /// Test-only accessor for the current folder entries. Gated
-    /// behind `#[cfg(test)]` because production code reads folders
-    /// only through the round-trip write path, and exposing an
-    /// accessor in production would invite callers to read stale
-    /// folder state that diverges from what the next
-    /// `write_to_disk` call serializes.
-    #[cfg(test)]
+    /// The ordered folder entries currently stored in the document.
     #[must_use]
-    fn folder_entries(&self) -> &[CodeWorkspaceFolderEntry] {
+    pub(crate) fn folder_entries(&self) -> &[CodeWorkspaceFolderEntry] {
         &self.folders
     }
 

@@ -214,6 +214,14 @@ pub enum ReportalError {
         reason: String,
     },
 
+    /// A previous workspace member link could not be removed.
+    #[error("Could not remove previous workspace link '{link_path}': {source}")]
+    WorkspaceLinkRemovalFailed {
+        link_path: std::path::PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+
     /// A `.code-workspace` file exists but is not valid JSONC, or has
     /// a shape that the parse-merge-write path cannot round-trip.
     #[error("`.code-workspace` file at '{file_path}' is not valid JSONC: {reason}")]
