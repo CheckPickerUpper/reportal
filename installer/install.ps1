@@ -4,7 +4,7 @@
 # Downloads the latest (or pinned) reportal release archive from GitHub,
 # installs the reportal and rep binaries into
 # $env:LOCALAPPDATA\Programs\reportal, ensures that directory is on the
-# user-scope PATH, and appends an idempotent guarded RePortal block to $PROFILE.
+# user-scope PATH, and writes an idempotent guarded RePortal block to $PROFILE.
 #
 # Usage:
 #   powershell -ExecutionPolicy Bypass -c "irm https://github.com/CheckPickerUpper/reportal/releases/latest/download/reportal-installer.ps1 | iex"
@@ -76,20 +76,44 @@ function Test-Sha256 {
     Write-Info "checksum OK"
 }
 
+function Test-PathContainsDirectory {
+    param(
+        [AllowEmptyString()][string]$PathValue,
+        [string]$Dir
+    )
+    if (-not $PathValue) { return $false }
+
+    $normalizedDir = $Dir.Trim().Replace('/', '\').TrimEnd([char]'\')
+    foreach ($pathPart in ($PathValue -split ';')) {
+        $normalizedPart = $pathPart.Trim().Replace('/', '\').TrimEnd([char]'\')
+        if ([string]::Equals($normalizedPart, $normalizedDir, [System.StringComparison]::OrdinalIgnoreCase)) {
+            return $true
+        }
+    }
+    return $false
+}
+
 function Add-ToUserPath {
     param([string]$Dir)
-    $current = [Environment]::GetEnvironmentVariable('Path', 'User')
-    if (-not $current) { $current = '' }
-    $parts = $current.Split(';') | Where-Object { $_ -ne '' }
-    if ($parts -contains $Dir) {
+
+    $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+    if (-not $userPath) { $userPath = '' }
+    if (Test-PathContainsDirectory -PathValue $userPath -Dir $Dir) {
         Write-Info "$Dir already on user PATH"
-        return
+    } else {
+        $newUserPath = if ($userPath) { "$userPath;$Dir" } else { $Dir }
+        [Environment]::SetEnvironmentVariable('Path', $newUserPath, 'User')
+        Write-Info "added $Dir to user PATH"
     }
-    $newPath = if ($current) { "$current;$Dir" } else { $Dir }
-    [Environment]::SetEnvironmentVariable('Path', $newPath, 'User')
-    # Also update the current session PATH.
-    $env:Path = "$env:Path;$Dir"
-    Write-Info "added $Dir to user PATH"
+
+    # A user-scope PATH update does not mutate the environment inherited by
+    # this installer process. Refresh it before profile integration runs so
+    # the newly installed commands resolve in the current PowerShell session.
+    $processPath = $env:Path
+    if (-not (Test-PathContainsDirectory -PathValue $processPath -Dir $Dir)) {
+        $env:Path = if ($processPath) { "$Dir;$processPath" } else { $Dir }
+        Write-Info "refreshed current process PATH with $Dir"
+    }
 }
 
 function Install-ShellIntegration {
@@ -104,29 +128,53 @@ function Install-ShellIntegration {
 
     $content = Get-Content -Path $profilePath -Raw -ErrorAction SilentlyContinue
     if ($null -eq $content) { $content = '' }
-    if ($content.Contains($MarkerStart)) {
-        Write-Info "shell integration already present in $profilePath"
+    $lineEnding = if ($content.Contains("`r`n")) {
+        "`r`n"
+    } elseif ($content.Contains("`n")) {
+        "`n"
+    } else {
+        [Environment]::NewLine
+    }
+    $managedBlock = @(
+        $MarkerStart
+        'if (Get-Command rep -CommandType Application -ErrorAction SilentlyContinue) {'
+        '    Invoke-Expression (& rep init powershell | Out-String)'
+        '} elseif (Get-Command reportal -CommandType Application -ErrorAction SilentlyContinue) {'
+        '    Invoke-Expression (& reportal init powershell | Out-String)'
+        '} else {'
+        '    function global:rep {'
+        "        Write-Error 'RePortal: rep.exe is not on PATH. Reinstall with: $ReinstallCommand'"
+        '        $global:LASTEXITCODE = 127'
+        '    }'
+        '}'
+        $MarkerEnd
+    )
+    $managedBlockText = $managedBlock -join $lineEnding
+
+    $markerStartIndex = $content.IndexOf($MarkerStart, [System.StringComparison]::Ordinal)
+    if ($markerStartIndex -ge 0) {
+        $markerEndSearchStart = $markerStartIndex + $MarkerStart.Length
+        $markerEndIndex = $content.IndexOf(
+            $MarkerEnd,
+            $markerEndSearchStart,
+            [System.StringComparison]::Ordinal
+        )
+        if ($markerEndIndex -lt 0) {
+            throw "found an incomplete RePortal shell integration block in $profilePath"
+        }
+        $afterMarkerEnd = $markerEndIndex + $MarkerEnd.Length
+        $updatedContent = $content.Substring(0, $markerStartIndex) + $managedBlockText + $content.Substring($afterMarkerEnd)
+        Set-Content -Path $profilePath -Value $updatedContent -NoNewline
+        Write-Info "updated shell integration in $profilePath"
         return
     }
 
-    $block = @()
-    if ($content -and -not $content.EndsWith([Environment]::NewLine)) {
+    $block = @('')
+    if ($content -and -not $content.EndsWith($lineEnding)) {
         $block += ''
     }
-    $block += ''
-    $block += $MarkerStart
-    $block += 'if (Get-Command rep -CommandType Application -ErrorAction SilentlyContinue) {'
-    $block += '    Invoke-Expression (& rep init powershell | Out-String)'
-    $block += '} elseif (Get-Command reportal -CommandType Application -ErrorAction SilentlyContinue) {'
-    $block += '    Invoke-Expression (& reportal init powershell | Out-String)'
-    $block += '} else {'
-    $block += '    function global:rep {'
-    $block += "        Write-Error 'RePortal: rep.exe is not on PATH. Reinstall with: $ReinstallCommand'"
-    $block += '        $global:LASTEXITCODE = 127'
-    $block += '    }'
-    $block += '}'
-    $block += $MarkerEnd
-    Add-Content -Path $profilePath -Value ($block -join [Environment]::NewLine)
+    $block += $managedBlock
+    Add-Content -Path $profilePath -Value ($block -join $lineEnding)
     Write-Info "appended shell integration to $profilePath"
 }
 
