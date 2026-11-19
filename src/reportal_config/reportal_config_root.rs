@@ -79,8 +79,7 @@ impl ReportalConfig {
     /// default config cannot be written, `ConfigParseFailure` if
     /// the TOML is malformed, `WorkspaceHasDanglingRepo` if a
     /// workspace references an unknown repo alias, or
-    /// `WorkspaceAliasConflict` if any workspace's name or alias
-    /// collides with another entry.
+    /// `RepoAliasConflict` or `WorkspaceAliasConflict` for ambiguous names.
     pub fn load_or_initialize() -> Result<Self, ReportalError> {
         let file_path = Self::config_file_path()?;
         if !file_path.exists() {
@@ -103,8 +102,7 @@ impl ReportalConfig {
         Ok(parsed_config)
     }
 
-    /// Validates that every workspace alias is globally unambiguous
-    /// across both the workspace and repo namespaces.
+    /// Validates that repository and workspace names resolve unambiguously.
     ///
     /// The resolver in `resolve_canonical_key` returns the first
     /// match it finds, so a config where two entries declare the
@@ -115,9 +113,10 @@ impl ReportalConfig {
     ///
     /// # Errors
     ///
-    /// Returns [`ReportalError::WorkspaceAliasConflict`] at the
-    /// first collision encountered.
+    /// Returns [`ReportalError::RepoAliasConflict`] or
+    /// [`ReportalError::WorkspaceAliasConflict`] for the first collision.
     pub fn validate_alias_collisions(&self) -> Result<(), ReportalError> {
+        validate_repository_aliases(self.repos.iter())?;
         for (workspace_name, workspace_entry) in &self.workspaces {
             self.check_workspace_canonical_name_repo_collision(workspace_name)?;
             for declared_alias in workspace_entry.aliases() {
@@ -377,7 +376,8 @@ impl ReportalConfig {
 
     /// Registers a new repo from a validated builder result.
     ///
-    /// Returns `RepoAlreadyExists` if the alias is already taken.
+    /// Returns `RepoAlreadyExists` for an existing repository key or
+    /// `RepoAliasConflict` if a name identifies two repositories.
     pub fn add_repo(
         &mut self,
         validated_registration: (String, RepoEntry),
@@ -388,6 +388,11 @@ impl ReportalConfig {
                 alias: repository_alias,
             });
         }
+        validate_repository_aliases(
+            self.repos
+                .iter()
+                .chain(std::iter::once((&repository_alias, &repo_entry))),
+        )?;
         self.repos.insert(repository_alias, repo_entry);
         Ok(())
     }
@@ -591,6 +596,30 @@ impl ReportalConfig {
     }
 }
 
+fn validate_repository_aliases<'repo>(
+    repositories: impl Iterator<Item = (&'repo String, &'repo RepoEntry)> + Clone,
+) -> Result<(), ReportalError> {
+    let mut owners: BTreeMap<&str, &str> = repositories
+        .clone()
+        .map(|(name, _)| (name.as_str(), name.as_str()))
+        .collect();
+    for (repository_name, repository) in repositories {
+        for alias in repository.aliases() {
+            let Some(other_name) = owners.insert(alias, repository_name) else {
+                continue;
+            };
+            if other_name != repository_name {
+                return Err(ReportalError::RepoAliasConflict {
+                    alias: alias.clone(),
+                    repository_name: repository_name.clone(),
+                    other_repository_name: other_name.to_owned(),
+                });
+            }
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -792,6 +821,58 @@ mod tests {
         assert!(matches!(
             outcome,
             Err(ReportalError::WorkspaceAliasConflict { .. })
+        ));
+        Ok(())
+    }
+
+    #[test]
+    fn repo_alias_ownership_rejects_an_alias_claimed_by_two_repositories() {
+        let mut config = ReportalConfig::create_default();
+        config
+            .repos
+            .insert("api".to_owned(), make_repo(vec!["shared".to_owned()]));
+        config
+            .repos
+            .insert("worker".to_owned(), make_repo(vec!["shared".to_owned()]));
+
+        assert!(matches!(
+            config.validate_alias_collisions(),
+            Err(ReportalError::RepoAliasConflict { alias, .. }) if alias == "shared"
+        ));
+    }
+
+    #[test]
+    fn repo_alias_ownership_rejects_an_alias_matching_another_repository_name() {
+        let mut config = ReportalConfig::create_default();
+        config
+            .repos
+            .insert("api".to_owned(), make_repo(vec!["worker".to_owned()]));
+        config
+            .repos
+            .insert("worker".to_owned(), make_repo(Vec::new()));
+
+        assert!(matches!(
+            config.validate_alias_collisions(),
+            Err(ReportalError::RepoAliasConflict { alias, .. }) if alias == "worker"
+        ));
+    }
+
+    #[test]
+    fn repo_alias_ownership_rejects_registration_with_an_existing_alias(
+    ) -> Result<(), ReportalError> {
+        let mut config = ReportalConfig::create_default();
+        config.add_repo(("api".to_owned(), make_repo(vec!["shared".to_owned()])))?;
+
+        let registration = config.add_repo(("shared".to_owned(), make_repo(Vec::new())));
+
+        assert!(matches!(
+            registration,
+            Err(ReportalError::RepoAliasConflict { alias, .. }) if alias == "shared"
+        ));
+        assert!(!config.repos.contains_key("shared"));
+        assert!(std::ptr::eq(
+            config.get_repo("shared")?,
+            config.get_repo("api")?
         ));
         Ok(())
     }

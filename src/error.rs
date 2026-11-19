@@ -37,6 +37,19 @@ pub enum ReportalError {
         alias: String,
     },
 
+    /// A name refers to more than one registered repository.
+    #[error(
+        "Repository alias '{alias}' is shared by '{repository_name}' and '{other_repository_name}'. Choose a unique alias in config.toml."
+    )]
+    RepoAliasConflict {
+        /// The name that would resolve ambiguously.
+        alias: String,
+        /// A repository declaring the alias.
+        repository_name: String,
+        /// Another repository using the name as its key or alias.
+        other_repository_name: String,
+    },
+
     /// The editor process failed to launch.
     #[error("Failed to open editor: {reason}")]
     EditorLaunchFailure {
